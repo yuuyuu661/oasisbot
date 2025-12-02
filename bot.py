@@ -15,7 +15,11 @@ from db import Database
 load_dotenv()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
-GUILD_ID = 1420918259187712093   # ギルドID
+GUILD_IDS = [
+    1420918259187712093,
+    1444580349773348951,
+]   # ギルドID
+bot.GUILD_IDS = GUILD_IDS
 GUILD = discord.Object(id=GUILD_ID)
 
 # intents
@@ -75,4 +79,5 @@ async def load_cogs():
 
 if __name__ == "__main__":
     asyncio.run(bot.start(TOKEN))
+
 
