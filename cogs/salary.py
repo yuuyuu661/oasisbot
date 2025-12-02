@@ -40,7 +40,10 @@ class SalaryCog(commands.Cog):
         await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
-    await bot.add_cog(SalaryCog(bot))
-    for cmd in bot.tree.get_commands():
+    cog = THIS_COG_CLASS(bot)
+    await bot.add_cog(cog)
+
+    for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
