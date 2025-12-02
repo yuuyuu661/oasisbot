@@ -140,4 +140,5 @@ async def setup(bot):
     cog = SalaryCog(bot)
     await bot.add_cog(cog)
     for cmd in cog.get_app_commands():
-        bot.tree.add_command(cmd, guild=discord.Object(id=1420918259187712093))
+        bot.tree.add_command(cmd, guild=discord.Object(id=GUILD_ID))
+
