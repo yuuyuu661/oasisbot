@@ -1,83 +1,63 @@
-# bot.py
-import os
-import asyncio
 import discord
 from discord.ext import commands
-from discord import app_commands
-from dotenv import load_dotenv
-
+import asyncio
+import os
 from db import Database
 
-# -----------------------
-#        設定
-# -----------------------
-
-load_dotenv()
-
-TOKEN = os.getenv("DISCORD_TOKEN")
+# ----------------------------------
+# 複数ギルド設定
+# ----------------------------------
 GUILD_IDS = [
     1420918259187712093,
-    1444580349773348951,
-]   # ギルドID
+    1444580349773348951
+]
+
+# Botインスタンス作成
+bot = commands.Bot(
+    command_prefix="!",
+    intents=discord.Intents.all()
+)
+
+# ★ ここにセットするのが正解！
 bot.GUILD_IDS = GUILD_IDS
-GUILD = discord.Object(id=GUILD_ID)
-
-# intents
-intents = discord.Intents.default()
-intents.members = True
-intents.guilds = True
-
-bot = commands.Bot(command_prefix="!", intents=intents)
-bot.db = Database()  # asyncpg データベースクラス
 
 
-# -----------------------
-#   Bot 起動時イベント
-# -----------------------
-
+# ----------------------------------
+# 起動時
+# ----------------------------------
 @bot.event
 async def on_ready():
     print(f"ログイン完了：{bot.user}")
 
-    # DB初期化（テーブル自動作成）
-    await bot.db.init_db()
-    print("データベース準備完了")
+    # DB準備
+    await bot.db.init()
+    print(" データベース準備完了")
 
-    # コグ読み込み
-    await load_cogs()
-
-    # スラッシュコマンド同期
-    synced = await bot.tree.sync(guild=GUILD)
-    print(f"Slash Command 同期完了（{len(synced)}個）")
-
-
-# -----------------------
-#     Cog の読み込み
-# -----------------------
-
-async def load_cogs():
-    """cogs フォルダ内の Cog を全て読み込む"""
-
-    extensions = [
+    # Cog 読み込み
+    for ext in [
         "cogs.balance",
         "cogs.salary",
         "cogs.admin",
         "cogs.init",
-    ]
-
-    for ext in extensions:
+    ]:
         try:
             await bot.load_extension(ext)
-            print(f"Cog 読み込み成功: {ext}")
+            print(f" Cog 読み込み成功: {ext}")
         except Exception as e:
-            print(f"Cog 読み込み失敗: {ext} - {e}")
+            print(f" Cog 読み込み失敗: {ext} - {e}")
+
+    # Slash Command 同期（複数ギルド）
+    for gid in bot.GUILD_IDS:
+        await bot.tree.sync(guild=discord.Object(id=gid))
+
+    print(" Slash Command 同期完了")
 
 
-# -----------------------
-#     Bot 実行
-# -----------------------
+# ----------------------------------
+# 実行
+# ----------------------------------
+from dotenv import load_dotenv
+load_dotenv()
 
-if __name__ == "__main__":
-    asyncio.run(bot.start(TOKEN))
-
-
+bot.db = Database(os.getenv("DATABASE_URL"))
+bot.run(os.getenv("DISCORD_TOKEN"))
