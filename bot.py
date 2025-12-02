@@ -15,7 +15,7 @@ from db import Database
 load_dotenv()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
-GUILD_ID = 1444580349773348951   # ギルドID
+bot.GUILD_IDS = [1444580349773348951, 1420918259187712093]
 GUILD = discord.Object(id=GUILD_ID)
 
 # intents
@@ -24,7 +24,11 @@ intents.members = True
 intents.guilds = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
-bot.db = Database()  # asyncpg データベースクラス
+bot.db = Database()
+
+# ★★ ここ追加！！ ★★
+# Cog 全体で参照するギルドIDリスト
+bot.GUILD_IDS = [GUILD_ID]
 
 
 # -----------------------
@@ -35,16 +39,17 @@ bot.db = Database()  # asyncpg データベースクラス
 async def on_ready():
     print(f"ログイン完了：{bot.user}")
 
-    # DB初期化（テーブル自動作成）
+    # DB初期化
     await bot.db.init_db()
     print("データベース準備完了")
 
-    # コグ読み込み
+    # Cog 読み込み
     await load_cogs()
 
-    # スラッシュコマンド同期
-    synced = await bot.tree.sync(guild=GUILD)
-    print(f"Slash Command 同期完了（{len(synced)}個）")
+    # ★ 同期対象を bot.GUILD_IDS に変更
+    for gid in bot.GUILD_IDS:
+        synced = await bot.tree.sync(guild=discord.Object(id=gid))
+        print(f"Slash Command 同期完了（{len(synced)}個） in {gid}")
 
 
 # -----------------------
@@ -52,15 +57,12 @@ async def on_ready():
 # -----------------------
 
 async def load_cogs():
-    """cogs フォルダ内の Cog を全て読み込む"""
-
     extensions = [
         "cogs.balance",
         "cogs.salary",
         "cogs.admin",
         "cogs.init",
     ]
-
     for ext in extensions:
         try:
             await bot.load_extension(ext)
@@ -75,4 +77,3 @@ async def load_cogs():
 
 if __name__ == "__main__":
     asyncio.run(bot.start(TOKEN))
-
