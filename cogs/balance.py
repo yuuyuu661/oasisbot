@@ -24,16 +24,17 @@ class BalanceCog(commands.Cog):
         else:
             target_is_self = False
 
-        # 他人の残高を見るときは管理者チェック
-        if not target_is_self:
-            settings = await self.bot.db.get_settings()
-            admin_roles = settings["admin_roles"] or []
+# 他人の残高チェック部分
+if not target_is_self:
+    settings = await self.bot.db.get_settings()
+    admin_roles = settings["admin_roles"] or []
 
-            if not any(role.id in admin_roles for role in interaction.user.roles):
-                return await interaction.response.send_message(
-                    "❌ 他人の残高を見るには管理者ロールが必要です。",
-                    ephemeral=True
-                )
+    if not any(str(role.id) in admin_roles for role in interaction.user.roles):
+        return await interaction.response.send_message(
+            "❌ 他人の残高を見るには管理者ロールが必要です。",
+            ephemeral=True
+        )
+
 
         # 残高取得
         data = await self.bot.db.get_user(str(user.id))
@@ -95,6 +96,7 @@ async def setup(bot):
 
     for cmd in cog.get_app_commands():
         bot.tree.add_command(cmd, guild=discord.Object(id=1420918259187712093))
+
 
 
 
