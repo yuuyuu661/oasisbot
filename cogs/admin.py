@@ -46,33 +46,33 @@ class AdminCog(commands.Cog):
     # --------------------------
     # /残高一覧
     # --------------------------
-@app_commands.command(name="残高一覧", description="全ユーザーの残高を上位順に表示します（管理者限定）")
-async def balance_list(self, interaction: discord.Interaction):
+    @app_commands.command(name="残高一覧", description="全ユーザーの残高を上位順に表示します（管理者限定）")
+    async def balance_list(self, interaction: discord.Interaction):
 
-    # 管理者チェック
-    if not await self.is_admin(interaction.user):
-        return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
+        # 管理者チェック
+        if not await self.is_admin(interaction.user):
+            return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
 
-    balances = await self.bot.db.get_all_balances()
-    settings = await self.bot.db.get_settings()
-    currency_unit = settings["currency_unit"]
+        balances = await self.bot.db.get_all_balances()
+        settings = await self.bot.db.get_settings()
+        currency_unit = settings["currency_unit"]
 
-    embed = discord.Embed(
-        title="💰 残高一覧（上位順）",
-        color=0xf1c40f
-    )
+        embed = discord.Embed(
+            title="💰 残高一覧（上位順）",
+            color=0xf1c40f
+        )
 
-    lines = []
-    for user in balances:
-        user_id = str(user["user_id"])
-        balance = user["balance"]
+        lines = []
+        for user in balances:
+            user_id = str(user["user_id"])
+            balance = user["balance"]
 
-        mention = f"<@{user_id}>"
-        lines.append(f"{mention}\n{balance}{currency_unit}\n")
+            mention = f"<@{user_id}>"
+            lines.append(f"{mention}\n{balance}{currency_unit}\n")
 
-    embed.description = "".join(lines)
+        embed.description = "".join(lines)
 
-    await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
 
 async def setup(bot):
@@ -81,6 +81,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
