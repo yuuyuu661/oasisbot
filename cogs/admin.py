@@ -103,4 +103,10 @@ class AdminCog(commands.Cog):
 
 
 async def setup(bot):
-    await bot.add_cog(AdminCog(bot))
+    cog = BalanceCog(bot)
+    await bot.add_cog(cog)
+
+    for cmd in cog.get_app_commands():
+        bot.tree.add_command(cmd, guild=discord.Object(id=1420918259187712093))
+
+
