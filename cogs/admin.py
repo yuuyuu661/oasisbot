@@ -26,8 +26,8 @@ class AdminCog(commands.Cog):
         admin_roles = settings["admin_roles"] or []
         unit = settings["currency_unit"]
 
-        if not any(r.id in admin_roles for r in interaction.user.roles):
-            return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
+        if not any(str(r.id) in admin_roles for r in interaction.user.roles):
+    return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
 
         user_id = str(user.id)
         amount = int(amount)
@@ -71,8 +71,8 @@ class AdminCog(commands.Cog):
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
 
-        if not any(r.id in admin_roles for r in interaction.user.roles):
-            return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
+        if not any(str(r.id) in admin_roles for r in interaction.user.roles):
+    return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
 
         unit = settings["currency_unit"]
 
@@ -108,5 +108,6 @@ async def setup(bot):
 
     for cmd in cog.get_app_commands():
         bot.tree.add_command(cmd, guild=discord.Object(id=1420918259187712093))
+
 
 
