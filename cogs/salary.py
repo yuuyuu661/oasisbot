@@ -20,8 +20,8 @@ class SalaryCog(commands.Cog):
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
 
-        if not any(r.id in admin_roles for r in interaction.user.roles):
-            return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
+    if not any(str(r.id) in admin_roles for r in interaction.user.roles):
+    return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
 
         if amount < 0:
             return await interaction.response.send_message("❌ 0以上で入力してください。", ephemeral=True)
@@ -43,8 +43,8 @@ class SalaryCog(commands.Cog):
         admin_roles = settings["admin_roles"] or []
         unit = settings["currency_unit"]
 
-        if not any(r.id in admin_roles for r in interaction.user.roles):
-            return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
+    if not any(str(r.id) in admin_roles for r in interaction.user.roles):
+    return await interaction.response.send_message(, ephemeral=True)
 
         rows = await self.bot.db.get_salaries()
 
@@ -112,8 +112,8 @@ class SalaryCog(commands.Cog):
         admin_roles = settings["admin_roles"] or []
         unit = settings["currency_unit"]
 
-        if not any(r.id in admin_roles for r in interaction.user.roles):
-            return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
+        if not any(str(r.id) in admin_roles for r in interaction.user.roles):
+    return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
 
         salaries = await self.bot.db.get_salaries()
         salary_map = {row["role_id"]: row["salary"] for row in salaries}
@@ -158,6 +158,7 @@ async def setup(bot):
 
     for cmd in cog.get_app_commands():
         bot.tree.add_command(cmd, guild=discord.Object(id=1420918259187712093))
+
 
 
 
