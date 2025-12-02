@@ -33,36 +33,31 @@ class SalaryCog(commands.Cog):
     # --------------------------
     # /給料一覧
     # --------------------------
-    @app_commands.command(name="給料一覧", description="設定されているロール給料一覧（管理者）")
-    async def list_salary(self, interaction: discord.Interaction):
+@app_commands.command(name="給料一覧", description="設定されている給料一覧を表示します")
+async def salary_list(self, interaction: discord.Interaction):
 
-        settings = await self.bot.db.get_settings()
-        admin_roles = settings["admin_roles"] or []
-        unit = settings["currency_unit"]
+    salaries = await self.bot.db.get_salaries()
+    settings = await self.bot.db.get_settings()
+    currency_unit = settings["currency_unit"]
 
-        if not any(str(r.id) in admin_roles for r in interaction.user.roles):
-            return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
+    embed = discord.Embed(
+        title="👜 給料一覧",
+        color=0xe67e22
+    )
 
-        rows = await self.bot.db.get_salaries()
+    lines = []
+    for s in salaries:
+        role_id = int(s["role_id"])
+        salary = s["salary"]
 
-        if not rows:
-            return await interaction.response.send_message("⚠️ まだ給料設定がありません。", ephemeral=True)
+        role = interaction.guild.get_role(role_id)
+        role_name = role.name if role else f"不明なロール ({role_id})"
 
-        pages = []
-        for i in range(0, len(rows), 10):
-            embed = discord.Embed(title="💼 給料一覧", color=0x00AAFF)
+        lines.append(f"**{role_name}**\n{salary} {currency_unit}\n")
 
-            for row in rows[i:i+10]:
-                embed.add_field(
-                    name=f"<@&{row['role_id']}>",
-                    value=f"{row['salary']} {unit}",
-                    inline=False
-                )
+    embed.description = "".join(lines)
 
-            pages.append(embed)
-
-        paginator = Paginator(pages)
-        await interaction.response.send_message(embed=pages[0], view=paginator)
+    await interaction.response.send_message(embed=embed)
 
     # --------------------------
     # /給料確認
@@ -142,5 +137,6 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
