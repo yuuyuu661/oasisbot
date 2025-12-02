@@ -46,35 +46,33 @@ class AdminCog(commands.Cog):
     # --------------------------
     # /残高一覧
     # --------------------------
-    @app_commands.command(name="残高一覧", description="全ユーザーの残高ランキング（管理者）")
-    async def list_balances(self, interaction: discord.Interaction):
+@app_commands.command(name="残高一覧", description="全ユーザーの残高を上位順に表示します（管理者限定）")
+async def balance_list(self, interaction: discord.Interaction):
 
-        settings = await self.bot.db.get_settings()
-        admin_roles = settings["admin_roles"] or []
-        unit = settings["currency_unit"]
+    # 管理者チェック
+    if not await self.is_admin(interaction.user):
+        return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
 
-        if not any(str(r.id) in admin_roles for r in interaction.user.roles):
-            return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
+    balances = await self.bot.db.get_all_balances()
+    settings = await self.bot.db.get_settings()
+    currency_unit = settings["currency_unit"]
 
-        rows = await self.bot.db.get_all_balances()
-        if not rows:
-            return await interaction.response.send_message("データがありません。")
+    embed = discord.Embed(
+        title="💰 残高一覧（上位順）",
+        color=0xf1c40f
+    )
 
-        pages = []
-        for i in range(0, len(rows), 10):
-            embed = discord.Embed(title="💰 残高一覧（上位順）", color=0x00FF88)
+    lines = []
+    for user in balances:
+        user_id = str(user["user_id"])
+        balance = user["balance"]
 
-            for row in rows[i:i+10]:
-                embed.add_field(
-                    name=f"<@{row['user_id']}>",
-                    value=f"{row['balance']}{unit}",
-                    inline=False
-                )
+        mention = f"<@{user_id}>"
+        lines.append(f"{mention}\n{balance}{currency_unit}\n")
 
-            pages.append(embed)
+    embed.description = "".join(lines)
 
-        paginator = Paginator(pages)
-        await interaction.response.send_message(embed=pages[0], view=paginator)
+    await interaction.response.send_message(embed=embed)
 
 
 async def setup(bot):
@@ -83,5 +81,6 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
