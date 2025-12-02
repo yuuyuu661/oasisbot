@@ -33,31 +33,31 @@ class SalaryCog(commands.Cog):
     # --------------------------
     # /給料一覧
     # --------------------------
-@app_commands.command(name="給料一覧", description="設定されている給料一覧を表示します")
-async def salary_list(self, interaction: discord.Interaction):
+    @app_commands.command(name="給料一覧", description="設定されている給料一覧を表示します")
+    async def salary_list(self, interaction: discord.Interaction):
 
-    salaries = await self.bot.db.get_salaries()
-    settings = await self.bot.db.get_settings()
-    currency_unit = settings["currency_unit"]
+        salaries = await self.bot.db.get_salaries()
+        settings = await self.bot.db.get_settings()
+        currency_unit = settings["currency_unit"]
 
-    embed = discord.Embed(
-        title="👜 給料一覧",
-        color=0xe67e22
-    )
+        embed = discord.Embed(
+            title="👜 給料一覧",
+            color=0xe67e22
+        )
 
-    lines = []
-    for s in salaries:
-        role_id = int(s["role_id"])
-        salary = s["salary"]
+        lines = []
+        for s in salaries:
+            role_id = int(s["role_id"])
+            salary = s["salary"]
 
-        role = interaction.guild.get_role(role_id)
-        role_name = role.name if role else f"不明なロール ({role_id})"
+            role = interaction.guild.get_role(role_id)
+            role_name = role.name if role else f"不明なロール ({role_id})"
 
-        lines.append(f"**{role_name}**\n{salary} {currency_unit}\n")
+            lines.append(f"**{role_name}**\n{salary} {currency_unit}\n")
 
-    embed.description = "".join(lines)
+        embed.description = "".join(lines)
 
-    await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
     # --------------------------
     # /給料確認
@@ -137,6 +137,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
