@@ -91,8 +91,8 @@ async def setup(bot):
     await bot.add_cog(cog)
 
     for cmd in cog.get_app_commands():
-        for gid in bot.GUILD_IDS:
-            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+            bot.tree.add_command(cmd, guild=discord.Object(id=1420918259187712093))
+
 
 
 
