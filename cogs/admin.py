@@ -103,7 +103,7 @@ class AdminCog(commands.Cog):
 
 
 async def setup(bot):
-    cog = BalanceCog(bot)
+    cog = AdminCog(bot)
     await bot.add_cog(cog)
 
     for cmd in cog.get_app_commands():
