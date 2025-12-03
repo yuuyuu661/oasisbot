@@ -16,9 +16,6 @@ from .room_buttons import (
 
 
 class HotelRoomControlPanel(discord.ui.View):
-    """
-    高級ホテルの操作パネル（VC内に生成されるメニュー）
-    """
     def __init__(self, owner_id, manager_role_id, sub_role_id, config):
         super().__init__(timeout=None)
         self.owner_id = str(owner_id)
@@ -26,15 +23,15 @@ class HotelRoomControlPanel(discord.ui.View):
         self.sub_role_id = int(sub_role_id)
         self.config = config
 
-        # ▼ 10ボタン。各ボタンに "self" を渡すことが超重要！
+        # ▼ ここが重要：すべてのボタンに「self」を渡す！
         self.add_item(RoomAddMemberLimitButton(self))
         self.add_item(RoomRenameButton(self))
-        self.add_item(RoomAllowMemberButton(self))
+        self.add_item(RoomAllowMemberButton())  # ← parent 無しのクラスは今のままでOK
         self.add_item(RoomDenyMemberButton(self))
-        self.add_item(RoomAdd1DayButton(self))
-        self.add_item(RoomAdd3DayButton(self))
-        self.add_item(RoomAdd10DayButton(self))
-        self.add_item(RoomAddSubRoleButton(self))
+        self.add_item(RoomAdd1DayButton())
+        self.add_item(RoomAdd3DayButton())
+        self.add_item(RoomAdd10DayButton())
+        self.add_item(RoomAddSubRoleButton())   # これも parent 不要
         self.add_item(RoomCheckExpireButton(self))
         self.add_item(RoomCheckTicketsButton(self))
 
@@ -61,3 +58,4 @@ class HotelRoomControlPanel(discord.ui.View):
             ephemeral=True
         )
         return False
+
