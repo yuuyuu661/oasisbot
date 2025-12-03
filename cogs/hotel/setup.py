@@ -1,18 +1,18 @@
-import discord
+# cogs/hotel/setup.py
+
 from .hotel_cog import HotelCog
 
-
 async def setup(bot):
-    """
-    ホテル機能を bot に登録するエントリーポイント。
-    """
-    cog = HotelCog(bot)
-    await bot.add_cog(cog)
+    await bot.add_cog(HotelCog(bot))
 
-    # 指定ギルドにスラッシュコマンドを同期
+    # Slash Command をギルドごとに同期
     if hasattr(bot, "GUILD_IDS"):
-        for cmd in cog.get_app_commands():
-            for gid in bot.GUILD_IDS:
-                bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+        for gid in bot.GUILD_IDS:
+            try:
+                guild = bot.get_guild(gid)
+                synced = await bot.tree.sync(guild=guild)
+                print(f"Hotel module synced {len(synced)} cmds → guild {gid}")
+            except Exception as e:
+                print(f"Hotel sync failed for {gid}: {e}")
 
-    print("🏨 Hotel module loaded.")
+    print("🏨 Hotel module loaded successfully!")
