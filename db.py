@@ -27,9 +27,11 @@ class Database:
         # Users テーブル
         await self.conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                user_id TEXT PRIMARY KEY,
-                balance INTEGER NOT NULL DEFAULT 0
-            );
+   　　　　　　 user_id TEXT NOT NULL,
+   　　　　　　 guild_id TEXT NOT NULL,
+   　　　　　　 balance INTEGER NOT NULL DEFAULT 0,
+    　　　　　　PRIMARY KEY (user_id, guild_id)
+　　　　　　);
         """)
 
         # 給料ロールテーブル
@@ -123,3 +125,4 @@ class Database:
 
         sql = f"UPDATE settings SET {', '.join(columns)} WHERE id = 1"
         await self.conn.execute(sql, *values)
+
