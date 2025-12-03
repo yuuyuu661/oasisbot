@@ -9,7 +9,7 @@ class Paginator(View):
         self.pages = pages
         self.index = 0
 
-        # 初期は前のページに戻れないので disabled
+        
         self.prev_button = Button(label="⬅️", style=discord.ButtonStyle.primary)
         self.next_button = Button(label="➡️", style=discord.ButtonStyle.primary)
 
@@ -36,3 +36,4 @@ class Paginator(View):
             self.index += 1
         self._update_buttons()
         await interaction.response.edit_message(embed=self.pages[self.index], view=self)
+
