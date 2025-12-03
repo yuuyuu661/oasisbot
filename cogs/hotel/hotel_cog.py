@@ -72,6 +72,8 @@ class HotelCog(commands.Cog):
     # ======================================================
     @app_commands.command(name="ホテルパネル生成", description="ホテルのチェックインパネルを生成します（管理者）")
     async def hotel_panel(self, interaction: discord.Interaction, title: str, description: str):
+
+        # 管理者ロール判定
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
 
@@ -92,7 +94,11 @@ class HotelCog(commands.Cog):
             )
 
         embed = discord.Embed(title=title, description=description, color=0xF4D03F)
-        view = HotelPanelView(hotel_config)
+
+        # ここが重要：新しいパネル構成
+        view = discord.ui.View(timeout=None)
+        view.add_item(CheckinButton(hotel_config))
+        view.add_item(TicketDropdownView(hotel_config))
 
         await interaction.response.send_message(embed=embed, view=view)
 
@@ -119,4 +125,5 @@ class HotelPanelView(discord.ui.View):
 
         self.add_item(CheckinButton(config))
         self.add_item(TicketBuyDropdown(config))
+
 
