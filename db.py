@@ -65,6 +65,17 @@ class Database:
                 log_channel TEXT
             );
         """)
+        # サブスクテーブル    
+        CREATE TABLE IF NOT EXISTS subscription_settings (
+        guild_id TEXT PRIMARY KEY,
+        standard_role TEXT,
+        standard_price INTEGER,
+        regular_role TEXT,
+        regular_price INTEGER,
+        premium_role TEXT,
+        premium_price INTEGER,
+        log_channel TEXT
+   　　　　 );
 
         # 初期データ
         exists = await self.conn.fetchval("SELECT id FROM settings WHERE id = 1")
@@ -154,5 +165,6 @@ class Database:
 
         sql = f"UPDATE settings SET {', '.join(columns)} WHERE id = 1"
         await self.conn.execute(sql, *values)
+
 
 
