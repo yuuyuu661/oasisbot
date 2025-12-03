@@ -10,6 +10,14 @@ class HotelCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+        # VC削除イベント
+    @commands.Cog.listener()
+    async def on_guild_channel_delete(self, channel):
+        if isinstance(channel, discord.VoiceChannel):
+            room = await self.bot.db.get_room(str(channel.id))
+            if room:
+                await self.bot.db.delete_room(str(channel.id))
+                print(f"[Hotel] Cleanup → Deleted room {channel.id} from DB")
     # ======================================================
     # /ホテル初期設定
     # ======================================================
@@ -111,3 +119,4 @@ class HotelPanelView(discord.ui.View):
 
         self.add_item(CheckinButton(config))
         self.add_item(TicketBuyDropdown(config))
+
