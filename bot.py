@@ -11,47 +11,40 @@ load_dotenv()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-# intents
+# intents（ホテル機能対応版）
 intents = discord.Intents.default()
-intents.members = True
 intents.guilds = True
+intents.members = True
+intents.voice_states = True
 
 # Bot インスタンス作成
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ★★★ ここで GUILD_IDS を登録（正しい場所） ★★★
+# GUILD_IDS
 bot.GUILD_IDS = [
-    1444580349773348951,   # 新しい方
-    1420918259187712093    # もともとの方
+    1444580349773348951,
+    1420918259187712093
 ]
 
 # DB
 bot.db = Database()
 
-# --------------------------------
-# Bot 起動時
-# --------------------------------
+
 @bot.event
 async def on_ready():
     print(f"ログイン完了：{bot.user}")
 
-    # DB初期化
     await bot.db.init_db()
     print("データベース準備完了")
 
-    # Cog 読み込み
     await load_cogs()
 
-    # スラッシュコマンド同期（複数ギルド）
     for gid in bot.GUILD_IDS:
         guild_obj = discord.Object(id=gid)
         synced = await bot.tree.sync(guild=guild_obj)
         print(f"Slash Command 同期完了（{len(synced)}個） for {gid}")
 
 
-# --------------------------------
-# Cog 読み込み
-# --------------------------------
 async def load_cogs():
     extensions = [
         "cogs.balance",
@@ -60,7 +53,7 @@ async def load_cogs():
         "cogs.init",
         "cogs.interview",
         "cogs.subscription",
-        "cogs.hotel",       
+        "cogs.hotel"
     ]
     for ext in extensions:
         try:
@@ -70,11 +63,5 @@ async def load_cogs():
             print(f"Cog 読み込み失敗: {ext} - {e}")
 
 
-# --------------------------------
-# 実行
-# --------------------------------
 if __name__ == "__main__":
     asyncio.run(bot.start(TOKEN))
-
-
-
