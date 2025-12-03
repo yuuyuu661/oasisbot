@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 
 from .checkin import CheckinButton
-from .ticket_dropdown import TicketBuyDropdown
+from .ticket_buttons import TicketBuyButton1, TicketBuyButton10, TicketBuyButton30
 
 
 class HotelCog(commands.Cog):
@@ -84,6 +84,7 @@ class HotelCog(commands.Cog):
             )
 
         embed = discord.Embed(title=title, description=description, color=0xF4D03F)
+
         view = HotelPanelView(hotel_config)
 
         await interaction.response.send_message(embed=embed, view=view)
@@ -101,7 +102,7 @@ class HotelCog(commands.Cog):
 
 
 # ======================================================
-# パネルビュー（チェックイン＆購入）
+# パネルビュー（チェックイン＋購入ボタン3つ）
 # ======================================================
 
 class HotelPanelView(discord.ui.View):
@@ -110,4 +111,6 @@ class HotelPanelView(discord.ui.View):
         self.config = config
 
         self.add_item(CheckinButton(config))
-        self.add_item(TicketBuyDropdown(config))
+        self.add_item(TicketBuyButton1(config))
+        self.add_item(TicketBuyButton10(config))
+        self.add_item(TicketBuyButton30(config))
