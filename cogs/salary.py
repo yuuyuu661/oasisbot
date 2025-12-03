@@ -120,7 +120,8 @@ class SalaryCog(commands.Cog):
                     add_amount += salary_map[str(role.id)]
 
             if add_amount > 0:
-                await self.bot.db.add_balance(str(member.id), add_amount)
+                guild_id = str(interaction.guild.id)
+                await self.bot.db.add_balance(str(member.id), guild_id, add_amount)
                 total_users += 1
                 total_amount += add_amount
 
@@ -137,6 +138,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
