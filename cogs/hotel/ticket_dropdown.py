@@ -131,3 +131,10 @@ class TicketButtonsCog(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+
+# ======================================================
+# setup（Bot がこの Cog を読み込むために必要）
+# ======================================================
+
+async def setup(bot):
+    await bot.add_cog(TicketButtonsCog(bot))
