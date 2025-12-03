@@ -34,7 +34,8 @@ class BalanceCog(commands.Cog):
                     ephemeral=True
                 )
 
-        data = await self.bot.db.get_user(str(user.id))
+        guild_id = str(interaction.guild.id)
+        data = await self.bot.db.get_user(str(user.id), guild_id)
         unit = (await self.bot.db.get_settings())["currency_unit"]
 
         await interaction.response.send_message(
@@ -61,8 +62,10 @@ class BalanceCog(commands.Cog):
         if sender["balance"] < amount:
             return await interaction.response.send_message("❌ 残高不足です。", ephemeral=True)
 
-        await self.bot.db.remove_balance(sender_id, amount)
-        await self.bot.db.add_balance(receiver_id, amount)
+        guild_id = str(interaction.guild.id)
+
+        await self.bot.db.remove_balance(sender_id, guild_id, amount)
+        await self.bot.db.add_balance(receiver_id, guild_id, amount)
 
         settings = await self.bot.db.get_settings()
 
@@ -86,5 +89,6 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
