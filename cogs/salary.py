@@ -21,7 +21,10 @@ class SalaryCog(commands.Cog):
         unit = settings["currency_unit"]
 
         if not any(str(r.id) in admin_roles for r in interaction.user.roles):
-            return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
+            return await interaction.response.send_message(
+                "❌ 管理者ロールが必要です。",
+                ephemeral=True
+            )
 
         await self.bot.db.set_salary(str(role.id), amount)
 
@@ -41,13 +44,15 @@ class SalaryCog(commands.Cog):
 
         embed = discord.Embed(title="👜 給料一覧", color=0xe67e22)
 
-        lines = []
-        for s in salaries:
-            role = interaction.guild.get_role(int(s["role_id"]))
-            role_name = role.name if role else f"不明ロール ({s['role_id']})"
-            lines.append(f"**{role_name}**：{s['salary']} {unit}\n")
-
-        embed.description = "".join(lines) if lines else "設定なし。"
+        if not salaries:
+            embed.description = "設定なし。"
+        else:
+            lines = []
+            for s in salaries:
+                role = interaction.guild.get_role(int(s["role_id"]))
+                role_name = role.name if role else f"不明ロール ({s['role_id']})"
+                lines.append(f"**{role_name}**：{s['salary']} {unit}")
+            embed.description = "\n".join(lines)
 
         await interaction.response.send_message(embed=embed)
 
@@ -72,7 +77,9 @@ class SalaryCog(commands.Cog):
                 desc += f"- {role.name}: {salary_map[str(role.id)]}{unit}\n"
 
         if total == 0:
-            return await interaction.response.send_message("あなたのロールには給料設定がありません。")
+            return await interaction.response.send_message(
+                "あなたのロールには給料設定がありません。"
+            )
 
         embed = discord.Embed(
             title="💰 給料確認",
@@ -92,7 +99,10 @@ class SalaryCog(commands.Cog):
         unit = settings["currency_unit"]
 
         if not any(str(r.id) in admin_roles for r in interaction.user.roles):
-            return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
+            return await interaction.response.send_message(
+                "❌ 管理者ロールが必要です。",
+                ephemeral=True
+            )
 
         salary_list = await self.bot.db.get_salaries()
         salary_map = {row["role_id"]: row["salary"] for row in salary_list}
@@ -117,15 +127,25 @@ class SalaryCog(commands.Cog):
                 total_users += 1
                 total_amount += add_amount
 
-        await log_salary(self.bot, settings, str(interaction.user.id), total_users, total_amount)
+        await log_salary(
+            self.bot, settings,
+            str(interaction.user.id),
+            total_users,
+            total_amount
+        )
 
         await interaction.response.send_message(
             f"🎉 **{total_users}人** に **{total_amount}{unit}** を配布しました！"
         )
-    async def setup(bot):
-        cog = SalaryCog(bot)
-        await bot.add_cog(cog)
-        for cmd in cog.get_app_commands():
-            for gid in bot.GUILD_IDS:
-                bot.tree.add_command(cmd, guild=discord.Object(id=gid))
 
+
+# --------------------------
+# setup（必須）
+# --------------------------
+async def setup(bot):
+    cog = SalaryCog(bot)
+    await bot.add_cog(cog)
+
+    for cmd in cog.get_app_commands():
+        for gid in bot.GUILD_IDS:
+            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
