@@ -1,15 +1,6 @@
 import discord
 from .hotel_cog import HotelCog
 
-@bot.event
-async def on_guild_channel_delete(channel):
-    # Hotel room cleanup
-    if isinstance(channel, discord.VoiceChannel):
-        room = await bot.db.get_room(str(channel.id))
-        if room:
-            await bot.db.delete_room(str(channel.id))
-            print(f"[Hotel] Room deleted → cleanup DB (Channel {channel.id})")
-
 
 async def setup(bot):
     """
@@ -25,4 +16,5 @@ async def setup(bot):
                 bot.tree.add_command(cmd, guild=discord.Object(id=gid))
 
     print("🏨 Hotel module loaded.")
+
 
