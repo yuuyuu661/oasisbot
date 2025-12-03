@@ -122,7 +122,7 @@ class InterviewCog(commands.Cog):
                 await member.add_roles(done_role)
 
                 # 通貨付与
-                await self.bot.db.add_balance(str(member.id), guild_id, reward_amount)
+                await self.bot.db.set_balance(str(member.id), guild_id, reward_amount)
 
                 processed.append(member)
 
@@ -157,3 +157,4 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
