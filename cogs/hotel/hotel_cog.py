@@ -185,7 +185,6 @@ class HotelCog(commands.Cog):
 
 # ======================================================
 # 旧UI互換：HotelPanelView
-# 使わない場合は残してもOK
 # ======================================================
 class HotelPanelView(discord.ui.View):
     def __init__(self, config):
@@ -214,4 +213,5 @@ async def setup(bot):
                 print(f"[Hotel] Sync failed for {gid}: {e}")
 
     print("🏨 Hotel module loaded successfully!")
+
 
