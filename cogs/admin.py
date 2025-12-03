@@ -60,6 +60,54 @@ class AdminCog(commands.Cog):
             f"📝 <@{uid}> の残高を **{mode}** しました。\n"
             f"現在：**{new_bal}{unit}**"
         )
+    # ------------------------------------------------------
+    # /ロール送金（管理者ロール必須）
+    # ------------------------------------------------------
+    @app_commands.command(
+        name="ロール送金",
+        description="指定ロールを持つ全メンバーに一括送金します（管理者）"
+    )
+    async def role_pay(self, interaction: discord.Interaction, role: discord.Role, amount: int):
+
+        settings = await self.bot.db.get_settings()
+        admin_roles = settings["admin_roles"] or []
+        unit = settings["currency_unit"]
+
+        # 管理者チェック
+        if not any(str(r.id) in admin_roles for r in interaction.user.roles):
+            return await interaction.response.send_message(
+                "❌ このコマンドを実行する権限がありません。",
+                ephemeral=True
+            )
+
+        if amount <= 0:
+            return await interaction.response.send_message(
+                "❌ 金額は1以上で指定してください。",
+                ephemeral=True
+            )
+
+        guild = interaction.guild
+        guild_id = str(guild.id)
+
+        # 対象メンバー抽出
+        members = [m for m in guild.members if role in m.roles and not m.bot]
+
+        if not members:
+            return await interaction.response.send_message(
+                "⚠ 指定ロールを持つユーザーがいません。",
+                ephemeral=True
+            )
+
+        # 加算処理
+        for member in members:
+            await self.bot.db.add_balance(str(member.id), guild_id, amount)
+
+        total = amount * len(members)
+
+        await interaction.response.send_message(
+            f"💰 ロール **{role.name}** を持つ **{len(members)}名** に "
+            f"**{amount}{unit}** を送金しました！（合計：{total}{unit}）"
+        )
 
     # --------------------------
     # /残高一覧（ギルド別）
@@ -109,3 +157,4 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
