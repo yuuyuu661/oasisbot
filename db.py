@@ -1,4 +1,3 @@
-# db.py
 import os
 import asyncpg
 from dotenv import load_dotenv
@@ -24,7 +23,7 @@ class Database:
     async def init_db(self):
         await self.connect()
 
-        # Users テーブル
+        # Users テーブル（ギルド別通貨管理）
         await self.conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 user_id TEXT NOT NULL,
@@ -42,7 +41,7 @@ class Database:
             );
         """)
 
-        # Settings テーブル
+        # Settings テーブル（1行固定）
         await self.conn.execute("""
             CREATE TABLE IF NOT EXISTS settings (
                 id INTEGER PRIMARY KEY,
@@ -54,7 +53,21 @@ class Database:
             );
         """)
 
-        # 面接テーブル（←ここを全角→半角に直した版）
+        # サブスク設定テーブル
+        await self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS subscription_settings (
+                guild_id TEXT PRIMARY KEY,
+                standard_role TEXT,
+                standard_price INTEGER,
+                regular_role TEXT,
+                regular_price INTEGER,
+                premium_role TEXT,
+                premium_price INTEGER,
+                log_channel TEXT
+            );
+        """)
+
+        # 面接設定テーブル
         await self.conn.execute("""
             CREATE TABLE IF NOT EXISTS interview_settings (
                 guild_id TEXT PRIMARY KEY,
@@ -65,37 +78,26 @@ class Database:
                 log_channel TEXT
             );
         """)
-        # サブスクテーブル    
-        CREATE TABLE IF NOT EXISTS subscription_settings (
-        guild_id TEXT PRIMARY KEY,
-        standard_role TEXT,
-        standard_price INTEGER,
-        regular_role TEXT,
-        regular_price INTEGER,
-        premium_role TEXT,
-        premium_price INTEGER,
-        log_channel TEXT
-   　　　　 );
 
-        # 初期データ
+        # 初期設定が無ければ作成
         exists = await self.conn.fetchval("SELECT id FROM settings WHERE id = 1")
         if exists is None:
             await self.conn.execute("""
-                INSERT INTO settings (id, admin_roles, currency_unit, log_pay, log_manage, log_salary)
-                VALUES (1, ARRAY[]::TEXT[], 'spt', NULL, NULL, NULL)
+                INSERT INTO settings
+                    (id, admin_roles, currency_unit, log_pay, log_manage, log_salary)
+                VALUES
+                    (1, ARRAY[]::TEXT[], 'spt', NULL, NULL, NULL);
             """)
-
             print("🔧 Settings 初期化行を作成しました")
 
     # ------------------------------------------------------
-    #   ユーザー残高（ギルド別）
+    #   ユーザー残高（ギルド別管理）
     # ------------------------------------------------------
     async def get_user(self, user_id, guild_id):
         row = await self.conn.fetchrow(
             "SELECT * FROM users WHERE user_id=$1 AND guild_id=$2",
             user_id, guild_id
         )
-
         if not row:
             await self.conn.execute(
                 "INSERT INTO users (user_id, guild_id, balance) VALUES ($1, $2, 0)",
@@ -105,7 +107,6 @@ class Database:
                 "SELECT * FROM users WHERE user_id=$1 AND guild_id=$2",
                 user_id, guild_id
             )
-
         return row
 
     async def set_balance(self, user_id, guild_id, amount):
@@ -117,15 +118,15 @@ class Database:
 
     async def add_balance(self, user_id, guild_id, amount):
         user = await self.get_user(user_id, guild_id)
-        new = user["balance"] + amount
-        await self.set_balance(user_id, guild_id, new)
-        return new
+        new_amount = user["balance"] + amount
+        await self.set_balance(user_id, guild_id, new_amount)
+        return new_amount
 
     async def remove_balance(self, user_id, guild_id, amount):
         user = await self.get_user(user_id, guild_id)
-        new = max(0, user["balance"] - amount)
-        await self.set_balance(user_id, guild_id, new)
-        return new
+        new_amount = max(0, user["balance"] - amount)
+        await self.set_balance(user_id, guild_id, new_amount)
+        return new_amount
 
     async def get_all_balances(self, guild_id):
         return await self.conn.fetch(
@@ -134,14 +135,14 @@ class Database:
         )
 
     # ------------------------------------------------------
-    #   給料ロール関連
+    #   給料ロール
     # ------------------------------------------------------
     async def set_salary(self, role_id, salary):
         await self.conn.execute("""
             INSERT INTO role_salaries (role_id, salary)
             VALUES ($1, $2)
             ON CONFLICT (role_id)
-            DO UPDATE SET salary = $2
+            DO UPDATE SET salary=$2;
         """, role_id, salary)
 
     async def get_salaries(self):
@@ -158,13 +159,10 @@ class Database:
         values = []
         idx = 1
 
-        for key, val in kwargs.items():
+        for key, value in kwargs.items():
             columns.append(f"{key} = ${idx}")
-            values.append(val)
+            values.append(value)
             idx += 1
 
         sql = f"UPDATE settings SET {', '.join(columns)} WHERE id = 1"
         await self.conn.execute(sql, *values)
-
-
-
