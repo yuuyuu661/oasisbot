@@ -1,18 +1,17 @@
-import discord
-from .hotel_cog import HotelCog
+# cogs/hotel/setup.py
 
+from .checkin import HotelCheckinCog
+from .ticket_buttons import TicketButtonsCog
+from .room_buttons import RoomButtonsCog
 
 async def setup(bot):
-    """
-    ホテル機能を bot に登録するエントリーポイント。
-    """
-    cog = HotelCog(bot)
-    await bot.add_cog(cog)
+    # 3つの Cog を登録（ホテル機能を分割して管理）
+    await bot.add_cog(HotelCheckinCog(bot))
+    await bot.add_cog(TicketButtonsCog(bot))
+    await bot.add_cog(RoomButtonsCog(bot))
 
-    # 指定ギルドにスラッシュコマンドを同期
-    if hasattr(bot, "GUILD_IDS"):
-        for cmd in cog.get_app_commands():
-            for gid in bot.GUILD_IDS:
-                bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+    # guild 固定同期
+    for gid in bot.GUILD_IDS:
+        await bot.tree.sync(guild_id=gid)
 
-    print("🏨 Hotel module loaded.")
+    print("🏨 Hotel module loaded successfully!")
