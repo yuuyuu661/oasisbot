@@ -65,41 +65,149 @@ class RoomRenameButton(HotelButtonBase):
         await interaction.response.send_modal(RenameModal())
 
 
+import discord
+from discord.ui import Button, View, Modal, TextInput, Select
+
+
 # ======================================================
-# ③ 接続許可（ID検索対応）
+# ① 接続許可ボタン（VCメンバー追加の入り口）
 # ======================================================
-class RoomAllowMemberButton(HotelButtonBase):
-    def __init__(self, parent):
-        super().__init__(parent, "接続許可（無料）", discord.ButtonStyle.gray)
+class RoomAllowMemberButton(Button):
+    def __init__(self):
+        super().__init__(label="🔓 接続許可（検索）", style=discord.ButtonStyle.primary)
 
     async def callback(self, interaction: discord.Interaction):
+        """名前 / ID を入力する Modal を表示"""
+        modal = AllowMemberSearchModal()
+        await interaction.response.send_modal(modal)
 
-        class AllowModal(discord.ui.Modal, title="接続許可ユーザーID入力"):
-            user_id_input = discord.ui.TextInput(
-                label="ユーザーID",
-                placeholder="例: 123456789012345678",
-                required=True
+
+# ======================================================
+# ② Modal（ID / 名前で検索）
+# ======================================================
+class AllowMemberSearchModal(Modal, title="接続許可ユーザー検索"):
+    keyword = TextInput(
+        label="ユーザーID / 名前 / ニックネーム",
+        style=discord.TextStyle.short,
+        placeholder="例: 1010... / Yuu / ゆう",
+        required=True
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+
+        guild = interaction.guild
+        query = self.keyword.value.strip()
+
+        # メンション形式 → ID抽出
+        if query.startswith("<@") and query.endswith(">"):
+            query = query.replace("<@", "").replace(">", "").replace("!", "")
+
+        candidates = []
+
+        # --- ID 完全一致検索 ---
+        if query.isdigit():
+            member = guild.get_member(int(query))
+            if member:
+                candidates.append(member)
+
+        # --- 名前 / ニックネーム 部分一致 ---
+        q_lower = query.lower()
+        for m in guild.members:
+            if (
+                q_lower in m.name.lower() or
+                (m.nick and q_lower in m.nick.lower())
+            ):
+                candidates.append(m)
+
+        # --- 重複除去 ---
+        candidates = list({m.id: m for m in candidates}.values())
+
+        # --- 結果なし ---
+        if not candidates:
+            return await interaction.response.send_message(
+                "❌ 一致するユーザーが見つかりませんでした。",
+                ephemeral=True
             )
 
-            async def on_submit(self, modal_interaction: discord.Interaction):
-                user_id = self.user_id_input.value
-                member = modal_interaction.guild.get_member(int(user_id))
+        # --- 1人だけ → そのまま許可処理へ ---
+        if len(candidates) == 1:
+            member = candidates[0]
+            return await allow_member_to_vc(interaction, member)
 
-                if not member:
-                    return await modal_interaction.response.send_message(
-                        "❌ 該当ユーザーが見つかりません。",
-                        ephemeral=True
-                    )
+        # --- 複数いる → Select メニューへ ---
+        view = AllowMemberSelectView(candidates)
+        return await interaction.response.send_message(
+            "複数候補が見つかりました。ユーザーを選択してください👇",
+            view=view,
+            ephemeral=True
+        )
 
-                vc = modal_interaction.channel
-                await vc.set_permissions(member, connect=True, view_channel=True)
 
-                await modal_interaction.response.send_message(
-                    f"👤 **{member.display_name}** に接続権限を付与しました！",
-                    ephemeral=True
-                )
+# ======================================================
+# ③ 複数候補がいる場合の Select
+# ======================================================
+class AllowMemberSelectView(View):
+    def __init__(self, members):
+        super().__init__(timeout=20)
+        self.add_item(AllowMemberSelect(members))
 
-        await interaction.response.send_modal(AllowModal())
+
+class AllowMemberSelect(Select):
+    def __init__(self, members):
+        options = [
+            discord.SelectOption(
+                label=f"{m.display_name}",
+                value=str(m.id)
+            )
+            for m in members
+        ]
+
+        super().__init__(
+            placeholder="ユーザーを選択…",
+            min_values=1,
+            max_values=1,
+            options=options
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        member_id = int(self.values[0])
+        member = interaction.guild.get_member(member_id)
+
+        if not member:
+            return await interaction.response.send_message(
+                "❌ そのユーザーは見つかりません。",
+                ephemeral=True
+            )
+
+        await allow_member_to_vc(interaction, member)
+
+
+# ======================================================
+# ④ 実際の VC 権限付与ロジック
+# ======================================================
+async def allow_member_to_vc(interaction: discord.Interaction, member: discord.Member):
+
+    channel = interaction.channel
+    guild = interaction.guild
+
+    if not isinstance(channel, discord.VoiceChannel):
+        return await interaction.response.send_message(
+            "❌ この操作は VC 内のテキストチャットで実行してください。",
+            ephemeral=True
+        )
+
+    # --- 権限付与 ---
+    await channel.set_permissions(
+        member,
+        view_channel=True,
+        connect=True
+    )
+
+    await interaction.response.send_message(
+        f"✅ **{member.display_name}** に接続許可を付与しました！",
+        ephemeral=True
+    )
+
 
 
 # ======================================================
@@ -289,3 +397,4 @@ class RoomCheckTicketsButton(HotelButtonBase):
             f"🎫 所持チケット → **{tickets}枚**",
             ephemeral=True
         )
+
