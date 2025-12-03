@@ -69,3 +69,32 @@ class CheckinButton(discord.ui.Button):
             f"🏨 {vc_name} を作成しました！（24時間後に自動削除）",
             ephemeral=True
         )
+
+ # ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+        # 📌 チェックインログ（embed）
+        # ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+        log_channel = interaction.guild.get_channel(int(self.config["log_channel"]))
+        if log_channel:
+            embed = discord.Embed(
+                title="🏨 高級ホテル：チェックイン",
+                color=0xF4D03F
+            )
+            embed.add_field(name="ユーザー", value=user.mention, inline=False)
+            embed.add_field(name="ルーム名", value=vc_name, inline=False)
+            embed.add_field(
+                name="チェックイン時刻",
+                value=f"<t:{int(datetime.utcnow().timestamp())}:F>",
+                inline=False
+            )
+            embed.add_field(
+                name="自動削除予定",
+                value=f"<t:{int(expire.timestamp())}:F>",
+                inline=False
+            )
+            embed.add_field(
+                name="VC ID",
+                value=str(vc.id),
+                inline=False
+            )
+
+            await log_channel.send(embed=embed)
