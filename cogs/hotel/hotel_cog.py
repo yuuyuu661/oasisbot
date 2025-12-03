@@ -73,34 +73,41 @@ class HotelCog(commands.Cog):
     @app_commands.command(name="ホテルパネル生成", description="ホテルのチェックインパネルを生成します（管理者）")
     async def hotel_panel(self, interaction: discord.Interaction, title: str, description: str):
 
-        # 管理者ロール判定
-        settings = await self.bot.db.get_settings()
-        admin_roles = settings["admin_roles"] or []
+    settings = await self.bot.db.get_settings()
+    admin_roles = settings["admin_roles"] or []
 
-        if not any(str(r.id) in admin_roles for r in interaction.user.roles):
-            return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
+    if not any(str(r.id) in admin_roles for r in interaction.user.roles):
+        return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
 
-        guild_id = str(interaction.guild.id)
+    guild_id = str(interaction.guild.id)
 
-        hotel_config = await self.bot.db.conn.fetchrow(
-            "SELECT * FROM hotel_settings WHERE guild_id=$1",
-            guild_id
+    hotel_config = await self.bot.db.conn.fetchrow(
+        "SELECT * FROM hotel_settings WHERE guild_id=$1",
+        guild_id
+    )
+    if not hotel_config:
+        return await interaction.response.send_message(
+            "❌ ホテル初期設定がまだ行われていません。",
+            ephemeral=True
         )
 
-        if not hotel_config:
-            return await interaction.response.send_message(
-                "❌ ホテル初期設定がまだ行われていません。",
-                ephemeral=True
-            )
+    embed = discord.Embed(title=title, description=description, color=0xF4D03F)
 
-        embed = discord.Embed(title=title, description=description, color=0xF4D03F)
+    # ★ ここが重要！全 UI を1つのViewにまとめる
+    view = discord.ui.View(timeout=None)
 
-        # ここが重要：新しいパネル構成
-        view = discord.ui.View(timeout=None)
-        view.add_item(CheckinButton(hotel_config))
-        view.add_item(TicketBuyDropdown(hotel_config))
+    # チェックインボタン
+    view.add_item(CheckinButton(hotel_config))
 
-        await interaction.response.send_message(embed=embed, view=view)
+    # プルダウン
+    selector = TicketBuyDropdown(hotel_config)
+    view.add_item(selector)
+
+    # 「購入する」ボタンを追加（selector と config を渡す）
+    from .ticket_dropdown import TicketBuyExecuteButton
+    view.add_item(TicketBuyExecuteButton(selector, hotel_config))
+
+    await interaction.response.send_message(embed=embed, view=view)
 
     # ======================================================
     # /チケット確認
@@ -125,6 +132,7 @@ class HotelPanelView(discord.ui.View):
 
         self.add_item(CheckinButton(config))
         self.add_item(TicketBuyDropdown(config))
+
 
 
 
