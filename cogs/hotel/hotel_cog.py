@@ -128,10 +128,16 @@ class HotelCog(commands.Cog):
 class HotelPanelView(discord.ui.View):
     def __init__(self, config):
         super().__init__(timeout=None)
-        self.config = config
+
+        selector = TicketBuyDropdown(config)
 
         self.add_item(CheckinButton(config))
-        self.add_item(TicketBuyDropdown(config))
+        self.add_item(selector)
+
+        from .ticket_dropdown import TicketBuyExecuteButton
+        self.add_item(TicketBuyExecuteButton(selector, config))
+
+
 
 
 
