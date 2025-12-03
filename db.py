@@ -24,7 +24,7 @@ class Database:
     async def init_db(self):
         await self.connect()
 
-        # Users テーブル（ギルド別通貨管理）
+        # Users テーブル
         await self.conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 user_id TEXT NOT NULL,
@@ -42,7 +42,7 @@ class Database:
             );
         """)
 
-        # Settings テーブル（1行固定）
+        # Settings テーブル
         await self.conn.execute("""
             CREATE TABLE IF NOT EXISTS settings (
                 id INTEGER PRIMARY KEY,
@@ -54,7 +54,7 @@ class Database:
             );
         """)
 
-　　　　 # 面接テーブル
+        # 面接テーブル（←ここを全角→半角に直した版）
         await self.conn.execute("""
             CREATE TABLE IF NOT EXISTS interview_settings (
                 guild_id TEXT PRIMARY KEY,
@@ -65,13 +65,15 @@ class Database:
                 log_channel TEXT
             );
         """)
-        # 初期1行がなければ作成
+
+        # 初期データ
         exists = await self.conn.fetchval("SELECT id FROM settings WHERE id = 1")
         if exists is None:
             await self.conn.execute("""
                 INSERT INTO settings (id, admin_roles, currency_unit, log_pay, log_manage, log_salary)
                 VALUES (1, ARRAY[]::TEXT[], 'spt', NULL, NULL, NULL)
             """)
+
             print("🔧 Settings 初期化行を作成しました")
 
     # ------------------------------------------------------
@@ -152,4 +154,5 @@ class Database:
 
         sql = f"UPDATE settings SET {', '.join(columns)} WHERE id = 1"
         await self.conn.execute(sql, *values)
+
 
