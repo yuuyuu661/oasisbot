@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 
 from .checkin import CheckinButton
-from .ticket_dropdown import TicketBuyDropdown
+from .ticket_buttons import TicketBuyDropdown
 
 
 class HotelCog(commands.Cog):
@@ -121,4 +121,5 @@ async def setup(bot):
     for gid in bot.GUILD_IDS:
         guild = discord.Object(id=gid)
         await bot.tree.sync(guild=guild)
+
 
