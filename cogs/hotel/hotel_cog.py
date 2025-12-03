@@ -1,18 +1,24 @@
+# cogs/hotel/hotel_cog.py
+
 import discord
 from discord.ext import commands
 from discord import app_commands
 
 from .checkin import CheckinButton
-from .ticket_buttons import TicketBuyDropdown
+from .ticket_buttons import (
+    TicketBuyButton1,
+    TicketBuyButton10,
+    TicketBuyButton30
+)
 
 
 class HotelCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # ======================================================
+    # --------------------------------------------
     # /ホテル初期設定
-    # ======================================================
+    # --------------------------------------------
     @app_commands.command(name="ホテル初期設定", description="ホテル機能の初期設定を行います（管理者）")
     async def hotel_setup(
         self,
@@ -59,9 +65,9 @@ class HotelCog(commands.Cog):
 
         await interaction.response.send_message("🏨 ホテル初期設定を更新しました！", ephemeral=True)
 
-    # ======================================================
+    # --------------------------------------------
     # /ホテルパネル生成
-    # ======================================================
+    # --------------------------------------------
     @app_commands.command(name="ホテルパネル生成", description="ホテルのチェックインパネルを生成します（管理者）")
     async def hotel_panel(self, interaction: discord.Interaction, title: str, description: str):
         settings = await self.bot.db.get_settings()
@@ -88,9 +94,9 @@ class HotelCog(commands.Cog):
 
         await interaction.response.send_message(embed=embed, view=view)
 
-    # ======================================================
+    # --------------------------------------------
     # /チケット確認
-    # ======================================================
+    # --------------------------------------------
     @app_commands.command(name="チケット確認", description="自分の所持チケット数を確認します")
     async def ticket_check_cmd(self, interaction: discord.Interaction):
         guild_id = str(interaction.guild.id)
@@ -101,7 +107,7 @@ class HotelCog(commands.Cog):
 
 
 # ======================================================
-# パネルビュー（チェックイン＆購入）
+# チェックインパネル View
 # ======================================================
 
 class HotelPanelView(discord.ui.View):
@@ -110,16 +116,14 @@ class HotelPanelView(discord.ui.View):
         self.config = config
 
         self.add_item(CheckinButton(config))
-        self.add_item(TicketBuyDropdown(config))
-# ======================================================
-# setup
-# ======================================================
+        self.add_item(TicketBuyButton1(config))
+        self.add_item(TicketBuyButton10(config))
+        self.add_item(TicketBuyButton30(config))
+
+
 async def setup(bot):
     await bot.add_cog(HotelCog(bot))
 
-    # ギルドごとに Slash Command を同期
     for gid in bot.GUILD_IDS:
-        guild = discord.Object(id=gid)
+        guild = bot.get_guild(gid)
         await bot.tree.sync(guild=guild)
-
-
