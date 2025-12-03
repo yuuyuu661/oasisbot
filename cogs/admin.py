@@ -53,7 +53,8 @@ class AdminCog(commands.Cog):
         if not await self.is_admin(interaction.user):
             return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
 
-        balances = await self.bot.db.get_all_balances()
+        guild_id = str(interaction.guild.id)
+        balances = await self.bot.db.get_all_balances(guild_id)
         settings = await self.bot.db.get_settings()
         currency_unit = settings["currency_unit"]
 
@@ -81,6 +82,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
