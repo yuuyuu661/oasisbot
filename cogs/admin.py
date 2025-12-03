@@ -23,9 +23,11 @@ class AdminCog(commands.Cog):
         admin_roles = settings["admin_roles"] or []
         unit = settings["currency_unit"]
 
-        # 管理者チェック
         if not any(str(r.id) in admin_roles for r in interaction.user.roles):
-            return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
+            return await interaction.response.send_message(
+                "❌ 管理者ロールが必要です。",
+                ephemeral=True
+            )
 
         uid = str(user.id)
         guild_id = str(interaction.guild.id)
@@ -37,14 +39,26 @@ class AdminCog(commands.Cog):
         elif mode == "減少":
             await self.bot.db.remove_balance(uid, guild_id, amount)
         else:
-            return await interaction.response.send_message("モードは 設定 / 増加 / 減少 から選んでください")
+            return await interaction.response.send_message(
+                "モードは 設定 / 増加 / 減少 から選んでください。",
+                ephemeral=True
+            )
 
         new_bal = (await self.bot.db.get_user(uid, guild_id))["balance"]
 
-        await log_manage(self.bot, settings, str(interaction.user.id), uid, mode, amount, new_bal)
+        await log_manage(
+            self.bot,
+            settings,
+            str(interaction.user.id),
+            uid,
+            mode,
+            amount,
+            new_bal
+        )
 
         await interaction.response.send_message(
-            f"📝 <@{uid}> の残高を **{mode}** しました。\n現在：**{new_bal}{unit}**"
+            f"📝 <@{uid}> の残高を **{mode}** しました。\n"
+            f"現在：**{new_bal}{unit}**"
         )
 
     # --------------------------
@@ -56,35 +70,42 @@ class AdminCog(commands.Cog):
     )
     async def balance_list(self, interaction: discord.Interaction):
 
-        settings = awaitself.bot.db.get_settings()
+        settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
         unit = settings["currency_unit"]
 
         if not any(str(r.id) in admin_roles for r in interaction.user.roles):
-            return await interaction.response.send_message("❌ 管理者ロールが必要です。", ephemeral=True)
+            return await interaction.response.send_message(
+                "❌ 管理者ロールが必要です。",
+                ephemeral=True
+            )
 
         guild_id = str(interaction.guild.id)
-        balances = await self.bot.db.get_all_balances(guild_id)
+        rows = await self.bot.db.get_all_balances(guild_id)
 
         embed = discord.Embed(
             title="💰 残高一覧（上位順）",
             color=0xf1c40f
         )
 
-        lines = []
-        for user in balances:
-            user_id = str(user["user_id"])
-            balance = user["balance"]
-            lines.append(f"<@{user_id}>：**{balance}{unit}**\n")
-
-        embed.description = "".join(lines) if lines else "データがありません。"
+        if not rows:
+            embed.description = "データがありません。"
+        else:
+            lines = []
+            for r in rows:
+                lines.append(f"<@{r['user_id']}>：**{r['balance']}{unit}**")
+            embed.description = "\n".join(lines)
 
         await interaction.response.send_message(embed=embed)
 
-    async def setup(bot):
-        cog = AdminCog(bot)
-        await bot.add_cog(cog)
-        for cmd in cog.get_app_commands():
-            for gid in bot.GUILD_IDS:
-                bot.tree.add_command(cmd, guild=discord.Object(id=gid))
 
+# --------------------------
+# setup（必須）
+# --------------------------
+async def setup(bot):
+    cog = AdminCog(bot)
+    await bot.add_cog(cog)
+
+    for cmd in cog.get_app_commands():
+        for gid in bot.GUILD_IDS:
+            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
