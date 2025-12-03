@@ -266,26 +266,51 @@ class RoomAdd10DayButton(discord.ui.Button):
 
 class RoomAddSubRoleButton(discord.ui.Button):
     def __init__(self):
-        super().__init__(label="サブ垢追加（無料）", style=discord.ButtonStyle.gray)
+        super().__init__(label="サブ垢追加（人数+1）", style=discord.ButtonStyle.gray)
 
     async def callback(self, interaction: discord.Interaction):
-
         vc = interaction.channel
         guild = interaction.guild
 
-        sub_role = guild.get_role(interaction.view.sub_role_id)
+        sub_role_id = int(interaction.view.sub_role_id)
+        sub_role = guild.get_role(sub_role_id)
+
         if not sub_role:
-            return await interaction.response.send_message("❌ サブ垢ロールが見つかりません。", ephemeral=True)
+            return await interaction.response.send_message("❌ サブ垢ロールが設定されていません。", ephemeral=True)
 
-        members = [m for m in guild.members if sub_role in m.roles]
+        # 人数制限 +1
+        await vc.edit(user_limit=vc.user_limit + 1)
 
-        for m in members:
-            await vc.set_permissions(m, view_channel=True, connect=True)
+        # サブ垢ロール所持者のうち、VCに入れてよい人を選ばせる
+        candidates = [m for m in guild.members if sub_role in m.roles]
 
-        await interaction.response.send_message(
-            f"👥 サブ垢ロール所持者 **{len(members)}名** を追加しました！",
-            ephemeral=True
-        )
+        if len(candidates) == 0:
+            return await interaction.response.send_message(
+                "⚠ サブ垢ロールを持つメンバーがいません。",
+                ephemeral=True
+            )
+
+        class SubUserSelect(discord.ui.Select):
+            def __init__(self):
+                options = [
+                    discord.SelectOption(label=m.display_name, value=str(m.id))
+                    for m in candidates
+                ]
+                super().__init__(placeholder="追加するユーザーを選択", options=options, min_values=1, max_values=1)
+
+            async def callback(self, select_interaction: discord.Interaction):
+                target = guild.get_member(int(self.values[0]))
+                await vc.set_permissions(target, connect=True, view_channel=True)
+
+                await select_interaction.response.send_message(
+                    f"👥 サブ垢ユーザー {target.mention} を追加しました！（人数+1）",
+                    ephemeral=True
+                )
+
+        view = discord.ui.View()
+        view.add_item(SubUserSelect())
+        await interaction.response.send_message("追加するユーザーを選択してください👇", view=view, ephemeral=True)
+
 
 
 # ======================================================
@@ -332,4 +357,5 @@ class RoomCheckTicketsButton(discord.ui.Button):
             f"🎫 現在の所持チケット: **{tickets}枚**",
             ephemeral=True
         )
+
 
