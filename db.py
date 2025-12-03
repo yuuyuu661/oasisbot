@@ -54,6 +54,17 @@ class Database:
             );
         """)
 
+　　　　 # 面接テーブル
+        await self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS interview_settings (
+                guild_id TEXT PRIMARY KEY,
+                interviewer_role TEXT,
+                wait_role TEXT,
+                done_role TEXT,
+                reward_amount INTEGER,
+                log_channel TEXT
+            );
+        """)
         # 初期1行がなければ作成
         exists = await self.conn.fetchval("SELECT id FROM settings WHERE id = 1")
         if exists is None:
@@ -141,3 +152,4 @@ class Database:
 
         sql = f"UPDATE settings SET {', '.join(columns)} WHERE id = 1"
         await self.conn.execute(sql, *values)
+
