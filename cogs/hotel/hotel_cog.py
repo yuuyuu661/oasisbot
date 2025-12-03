@@ -98,7 +98,7 @@ class HotelCog(commands.Cog):
         # ここが重要：新しいパネル構成
         view = discord.ui.View(timeout=None)
         view.add_item(CheckinButton(hotel_config))
-        view.add_item(TicketDropdownView(hotel_config))
+        view.add_item(TicketBuyDropdown(hotel_config))
 
         await interaction.response.send_message(embed=embed, view=view)
 
@@ -125,5 +125,6 @@ class HotelPanelView(discord.ui.View):
 
         self.add_item(CheckinButton(config))
         self.add_item(TicketBuyDropdown(config))
+
 
 
