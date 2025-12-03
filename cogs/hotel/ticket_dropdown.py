@@ -97,8 +97,8 @@ class TicketBuyExecuteButton(discord.ui.Button):
 # ======================================================
 class TicketBuyDropdown(discord.ui.Select):
     def __init__(self, config):
-
         self.config = config
+
         options = [
             discord.SelectOption(label=f"1枚（{config['ticket_price_1']}pt）", value="1"),
             discord.SelectOption(label=f"10枚（{config['ticket_price_10']}pt）", value="10"),
@@ -111,6 +111,11 @@ class TicketBuyDropdown(discord.ui.Select):
             max_values=1,
             options=options
         )
+
+    async def callback(self, interaction: discord.Interaction):
+        # 選択しただけでボタンが動けばいいので応答は軽くてOK
+        await interaction.response.defer()  # ← これだけでエラーが消える
+
 
 
 # ======================================================
@@ -128,3 +133,4 @@ class TicketDropdownView(discord.ui.View):
 class TicketButtonsCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
