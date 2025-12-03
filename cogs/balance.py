@@ -42,44 +42,45 @@ class BalanceCog(commands.Cog):
             f"💰 **{user.display_name}** の残高： **{data['balance']} {unit}**"
         )
 
-    # --------------------------
-    # /pay
-    # --------------------------
-    @app_commands.command(name="pay", description="指定ユーザーに通貨を送金します")
-    @app_commands.describe(user="相手ユーザー", amount="送金額（1以上）")
-    async def pay(self, interaction: discord.Interaction, user: discord.User, amount: int):
+# --------------------------
+# /pay
+# --------------------------
+@app_commands.command(name="pay", description="指定ユーザーに通貨を送金します")
+@app_commands.describe(user="相手ユーザー", amount="送金額（1以上）")
+async def pay(self, interaction: discord.Interaction, user: discord.User, amount: int):
 
-        if amount < 1:
-            return await interaction.response.send_message("❌ 1以上の金額を指定してください。", ephemeral=True)
+    if amount < 1:
+        return await interaction.response.send_message("❌ 1以上の金額を指定してください。", ephemeral=True)
 
-        sender_id = str(interaction.user.id)
-        receiver_id = str(user.id)
+    sender_id = str(interaction.user.id)
+    receiver_id = str(user.id)
+    guild_id = str(interaction.guild.id)
 
-        if sender_id == receiver_id:
-            return await interaction.response.send_message("❌ 自分には送金できません。", ephemeral=True)
+    if sender_id == receiver_id:
+        return await interaction.response.send_message("❌ 自分には送金できません。", ephemeral=True)
 
-        sender = await self.bot.db.get_user(sender_id)
-        if sender["balance"] < amount:
-            return await interaction.response.send_message("❌ 残高不足です。", ephemeral=True)
+    sender = await self.bot.db.get_user(sender_id, guild_id)
+    if sender["balance"] < amount:
+        return await interaction.response.send_message("❌ 残高不足です。", ephemeral=True)
 
-        guild_id = str(interaction.guild.id)
+    # ここが重要！（guild_id を渡す）
+    await self.bot.db.remove_balance(sender_id, guild_id, amount)
+    await self.bot.db.add_balance(receiver_id, guild_id, amount)
 
-        await self.bot.db.remove_balance(sender_id, guild_id, amount)
-        await self.bot.db.add_balance(receiver_id, guild_id, amount)
+    settings = await self.bot.db.get_settings()
 
-        settings = await self.bot.db.get_settings()
+    await log_pay(
+        bot=self.bot,
+        settings=settings,
+        from_id=sender_id,
+        to_id=receiver_id,
+        amount=amount
+    )
 
-        await log_pay(
-            bot=self.bot,
-            settings=settings,
-            from_id=sender_id,
-            to_id=receiver_id,
-            amount=amount
-        )
+    await interaction.response.send_message(
+        f"💸 <@{receiver_id}> に **{amount}{settings['currency_unit']}** を送金しました！"
+    )
 
-        await interaction.response.send_message(
-            f"💸 <@{receiver_id}> に **{amount}{settings['currency_unit']}** を送金しました！"
-        )
 
 
 async def setup(bot):
@@ -89,6 +90,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
