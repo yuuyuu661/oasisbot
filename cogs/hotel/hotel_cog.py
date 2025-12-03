@@ -129,6 +129,59 @@ class HotelCog(commands.Cog):
             ephemeral=True
         )
 
+    # ======================================================
+    # /ホテルリセット
+    # ======================================================
+    @app_commands.command(
+        name="ホテルリセット",
+        description="指定ユーザーのホテルルーム情報をリセットします（管理者）"
+    )
+    async def hotel_reset(self, interaction: discord.Interaction, target: discord.Member):
+
+        # 管理者ロール判定
+        settings = await self.bot.db.get_settings()
+        admin_roles = settings["admin_roles"] or []
+
+        if not any(str(r.id) in admin_roles for r in interaction.user.roles):
+            return await interaction.response.send_message(
+                "❌ 管理者ロールが必要です。",
+                ephemeral=True
+            )
+
+        guild = interaction.guild
+        guild_id = str(guild.id)
+        user_id = str(target.id)
+
+        # DBに登録されているルームを検索
+        room = await self.bot.db.conn.fetchrow(
+            "SELECT channel_id FROM hotel_rooms WHERE owner_id=$1 AND guild_id=$2",
+            user_id, guild_id
+        )
+
+        if not room:
+            return await interaction.response.send_message(
+                f"⚠ {target.mention} は現在ホテルルームを所持していません。",
+                ephemeral=True
+            )
+
+        channel_id = room["channel_id"]
+        channel = guild.get_channel(int(channel_id))
+
+        # ボイスチャンネルが残っている場合 → 削除
+        if channel:
+            try:
+                await channel.delete(reason="ホテルリセットによるVC削除")
+            except Exception:
+                pass
+
+        # DBのレコード削除
+        await self.bot.db.delete_room(str(channel_id))
+
+        await interaction.response.send_message(
+            f"🧹 {target.mention} のホテルデータをリセットしました！\n"
+            f"再度チェックイン可能になっています。",
+            ephemeral=True
+        )
 
 # ======================================================
 # 旧UI互換：HotelPanelView
@@ -161,3 +214,4 @@ async def setup(bot):
                 print(f"[Hotel] Sync failed for {gid}: {e}")
 
     print("🏨 Hotel module loaded successfully!")
+
