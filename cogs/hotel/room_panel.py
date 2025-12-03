@@ -1,3 +1,4 @@
+# cogs/hotel/room_panel.py
 import discord
 
 from .room_buttons import (
@@ -25,17 +26,17 @@ class HotelRoomControlPanel(discord.ui.View):
         self.sub_role_id = int(sub_role_id)
         self.config = config
 
-        # ▼ 10ボタンを登録
-        self.add_item(RoomAddMemberLimitButton())
-        self.add_item(RoomRenameButton())
-        self.add_item(RoomAllowMemberButton())
-        self.add_item(RoomDenyMemberButton())
-        self.add_item(RoomAdd1DayButton())
-        self.add_item(RoomAdd3DayButton())
-        self.add_item(RoomAdd10DayButton())
-        self.add_item(RoomAddSubRoleButton())
-        self.add_item(RoomCheckExpireButton())
-        self.add_item(RoomCheckTicketsButton())
+        # ▼ 10ボタン。各ボタンに "self" を渡すことが超重要！
+        self.add_item(RoomAddMemberLimitButton(self))
+        self.add_item(RoomRenameButton(self))
+        self.add_item(RoomAllowMemberButton(self))
+        self.add_item(RoomDenyMemberButton(self))
+        self.add_item(RoomAdd1DayButton(self))
+        self.add_item(RoomAdd3DayButton(self))
+        self.add_item(RoomAdd10DayButton(self))
+        self.add_item(RoomAddSubRoleButton(self))
+        self.add_item(RoomCheckExpireButton(self))
+        self.add_item(RoomCheckTicketsButton(self))
 
     # --------------------------------------------------
     # 共通の権限チェック
