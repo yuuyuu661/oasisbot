@@ -119,3 +119,12 @@ class HotelPanelView(discord.ui.View):
         self.add_item(TicketBuyButton1(config))
         self.add_item(TicketBuyButton10(config))
         self.add_item(TicketBuyButton30(config))
+        
+class HotelCog(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    def get_app_commands(self):
+        """このCog内の slash command をすべて返す（同期用）"""
+        return list(self.__cog_app_commands__)
+
