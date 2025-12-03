@@ -1,14 +1,22 @@
-import discord
-from .hotel_cog import HotelCog
+# cogs/hotel/__init__.py
 
-async def setup(bot):
-    cog = HotelCog(bot)
-    await bot.add_cog(cog)
+"""
+高級ホテルシステム モジュール一式
 
-    # 指定ギルド同期
-    if hasattr(bot, "GUILD_IDS"):
-        for cmd in cog.get_app_commands():
-            for gid in bot.GUILD_IDS:
-                bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+構成：
+- checkin.py          / チェックイン関連（パネル生成・初期設定）
+- ticket_buttons.py   / チケット購入ボタン・確認モーダル
+- room_panel.py       / VC 内操作パネル本体（View）
+- room_buttons.py     / VC 内の10ボタン（人数、延長、許可など）
+- setup.py            / Cog 登録エントリーポイント
+"""
 
-    print("🏨 Hotel module loaded.")
+from .checkin import HotelCheckinCog
+from .ticket_buttons import TicketButtonsCog
+from .room_buttons import RoomButtonsCog
+
+__all__ = [
+    "HotelCheckinCog",
+    "TicketButtonsCog",
+    "RoomButtonsCog",
+]
