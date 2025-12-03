@@ -73,44 +73,49 @@ class RoomRenameButton(discord.ui.Button):
 
 class RoomAllowMemberButton(discord.ui.Button):
     def __init__(self):
-        super().__init__(label="接続許可（無料）", style=discord.ButtonStyle.gray)
+        super().__init__(label="接続許可（ユーザーID入力）", style=discord.ButtonStyle.gray)
 
     async def callback(self, interaction: discord.Interaction):
-        guild = interaction.guild
-        vc = interaction.channel
 
-        members = [m for m in guild.members if not m.bot]
+        class AllowModal(discord.ui.Modal, title="接続許可"):
+            user_input = discord.ui.TextInput(
+                label="ユーザーID または メンション",
+                placeholder="例）123456789012345678 or @ユーザー",
+                required=True
+            )
 
-        class AllowSelect(discord.ui.Select):
-            def __init__(self):
-                options = [
-                    discord.SelectOption(label=m.display_name, value=str(m.id))
-                    for m in members
-                ]
-                super().__init__(
-                    placeholder="接続を許可するユーザーを選択",
-                    options=options,
-                    min_values=1,
-                    max_values=1
-                )
+            async def on_submit(self, modal_interaction: discord.Interaction):
+                raw = self.user_input.value.strip()
 
-            async def callback(self, si: discord.Interaction):
-                target = guild.get_member(int(self.values[0]))
+                # メンション → ID 取得
+                if raw.startswith("<@") and raw.endswith(">"):
+                    raw = raw.replace("<@", "").replace(">", "").replace("!", "")
 
-                await vc.set_permissions(target, view_channel=True, connect=True)
-                await si.response.send_message(
-                    f"👤 **{target.display_name}** に接続許可を付与しました！",
+                if not raw.isdigit():
+                    return await modal_interaction.response.send_message(
+                        "❌ ユーザーIDが正しくありません。",
+                        ephemeral=True
+                    )
+
+                user_id = int(raw)
+                member = modal_interaction.guild.get_member(user_id)
+
+                if member is None:
+                    return await modal_interaction.response.send_message(
+                        "❌ メンバーが見つかりません。",
+                        ephemeral=True
+                    )
+
+                vc = modal_interaction.channel
+                await vc.set_permissions(member, connect=True, view_channel=True)
+
+                await modal_interaction.response.send_message(
+                    f"👤 {member.mention} を接続許可しました！",
                     ephemeral=True
                 )
 
-        v = discord.ui.View()
-        v.add_item(AllowSelect())
+        await interaction.response.send_modal(AllowModal())
 
-        await interaction.response.send_message(
-            "接続許可するユーザーを選択してください👇",
-            view=v,
-            ephemeral=True
-        )
 
 
 # ======================================================
@@ -327,3 +332,4 @@ class RoomCheckTicketsButton(discord.ui.Button):
             f"🎫 現在の所持チケット: **{tickets}枚**",
             ephemeral=True
         )
+
