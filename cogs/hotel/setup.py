@@ -1,11 +1,13 @@
-# cogs/hotel/setup.py
+from .checkin import HotelCheckinCog
+from .ticket_dropdown import TicketButtonsCog   # ← ここを変更！
+from .room_buttons import RoomButtonsCog
 
-from .hotel_cog import HotelCog
 
 async def setup(bot):
-    await bot.add_cog(HotelCog(bot))
+    await bot.add_cog(HotelCheckinCog(bot))
+    await bot.add_cog(TicketButtonsCog(bot))
+    await bot.add_cog(RoomButtonsCog(bot))
 
-    # Slash Command をギルドごとに同期
     if hasattr(bot, "GUILD_IDS"):
         for gid in bot.GUILD_IDS:
             try:
