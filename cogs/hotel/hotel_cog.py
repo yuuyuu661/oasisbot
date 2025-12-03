@@ -1,9 +1,15 @@
+# cogs/hotel/hotel_cog.py
+
 import discord
 from discord.ext import commands
 from discord import app_commands
 
 from .checkin import CheckinButton
-from .ticket_buttons import TicketBuyButton1, TicketBuyButton10, TicketBuyButton30
+from .ticket_dropdown import (
+    TicketBuyButton1,
+    TicketBuyButton10,
+    TicketBuyButton30
+)
 
 
 class HotelCog(commands.Cog):
@@ -84,7 +90,6 @@ class HotelCog(commands.Cog):
             )
 
         embed = discord.Embed(title=title, description=description, color=0xF4D03F)
-
         view = HotelPanelView(hotel_config)
 
         await interaction.response.send_message(embed=embed, view=view)
@@ -102,7 +107,7 @@ class HotelCog(commands.Cog):
 
 
 # ======================================================
-# パネルビュー（チェックイン＋購入ボタン3つ）
+# パネルビュー（チェックイン＆購入ボタン）
 # ======================================================
 
 class HotelPanelView(discord.ui.View):
