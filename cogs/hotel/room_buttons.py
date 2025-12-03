@@ -1,40 +1,31 @@
+# cogs/hotel/room_buttons.py
+
 import discord
-from discord.ext import commands
-from datetime import datetime, timedelta
+from datetime import timedelta, datetime
 
 
 # ======================================================
-# Utility：ログ送信用（共通）
+# 共通基底クラス（親View参照を保持）
 # ======================================================
-async def send_log_embed(guild, log_channel_id, *, title, fields):
-    log_channel = guild.get_channel(int(log_channel_id))
-    if not log_channel:
-        return
-
-    embed = discord.Embed(title=title, color=0xF4D03F)
-    for name, value in fields:
-        embed.add_field(name=name, value=value, inline=False)
-
-    embed.timestamp = datetime.utcnow()
-    await log_channel.send(embed=embed)
+class HotelButtonBase(discord.ui.Button):
+    def __init__(self, parent, label, style):
+        super().__init__(label=label, style=style)
+        self.parent = parent  # ← これが超重要！
 
 
 # ======================================================
-# 人数 +1 ボタン
+# ① 人数制限 +1（1枚）
 # ======================================================
-class IncreaseLimitButton(discord.ui.Button):
-    def __init__(self, room_data, config):
-        super().__init__(label="人数を1人増やす（1枚消費）", style=discord.ButtonStyle.blurple)
-        self.room_data = room_data
-        self.config = config
+class RoomAddMemberLimitButton(HotelButtonBase):
+    def __init__(self, parent):
+        super().__init__(parent, "人数 +1（1枚）", discord.ButtonStyle.green)
 
     async def callback(self, interaction: discord.Interaction):
-        guild = interaction.guild
-        vc = guild.get_channel(int(self.room_data["channel_id"]))
-        user_id = str(self.room_data["owner_id"])
-        guild_id = str(guild.id)
+        vc = interaction.channel
+        guild_id = str(interaction.guild.id)
+        user_id = str(interaction.user.id)
 
-        # チケット確認
+        # チケット判定
         tickets = await interaction.client.db.get_tickets(user_id, guild_id)
         if tickets < 1:
             return await interaction.response.send_message("❌ チケット不足です。", ephemeral=True)
@@ -42,144 +33,259 @@ class IncreaseLimitButton(discord.ui.Button):
         # 消費
         await interaction.client.db.remove_tickets(user_id, guild_id, 1)
 
-        # 上限 +1
-        vc.user_limit = (vc.user_limit or 0) + 1
-        await vc.edit(user_limit=vc.user_limit)
+        new_limit = (vc.user_limit or 2) + 1
+        await vc.edit(user_limit=new_limit)
 
         await interaction.response.send_message(
-            f"👥 上限人数を **{vc.user_limit}人** に変更しました！（1枚消費）",
+            f"👥 人数上限を **{new_limit}人** に増やしました。",
             ephemeral=True
         )
 
 
 # ======================================================
-# 接続許可（UserSelect）
+# ② VC名変更
 # ======================================================
-class AllowUserSelect(discord.ui.Select):
-    def __init__(self, room_data):
-        options = [
-            discord.SelectOption(label="検索してユーザーを選択", value="select")
+class RoomRenameButton(HotelButtonBase):
+    def __init__(self, parent):
+        super().__init__(parent, "VC名変更（無料）", discord.ButtonStyle.blurple)
+
+    async def callback(self, interaction: discord.Interaction):
+
+        class RenameModal(discord.ui.Modal, title="VC名変更"):
+            new_name = discord.ui.TextInput(label="新しいVC名", max_length=50)
+
+            async def on_submit(self, modal_interaction: discord.Interaction):
+                vc = modal_interaction.channel
+                await vc.edit(name=self.new_name.value)
+                await modal_interaction.response.send_message(
+                    f"✏️ 名称変更 → **{self.new_name.value}**",
+                    ephemeral=True
+                )
+
+        await interaction.response.send_modal(RenameModal())
+
+
+# ======================================================
+# ③ 接続許可（ID検索対応）
+# ======================================================
+class RoomAllowMemberButton(HotelButtonBase):
+    def __init__(self, parent):
+        super().__init__(parent, "接続許可（無料）", discord.ButtonStyle.gray)
+
+    async def callback(self, interaction: discord.Interaction):
+
+        class AllowModal(discord.ui.Modal, title="接続許可ユーザーID入力"):
+            user_id_input = discord.ui.TextInput(
+                label="ユーザーID",
+                placeholder="例: 123456789012345678",
+                required=True
+            )
+
+            async def on_submit(self, modal_interaction: discord.Interaction):
+                user_id = self.user_id_input.value
+                member = modal_interaction.guild.get_member(int(user_id))
+
+                if not member:
+                    return await modal_interaction.response.send_message(
+                        "❌ 該当ユーザーが見つかりません。",
+                        ephemeral=True
+                    )
+
+                vc = modal_interaction.channel
+                await vc.set_permissions(member, connect=True, view_channel=True)
+
+                await modal_interaction.response.send_message(
+                    f"👤 **{member.display_name}** に接続権限を付与しました！",
+                    ephemeral=True
+                )
+
+        await interaction.response.send_modal(AllowModal())
+
+
+# ======================================================
+# ④ 接続拒否
+# ======================================================
+class RoomDenyMemberButton(HotelButtonBase):
+    def __init__(self, parent):
+        super().__init__(parent, "接続拒否（無料）", discord.ButtonStyle.gray)
+
+    async def callback(self, interaction: discord.Interaction):
+
+        vc = interaction.channel
+
+        allowed = [
+            m for m, perms in vc.overwrites.items()
+            if isinstance(m, discord.Member) and perms.view_channel
         ]
-        super().__init__(
-            placeholder="接続許可するユーザーを選択",
-            min_values=1,
-            max_values=1,
-            options=options
-        )
-        self.room_data = room_data
 
-    async def callback(self, interaction: discord.Interaction):
-        # 実際の選択画面を出す
-        view = AllowUserSelectView(self.room_data)
-        await interaction.response.send_message(
-            "接続許可するユーザーを選択してください。",
-            view=view,
-            ephemeral=True
-        )
-
-
-class AllowUserSelectView(discord.ui.View):
-    def __init__(self, room_data):
-        super().__init__(timeout=60)
-        self.add_item(UserPicker(room_data))
-
-
-class UserPicker(discord.ui.UserSelect):
-    def __init__(self, room_data):
-        super().__init__(placeholder="接続許可するユーザーを選択", min_values=1, max_values=1)
-        self.room_data = room_data
-
-    async def callback(self, interaction: discord.Interaction):
-        target = self.values[0]
-        guild = interaction.guild
-        vc = guild.get_channel(int(self.room_data["channel_id"]))
-
-        await vc.set_permissions(
-            target,
-            connect=True,
-            view_channel=True
-        )
-
-        await interaction.response.send_message(
-            f"✅ {target.mention} を接続許可しました。",
-            ephemeral=True
-        )
-
-
-# ======================================================
-# サブ垢追加（人数+1のみ）
-# ======================================================
-class AddSubButton(discord.ui.Button):
-    def __init__(self, room_data, config):
-        super().__init__(label="サブ垢追加（人数+1）", style=discord.ButtonStyle.gray)
-        self.room_data = room_data
-        self.config = config
-
-    async def callback(self, interaction: discord.Interaction):
-        guild = interaction.guild
-        vc = guild.get_channel(int(self.room_data["channel_id"]))
-
-        # 上限 +1
-        vc.user_limit = (vc.user_limit or 0) + 1
-        await vc.edit(user_limit=vc.user_limit)
-
-        await interaction.response.send_message(
-            f"👥 サブ垢追加：上限が **{vc.user_limit}人** になりました。",
-            ephemeral=True
-        )
-
-
-# ======================================================
-# 延長ボタン（1日 / 3日 / 10日）
-# ======================================================
-class ExtendButton(discord.ui.Button):
-    def __init__(self, label, days, cost, room_data, config):
-        super().__init__(label=label, style=discord.ButtonStyle.green)
-        self.days = days
-        self.cost = cost
-        self.room_data = room_data
-        self.config = config
-
-    async def callback(self, interaction: discord.Interaction):
-        guild = interaction.guild
-        guild_id = str(guild.id)
-        owner_id = str(self.room_data["owner_id"])
-
-        # チケット確認
-        tickets = await interaction.client.db.get_tickets(owner_id, guild_id)
-        if tickets < self.cost:
+        if not allowed:
             return await interaction.response.send_message(
-                f"❌ チケット不足（必要: {self.cost}枚）",
+                "⚠ 現在許可済みユーザーはいません。",
                 ephemeral=True
             )
 
-        # 消費
-        await interaction.client.db.remove_tickets(owner_id, guild_id, self.cost)
+        class DenySelect(discord.ui.Select):
+            def __init__(self):
+                super().__init__(
+                    placeholder="拒否するユーザーを選択",
+                    min_values=1,
+                    max_values=1,
+                    options=[
+                        discord.SelectOption(
+                            label=m.display_name,
+                            value=str(m.id)
+                        ) for m in allowed
+                    ]
+                )
 
-        # 期限更新
-        old_expire = self.room_data["expire_at"]
-        new_expire = old_expire + timedelta(days=self.days)
+            async def callback(self, select_interaction: discord.Interaction):
+                target = vc.guild.get_member(int(self.values[0]))
+                await vc.set_permissions(target, connect=False, view_channel=False)
 
-        await interaction.client.db.conn.execute(
-            "UPDATE hotel_rooms SET expire_at=$1 WHERE channel_id=$2",
-            new_expire,
-            self.room_data["channel_id"]
-        )
+                await select_interaction.response.send_message(
+                    f"🚫 接続拒否 → {target.display_name}",
+                    ephemeral=True
+                )
 
-        # ログ embed
-        await send_log_embed(
-            guild,
-            self.config["log_channel"],
-            title="⏳ 高級ホテル 延長ログ",
-            fields=[
-                ("ユーザー", f"<@{owner_id}>"),
-                ("延長日数", f"{self.days}日"),
-                ("旧期限", f"<t:{int(old_expire.timestamp())}:F>"),
-                ("新期限", f"<t:{int(new_expire.timestamp())}:F>")
-            ]
-        )
+        view = discord.ui.View()
+        view.add_item(DenySelect())
+        await interaction.response.send_message("拒否ユーザーを選択👇", view=view, ephemeral=True)
+
+
+# ======================================================
+# ⑤ 1日延長
+# ======================================================
+class RoomAdd1DayButton(HotelButtonBase):
+    def __init__(self, parent):
+        super().__init__(parent, "1日延長（1枚）", discord.ButtonStyle.green)
+
+    async def callback(self, interaction: discord.Interaction):
+        vc = interaction.channel
+        db = interaction.client.db
+        room = await db.get_room(str(vc.id))
+
+        user_id = str(interaction.user.id)
+        guild_id = str(interaction.guild.id)
+
+        tickets = await db.get_tickets(user_id, guild_id)
+        if tickets < 1:
+            return await interaction.response.send_message("❌ チケット不足。", ephemeral=True)
+
+        expire = room["expire_at"] + timedelta(days=1)
+        await db.save_room(str(vc.id), guild_id, room["owner_id"], expire)
+        await db.remove_tickets(user_id, guild_id, 1)
+
+        await interaction.response.send_message("⏳ **1日延長しました！**", ephemeral=True)
+
+
+# ======================================================
+# ⑥ 3日延長
+# ======================================================
+class RoomAdd3DayButton(HotelButtonBase):
+    def __init__(self, parent):
+        super().__init__(parent, "3日延長（3枚）", discord.ButtonStyle.green)
+
+    async def callback(self, interaction: discord.Interaction):
+        vc = interaction.channel
+        db = interaction.client.db
+        room = await db.get_room(str(vc.id))
+
+        guild_id = str(interaction.guild.id)
+        user_id = str(interaction.user.id)
+
+        tickets = await db.get_tickets(user_id, guild_id)
+        if tickets < 3:
+            return await interaction.response.send_message("❌ チケット不足。", ephemeral=True)
+
+        expire = room["expire_at"] + timedelta(days=3)
+        await db.save_room(str(vc.id), guild_id, room["owner_id"], expire)
+        await db.remove_tickets(user_id, guild_id, 3)
+
+        await interaction.response.send_message("⏳ **3日延長しました！**", ephemeral=True)
+
+
+# ======================================================
+# ⑦ 10日延長
+# ======================================================
+class RoomAdd10DayButton(HotelButtonBase):
+    def __init__(self, parent):
+        super().__init__(parent, "10日延長（10枚）", discord.ButtonStyle.green)
+
+    async def callback(self, interaction: discord.Interaction):
+        vc = interaction.channel
+        db = interaction.client.db
+        room = await db.get_room(str(vc.id))
+
+        guild_id = str(interaction.guild.id)
+        user_id = str(interaction.user.id)
+
+        tickets = await db.get_tickets(user_id, guild_id)
+        if tickets < 10:
+            return await interaction.response.send_message("❌ チケット不足。", ephemeral=True)
+
+        expire = room["expire_at"] + timedelta(days=10)
+        await db.save_room(str(vc.id), guild_id, room["owner_id"], expire)
+        await db.remove_tickets(user_id, guild_id, 10)
+
+        await interaction.response.send_message("⏳ **10日延長しました！**", ephemeral=True)
+
+
+# ======================================================
+# ⑧ サブ垢追加（人数 +1 のみ）
+# ======================================================
+class RoomAddSubRoleButton(HotelButtonBase):
+    def __init__(self, parent):
+        super().__init__(parent, "サブ垢追加（無料）", discord.ButtonStyle.gray)
+
+    async def callback(self, interaction: discord.Interaction):
+        vc = interaction.channel
+
+        new_limit = (vc.user_limit or 2) + 1
+        await vc.edit(user_limit=new_limit)
 
         await interaction.response.send_message(
-            f"⏳ 期限を **{self.days}日延長** しました！",
+            f"👥 **サブ垢枠 +1！** → 新上限：{new_limit}人",
+            ephemeral=True
+        )
+
+
+# ======================================================
+# ⑨ 期限確認
+# ======================================================
+class RoomCheckExpireButton(HotelButtonBase):
+    def __init__(self, parent):
+        super().__init__(parent, "削除期限確認", discord.ButtonStyle.blurple)
+
+    async def callback(self, interaction: discord.Interaction):
+        vc = interaction.channel
+
+        room = await interaction.client.db.get_room(str(vc.id))
+        expire = room["expire_at"]
+
+        left = expire - datetime.utcnow()
+        hours = int(left.total_seconds() // 3600)
+        minutes = int((left.total_seconds() % 3600) // 60)
+
+        await interaction.response.send_message(
+            f"⏳ 削除まで **{hours}時間 {minutes}分**",
+            ephemeral=True
+        )
+
+
+# ======================================================
+# ⑩ チケット確認
+# ======================================================
+class RoomCheckTicketsButton(HotelButtonBase):
+    def __init__(self, parent):
+        super().__init__(parent, "チケット確認", discord.ButtonStyle.gray)
+
+    async def callback(self, interaction: discord.Interaction):
+        guild_id = str(interaction.guild.id)
+        user_id = str(interaction.user.id)
+
+        tickets = await interaction.client.db.get_tickets(user_id, guild_id)
+
+        await interaction.response.send_message(
+            f"🎫 所持チケット → **{tickets}枚**",
             ephemeral=True
         )
