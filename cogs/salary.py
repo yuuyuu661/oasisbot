@@ -122,3 +122,10 @@ class SalaryCog(commands.Cog):
         await interaction.response.send_message(
             f"🎉 **{total_users}人** に **{total_amount}{unit}** を配布しました！"
         )
+    async def setup(bot):
+        cog = SalaryCog(bot)
+        await bot.add_cog(cog)
+        for cmd in cog.get_app_commands():
+            for gid in bot.GUILD_IDS:
+                bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
