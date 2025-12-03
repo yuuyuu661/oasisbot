@@ -66,31 +66,52 @@ class Database:
     # ------------------------------------------------------
     #   ユーザー残高
     # ------------------------------------------------------
-    async def get_user(self, user_id):
-        row = await self.conn.fetchrow("SELECT * FROM users WHERE user_id=$1", user_id)
-        if not row:
-            await self.conn.execute("INSERT INTO users (user_id, balance) VALUES ($1, 0)", user_id)
-            row = await self.conn.fetchrow("SELECT * FROM users WHERE user_id=$1", user_id)
-        return row
+    async def get_user(self, user_id, guild_id):
+  　　　　  row = await self.conn.fetchrow(
+   　　　　     "SELECT * FROM users WHERE user_id=$1 AND guild_id=$2",
+      　　　　  user_id, guild_id
+ 　　　　   )
 
-    async def set_balance(self, user_id, amount):
-        await self.get_user(user_id)
-        await self.conn.execute("UPDATE users SET balance=$1 WHERE user_id=$2", amount, user_id)
+    if not row:
+        await self.conn.execute(
+            "INSERT INTO users (user_id, guild_id, balance) VALUES ($1, $2, 0)",
+            user_id, guild_id
+        )
+        row = await self.conn.fetchrow(
+            "SELECT * FROM users WHERE user_id=$1 AND guild_id=$2",
+            user_id, guild_id
+        )
 
-    async def add_balance(self, user_id, amount):
-        user = await self.get_user(user_id)
-        new = user["balance"] + amount
-        await self.set_balance(user_id, new)
-        return new
+    return row
 
-    async def remove_balance(self, user_id, amount):
-        user = await self.get_user(user_id)
-        new = max(0, user["balance"] - amount)
-        await self.set_balance(user_id, new)
-        return new
 
-    async def get_all_balances(self):
-        return await self.conn.fetch("SELECT * FROM users ORDER BY balance DESC")
+    async def set_balance(self, user_id, guild_id, amount):
+   　　　　 await self.get_user(user_id, guild_id)
+  　　　　  await self.conn.execute(
+     　　　　   "UPDATE users SET balance=$1 WHERE user_id=$2 AND guild_id=$3",
+      　　　　  amount, user_id, guild_id
+  　　　　  )
+
+　　　　async def add_balance(self, user_id, guild_id, amount):
+   　　　　 user = await self.get_user(user_id, guild_id)
+  　　　　  new = user["balance"] + amount
+
+ 　　　　   await self.set_balance(user_id, guild_id, new)
+ 　　　　   return new
+
+
+　　　　async def remove_balance(self, user_id, guild_id, amount):
+ 　　　　   user = await self.get_user(user_id, guild_id)
+  　　　　  new = max(0, user["balance"] - amount)
+
+  　　　　  await self.set_balance(user_id, guild_id, new)
+  　　　　  return new
+
+　　　　async def get_all_balances(self, guild_id):
+  　　　　  return await self.conn.fetch(
+    　　　　    "SELECT * FROM users WHERE guild_id=$1 ORDER BY balance DESC",
+     　　　　   guild_id
+ 　　　　   )
 
     # ------------------------------------------------------
     #   給料ロール関連
@@ -125,4 +146,5 @@ class Database:
 
         sql = f"UPDATE settings SET {', '.join(columns)} WHERE id = 1"
         await self.conn.execute(sql, *values)
+
 
