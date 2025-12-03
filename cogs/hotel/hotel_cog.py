@@ -111,3 +111,14 @@ class HotelPanelView(discord.ui.View):
 
         self.add_item(CheckinButton(config))
         self.add_item(TicketBuyDropdown(config))
+# ======================================================
+# setup
+# ======================================================
+async def setup(bot):
+    await bot.add_cog(HotelCog(bot))
+
+    # ギルドごとに Slash Command を同期
+    for gid in bot.GUILD_IDS:
+        guild = discord.Object(id=gid)
+        await bot.tree.sync(guild=guild)
+
