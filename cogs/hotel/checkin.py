@@ -70,7 +70,7 @@ class CheckinButton(discord.ui.Button):
             ephemeral=True
         )
 
- 　　　　# ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+        # ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
         # 📌 チェックインログ（embed）
         # ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
         log_channel = interaction.guild.get_channel(int(self.config["log_channel"]))
@@ -98,4 +98,5 @@ class CheckinButton(discord.ui.Button):
             )
 
             await log_channel.send(embed=embed)
+
 
