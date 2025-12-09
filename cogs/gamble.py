@@ -312,8 +312,13 @@ class BetView(discord.ui.View):
         starter_user = guild.get_member(int(starter_id))
         opponent_user = guild.get_member(int(opponent_id))
 
+        # ラベルを先に作っておく
         self.label_A = f"{starter_user.display_name} に賭ける"
         self.label_B = f"{opponent_user.display_name} に賭ける"
+
+        # ★ ボタンを取得して書き換える
+        self.children[0].label = self.label_A   # bet_starter
+        self.children[1].label = self.label_B   # bet_opponent
 
     @discord.ui.button(label="loading...", style=discord.ButtonStyle.blurple)
     async def bet_starter(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -418,8 +423,13 @@ class JudgeView(discord.ui.View):
         starter_user = guild.get_member(int(starter_id))
         opponent_user = guild.get_member(int(opponent_id))
 
+        # ラベル準備
         self.label_A = f"{starter_user.display_name} の勝利"
         self.label_B = f"{opponent_user.display_name} の勝利"
+
+        # ★ ボタンの初期ラベルを設定
+        self.children[0].label = self.label_A   # win_A
+        self.children[1].label = self.label_B   # win_B
 
     @discord.ui.button(label="loading...", style=discord.ButtonStyle.green)
     async def win_A(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -554,3 +564,4 @@ async def setup(bot: commands.Bot):
     for cmd in cog.get_app_commands():
         for gid in getattr(bot, "GUILD_IDS", []):
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
