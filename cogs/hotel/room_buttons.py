@@ -419,7 +419,7 @@ async def send_extend_log(interaction, vc, days, new_expire):
 
 
 # ======================================================
-# ⑧ サブ垢追加（選択式・正しい config 連携版）
+# ⑧ サブ垢追加（選択式）
 # ======================================================
 class RoomAddSubRoleButton(discord.ui.Button):
     def __init__(self, parent):
