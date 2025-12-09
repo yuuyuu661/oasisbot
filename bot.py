@@ -53,8 +53,8 @@ async def load_cogs():
         "cogs.init",
         "cogs.interview",
         "cogs.subscription",
-        "cogs.hotel.setup"
-        "cogs.gamble" 
+        "cogs.hotel.setup",
+        "cogs.gamble", 
     ]
     for ext in extensions:
         try:
@@ -66,6 +66,7 @@ async def load_cogs():
 
 if __name__ == "__main__":
     asyncio.run(bot.start(TOKEN))
+
 
 
 
