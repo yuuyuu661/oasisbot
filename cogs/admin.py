@@ -23,6 +23,7 @@ class AdminCog(commands.Cog):
         admin_roles = settings["admin_roles"] or []
         unit = settings["currency_unit"]
 
+        # 管理者ロールチェック
         if not any(str(r.id) in admin_roles for r in interaction.user.roles):
             return await interaction.response.send_message(
                 "❌ 管理者ロールが必要です。",
@@ -32,6 +33,7 @@ class AdminCog(commands.Cog):
         uid = str(user.id)
         guild_id = str(interaction.guild.id)
 
+        # モード分岐
         if mode == "設定":
             await self.bot.db.set_balance(uid, guild_id, amount)
         elif mode == "増加":
@@ -46,6 +48,7 @@ class AdminCog(commands.Cog):
 
         new_bal = (await self.bot.db.get_user(uid, guild_id))["balance"]
 
+        # ログ送信
         await log_manage(
             self.bot,
             settings,
@@ -60,8 +63,9 @@ class AdminCog(commands.Cog):
             f"📝 <@{uid}> の残高を **{mode}** しました。\n"
             f"現在：**{new_bal}{unit}**"
         )
+
     # ------------------------------------------------------
-    # /ロール送金（管理者ロール必須）
+    # /ロール送金（サブ垢除外）
     # ------------------------------------------------------
     @app_commands.command(
         name="ロール送金",
@@ -73,7 +77,7 @@ class AdminCog(commands.Cog):
         admin_roles = settings["admin_roles"] or []
         unit = settings["currency_unit"]
 
-        # 管理者チェック
+        # 管理者ロール必須
         if not any(str(r.id) in admin_roles for r in interaction.user.roles):
             return await interaction.response.send_message(
                 "❌ このコマンドを実行する権限がありません。",
@@ -97,7 +101,7 @@ class AdminCog(commands.Cog):
         sub_role_id = hotel_config["sub_role"] if hotel_config else None
         sub_role = guild.get_role(int(sub_role_id)) if sub_role_id else None
 
-        # ▼ 対象メンバー抽出（サブ垢ロールは除外）
+        # ▼ 対象メンバー（サブ垢除外）
         members = [
             m for m in guild.members
             if (role in m.roles)
@@ -107,11 +111,11 @@ class AdminCog(commands.Cog):
 
         if not members:
             return await interaction.response.send_message(
-                "⚠ 対象ユーザーがいません。（サブ垢ロール所持者は除外済み）",
+                "⚠ 対象ユーザーがいません。（サブ垢ロール所持者は除外）",
                 ephemeral=True
             )
 
-        # ▼ 加算処理
+        # 残高加算
         for member in members:
             await self.bot.db.add_balance(str(member.id), guild_id, amount)
 
@@ -120,12 +124,11 @@ class AdminCog(commands.Cog):
         await interaction.response.send_message(
             f"💰 ロール **{role.name}** を持つ **{len(members)}名** に "
             f"**{amount}{unit}** を送金しました！（合計：{total}{unit}）\n"
-            f"※ サブ垢ロール所持者は自動的に除外されています。"
+            f"※ サブ垢ロールは自動で除外されています。"
         )
 
-
     # --------------------------
-    # /残高一覧（ページ表示 + 並び替え）
+    # /残高一覧（ページング + 並び替え）
     # --------------------------
     @app_commands.command(
         name="残高一覧",
@@ -153,7 +156,7 @@ class AdminCog(commands.Cog):
                 ephemeral=True
             )
 
-        # ---- ページ管理オブジェクト ----
+        # ページビュー作成
         view = BalanceListView(
             rows=rows,
             unit=unit,
@@ -165,18 +168,19 @@ class AdminCog(commands.Cog):
 
         await interaction.response.send_message(embed=embed, view=view)
 
-    class BalanceListView(discord.ui.View):
+
+# =====================================================
+#   📘 ページングビュー（完全修正版）
+# =====================================================
+class BalanceListView(discord.ui.View):
     def __init__(self, rows, unit, title, reverse=False):
         super().__init__(timeout=120)
 
         self.unit = unit
         self.title = title
         self.reverse = reverse
-
-        # rows = [{user_id, balance}, ...]
-        self.rows_raw = rows
+        self.rows_raw = rows  # [{user_id, balance}, ...]
         self.page = 0
-
         self.PAGE_SIZE = 20
 
         self.refresh_sorted_rows()
@@ -184,16 +188,16 @@ class AdminCog(commands.Cog):
     # 並び替え処理
     def refresh_sorted_rows(self):
         if self.reverse:
-            # 0円は除外
+            # 低い順（0円除外）
             self.rows = [r for r in self.rows_raw if r["balance"] > 0]
             self.rows.sort(key=lambda r: r["balance"])
         else:
-            # 上位順
+            # 高い順
             self.rows = sorted(self.rows_raw, key=lambda r: r["balance"], reverse=True)
 
         self.max_page = max(0, (len(self.rows) - 1) // self.PAGE_SIZE)
 
-    # 現在ページの embed を生成
+    # 指定ページの embed を生成
     def get_page_embed(self, page: int):
         self.page = page
 
@@ -221,29 +225,29 @@ class AdminCog(commands.Cog):
 
         return embed
 
-    # ---------- ボタン：前へ ----------
+    # ---------- 前へ ----------
     @discord.ui.button(label="◀ 前へ", style=discord.ButtonStyle.primary)
     async def prev_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.page > 0:
             self.page -= 1
         else:
-            return await interaction.response.send_message("これ以上前はないよ！", ephemeral=True)
+            return await interaction.response.send_message("これ以上前はありません。", ephemeral=True)
 
         embed = self.get_page_embed(self.page)
         await interaction.response.edit_message(embed=embed, view=self)
 
-    # ---------- ボタン：次へ ----------
+    # ---------- 次へ ----------
     @discord.ui.button(label="次へ ▶", style=discord.ButtonStyle.primary)
     async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.page < self.max_page:
             self.page += 1
         else:
-            return await interaction.response.send_message("これ以上先はないよ！", ephemeral=True)
+            return await interaction.response.send_message("これ以上先はありません。", ephemeral=True)
 
         embed = self.get_page_embed(self.page)
         await interaction.response.edit_message(embed=embed, view=self)
 
-    # ---------- ボタン：逆順 ----------
+    # ---------- 低い順 ----------
     @discord.ui.button(label="🔄 低い順", style=discord.ButtonStyle.secondary)
     async def sort_reverse(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.reverse = True
@@ -253,7 +257,7 @@ class AdminCog(commands.Cog):
         embed = self.get_page_embed(0)
         await interaction.response.edit_message(embed=embed, view=self)
 
-    # ---------- ボタン：上位順 ----------
+    # ---------- 高い順 ----------
     @discord.ui.button(label="🔝 高い順", style=discord.ButtonStyle.secondary)
     async def sort_normal(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.reverse = False
@@ -262,8 +266,6 @@ class AdminCog(commands.Cog):
 
         embed = self.get_page_embed(0)
         await interaction.response.edit_message(embed=embed, view=self)
-
-
 
 
 # --------------------------
@@ -276,4 +278,3 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
-
