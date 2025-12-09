@@ -424,46 +424,34 @@ async def send_extend_log(interaction, vc, days, new_expire):
 class RoomAddSubRoleButton(discord.ui.Button):
     def __init__(self, parent):
         super().__init__(label="サブ垢追加", style=discord.ButtonStyle.blurple)
-        self.parent = parent  # HotelRoomControlPanel を保持
+        self.parent = parent
 
     async def callback(self, interaction: discord.Interaction):
 
         guild = interaction.guild
 
-        owner_id = int(self.parent.config["owner"])
-        manager_role_id = int(self.parent.config["manager_role"])
-        sub_role_id = int(self.parent.config["sub_role"])
+        # ❗ config ではなく panel に保存されている owner_id を使う
+        owner_id = int(self.parent.owner_id)
+        manager_role_id = int(self.parent.manager_role_id)
+        sub_role_id = int(self.parent.sub_role_id)
 
         # 権限チェック
         if interaction.user.id != owner_id and not any(r.id == manager_role_id for r in interaction.user.roles):
-            return await interaction.response.send_message(
-                "❌ 権限がありません。",
-                ephemeral=True
-            )
+            return await interaction.response.send_message("❌ 権限がありません。", ephemeral=True)
 
         vc = interaction.channel
         if not isinstance(vc, discord.VoiceChannel):
-            return await interaction.response.send_message(
-                "❌ VC内でのみ使用できます。",
-                ephemeral=True
-            )
+            return await interaction.response.send_message("❌ VC内でのみ使用できます。", ephemeral=True)
 
         sub_role = guild.get_role(sub_role_id)
         if not sub_role:
-            return await interaction.response.send_message(
-                "❌ サブ垢ロールが設定されていません。",
-                ephemeral=True
-            )
+            return await interaction.response.send_message("❌ サブ垢ロールが設定されていません。", ephemeral=True)
 
         candidates = [m for m in guild.members if sub_role in m.roles and not m.bot]
 
         if not candidates:
-            return await interaction.response.send_message(
-                "⚠ サブ垢ロール所持者がいません。",
-                ephemeral=True
-            )
+            return await interaction.response.send_message("⚠ サブ垢ロール所持者がいません。", ephemeral=True)
 
-        # 1名だけ
         if len(candidates) == 1:
             t = candidates[0]
             await vc.set_permissions(t, view_channel=True, connect=True)
@@ -473,23 +461,17 @@ class RoomAddSubRoleButton(discord.ui.Button):
                 ephemeral=True
             )
 
-        # 複数名 → 表示
         class SubSelect(discord.ui.Select):
             def __init__(self, members):
-                options = [
-                    discord.SelectOption(label=m.display_name, value=str(m.id))
-                    for m in members
-                ]
+                options = [discord.SelectOption(label=m.display_name, value=str(m.id)) for m in members]
                 super().__init__(placeholder="サブ垢を選択", options=options, min_values=1, max_values=1)
                 self.map = {str(m.id): m for m in members}
 
             async def callback(self, inter):
                 uid = self.values[0]
                 target = self.map[uid]
-
                 await vc.set_permissions(target, view_channel=True, connect=True)
                 await vc.edit(user_limit=(vc.user_limit or 2) + 1)
-
                 await inter.response.edit_message(
                     content=f"👤 **{target.display_name}** をサブ垢として追加しました！",
                     view=None
@@ -499,11 +481,8 @@ class RoomAddSubRoleButton(discord.ui.Button):
         view.add_item(SubSelect(candidates))
 
         await interaction.response.send_message(
-            "追加するサブ垢を選択してください👇",
-            view=view,
-            ephemeral=True
+            "追加するサブ垢を選択してください👇", view=view, ephemeral=True
         )
-
 
 
 # ======================================================
