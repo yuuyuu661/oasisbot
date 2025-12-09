@@ -484,73 +484,127 @@ class JudgeView(discord.ui.View):
 
         await interaction.response.send_message("勝負確定！", ephemeral=True)
 
-    async def create_result_embed(self, interaction: discord.Interaction):
+    async def create_result_embed(self, interaction):
 
-        guild_id = self.guild_id
-        db = self.bot.db
+    guild_id = self.guild_id
+    db = self.bot.db
 
-        data = await db.conn.fetchrow(
-            "SELECT * FROM gamble_current WHERE guild_id=$1",
-            guild_id
+    data = await db.conn.fetchrow(
+        "SELECT * FROM gamble_current WHERE guild_id=$1",
+        guild_id
+    )
+    bets = await db.conn.fetch(
+        "SELECT * FROM gamble_bets WHERE guild_id=$1",
+        guild_id
+    )
+
+    winner_side = data["winner"]
+    starter_id = data["starter_id"]
+    opponent_id = data["opponent_id"]
+
+    # 合計
+    A_total = sum(b["amount"] for b in bets if b["side"] == "A")
+    B_total = sum(b["amount"] for b in bets if b["side"] == "B")
+
+    winner_total = A_total if winner_side == "A" else B_total
+    loser_total = B_total if winner_side == "A" else A_total
+
+    # グループ分け
+    winner_list = [b for b in bets if b["side"] == winner_side]
+    loser_list = [b for b in bets if b["side"] != winner_side]
+
+    pay_dict = {}
+    actual_bonus_total = 0
+
+    # -----------------------------
+    # 🎯 勝者側：当選配当を計算
+    # -----------------------------
+    for b in winner_list:
+        uid = b["user_id"]
+        bet = b["amount"]
+        ratio = bet / winner_total if winner_total > 0 else 0
+        bonus = min(int(loser_total * ratio), bet)
+        payout = bet + bonus
+
+        pay_dict[uid] = {
+            "bet": bet,
+            "payout": payout,
+            "refund": 0,
+            "side": "winner"
+        }
+        actual_bonus_total += bonus
+
+    # -----------------------------
+    # 💸 敗者側：払い戻しを計算
+    # -----------------------------
+    remain = loser_total - actual_bonus_total
+
+    for b in loser_list:
+        uid = b["user_id"]
+        bet = b["amount"]
+        ratio = bet / loser_total if loser_total > 0 else 0
+        refund = int(remain * ratio)
+
+        pay_dict[uid] = {
+            "bet": bet,
+            "payout": 0,
+            "refund": refund,
+            "side": "loser"
+        }
+
+    # DB反映
+    for uid, info in pay_dict.items():
+        await db.add_balance(uid, guild_id, info["payout"] + info["refund"])
+
+    # -----------------------------
+    # 📌 Embed 構築
+    # -----------------------------
+    embed = discord.Embed(
+        title=f"🏆 結果：{data['title']}",
+        description=data["content"],
+        color=0xf1c40f
+    )
+
+    # 勝者
+    winner_user = starter_id if winner_side == "A" else opponent_id
+    embed.add_field(name="🏆 勝者", value=f"<@{winner_user}>", inline=False)
+
+    # -------- 当選配当（winner） --------
+    winner_lines = []
+    for uid, info in pay_dict.items():
+        if info["side"] == "winner":
+            winner_lines.append(
+                f"<@{uid}>\n"
+                f"　賭け額：{info['bet']} spt\n"
+                f"　当選配当：{info['payout']} spt"
+            )
+
+    if winner_lines:
+        embed.add_field(
+            name="💰 当選配当",
+            value="\n".join(winner_lines),
+            inline=False
         )
-        bets = await db.conn.fetch(
-            "SELECT * FROM gamble_bets WHERE guild_id=$1",
-            guild_id
+
+    # -------- 払い戻し（loser） --------
+    loser_lines = []
+    for uid, info in pay_dict.items():
+        if info["side"] == "loser" and info["refund"] > 0:
+            loser_lines.append(
+                f"<@{uid}>\n"
+                f"　賭け額：{info['bet']} spt\n"
+                f"　払い戻し：{info['refund']} spt"
+            )
+
+    if loser_lines:
+        embed.add_field(
+            name="💸 払い戻し",
+            value="\n".join(loser_lines),
+            inline=False
         )
 
-        winner_side = data["winner"]
-        starter_id = data["starter_id"]
-        opponent_id = data["opponent_id"]
+    return embed
 
-        # 合計
-        A_total = sum(b["amount"] for b in bets if b["side"] == "A")
-        B_total = sum(b["amount"] for b in bets if b["side"] == "B")
-
-        winner_total = A_total if winner_side == "A" else B_total
-        loser_total = B_total if winner_side == "A" else A_total
-
-        winner_list = [b for b in bets if b["side"] == winner_side]
-        loser_list = [b for b in bets if b["side"] != winner_side]
-
-        pay_dict = {}
-        actual_bonus_total = 0
-
-        for b in winner_list:
-            uid = b["user_id"]
-            bet = b["amount"]
-            ratio = bet / winner_total if winner_total > 0 else 0
-            bonus = min(int(loser_total * ratio), bet)
-            payout = bet + bonus
-            pay_dict[uid] = payout
-            actual_bonus_total += bonus
-
-        # 敗者側残りを比率返金
-        remain = loser_total - actual_bonus_total
-
-        for b in loser_list:
-            uid = b["user_id"]
-            bet = b["amount"]
-            ratio = bet / loser_total if loser_total > 0 else 0
-            refund = int(remain * ratio)
-            pay_dict[uid] = pay_dict.get(uid, 0) + refund
-
-        # DB反映
-        for uid, amount in pay_dict.items():
-            await db.add_balance(uid, guild_id, amount)
-
-        embed = discord.Embed(
-            title=f"🏆 結果：{data['title']}",
-            description=data["content"],
-            color=0xf1c40f
-        )
-
-        winner_user = starter_id if winner_side == "A" else opponent_id
-        embed.add_field(name="勝者", value=f"<@{winner_user}>", inline=False)
-
-        lines = [f"<@{uid}>：{amount} spt" for uid, amount in pay_dict.items()]
-        embed.add_field(name="最終配当", value="\n".join(lines), inline=False)
-
-        return embed
 
 
 # ===========================================================
@@ -564,4 +618,5 @@ async def setup(bot: commands.Bot):
     for cmd in cog.get_app_commands():
         for gid in getattr(bot, "GUILD_IDS", []):
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
