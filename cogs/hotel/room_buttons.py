@@ -418,137 +418,105 @@ async def send_extend_log(interaction, vc, days, new_expire):
     await log_channel.send(embed=embed)
 
 
-# ======================================================
-# ⑧ サブ垢追加（ロール「サブ垢」持ちユーザーを1人追加 ＋ 人数上限+1）
-# ======================================================
-class RoomAddSubRoleButton(Button):
-    """
-    サブ垢追加:
-      - ギルド内でロール名「サブ垢」を持つユーザーを候補にする
-      - 1人だけならそのまま追加
-      - 複数いる場合はセレクトで選択
-      - 対象ユーザーにこのVCへの接続権限を付与
-      - VCの人数上限を +1 する
-    """
-    def __init__(self):
-        super().__init__(
-            label="👤 サブ垢追加",
-            style=discord.ButtonStyle.secondary
-        )
+import discord
+from discord.ext import commands
+
+# ================================
+# 🔥 サブ垢追加（選択式）
+# ================================
+class RoomAddSubRoleButton(discord.ui.Button):
+    def __init__(self, config):
+        super().__init__(label="サブ垢追加", style=discord.ButtonStyle.blurple)
+        self.config = config  # hotel_settings { manager_role, sub_role, ... }
 
     async def callback(self, interaction: discord.Interaction):
 
-        vc = interaction.channel
-        if not isinstance(vc, discord.VoiceChannel):
-            return await interaction.response.send_message(
-                "❌ この操作は VC 内のテキストチャットでのみ使用できます。",
-                ephemeral=True
-            )
+        room_owner = self.config["owner"]
+        manager_role_id = self.config["manager_role"]
+        sub_role_id = self.config["sub_role"]
+        channel = interaction.channel
+        guild = interaction.guild
+
+        # ①権限チェック
+        if interaction.user.id != room_owner and not any(r.id == int(manager_role_id) for r in interaction.user.roles):
+            return await interaction.response.send_message("❌ 権限がありません。", ephemeral=True)
+
+        # ② サブ垢ロール持ち一覧
+        sub_role = guild.get_role(int(sub_role_id))
+        if not sub_role:
+            return await interaction.response.send_message("❌ サブ垢ロールが設定されていません。", ephemeral=True)
+
+        members = [m for m in guild.members if sub_role in m.roles and not m.bot]
+
+        if not members:
+            return await interaction.response.send_message("⚠ サブ垢ロール所持者がいません。", ephemeral=True)
+
+        # ③ SelectMenu を構築
+        options = []
+        for m in members[:25]:  # Discordの仕様で最大25
+            options.append(discord.SelectOption(label=m.display_name, value=str(m.id)))
+
+        select = SubUserSelect(
+            placeholder="追加するサブ垢を選択（複数可）",
+            min_values=1,
+            max_values=len(options),
+            options=options,
+            config=self.config
+        )
+
+        view = discord.ui.View()
+        view.add_item(select)
+
+        await interaction.response.send_message(
+            "追加するサブ垢を選択してください👇",
+            view=view,
+            ephemeral=True
+        )
+
+
+# ================================
+# 🔥 サブ垢選択メニュー（実際の付与処理）
+# ================================
+class SubUserSelect(discord.ui.Select):
+    def __init__(self, placeholder, min_values, max_values, options, config):
+        super().__init__(
+            placeholder=placeholder,
+            min_values=min_values,
+            max_values=max_values,
+            options=options
+        )
+        self.config = config
+
+    async def callback(self, interaction: discord.Interaction):
 
         guild = interaction.guild
-        if guild is None:
-            return await interaction.response.send_message(
-                "❌ サーバー内でのみ使用できます。",
-                ephemeral=True
-            )
+        channel = interaction.channel
+        manager_role_id = self.config["manager_role"]
+        room_owner = self.config["owner"]
 
-        # ロール名「サブ垢」を取得
-        sub_role = discord.utils.get(guild.roles, name="サブ垢")
-        if sub_role is None:
-            return await interaction.response.send_message(
-                "❌ ロール名「サブ垢」がサーバー内に見つかりません。",
-                ephemeral=True
-            )
+        # ① 権限チェック（念のため二重チェック）
+        if interaction.user.id != room_owner and not any(r.id == int(manager_role_id) for r in interaction.user.roles):
+            return await interaction.response.send_message("❌ 権限がありません。", ephemeral=True)
 
-        # 「サブ垢」ロールを持つメンバーを候補として集める
-        candidates = [m for m in guild.members if sub_role in m.roles]
+        # ② 選択されたユーザーに接続権限付与
+        added_users = []
+        overwrites = channel.overwrites
 
-        if not candidates:
-            return await interaction.response.send_message(
-                "❌ ロール「サブ垢」を持つユーザーがいません。",
-                ephemeral=True
-            )
+        for uid in self.values:
+            member = guild.get_member(int(uid))
+            if not member:
+                continue
 
-        # 人数上限+1する処理だけ共通化
-        async def add_sub_and_increase_limit(member: discord.Member):
-            # まず対象メンバーにこのVCへの権限を付与
-            ow = vc.overwrites_for(member)
-            ow.view_channel = True
-            ow.connect = True
-            ow.speak = True
-            ow.stream = True
-            await vc.set_permissions(member, overwrite=ow, reason="高級ホテルVC サブ垢追加")
+            overwrites[member] = discord.PermissionOverwrite(view_channel=True, connect=True)
+            added_users.append(member.display_name)
 
-            # 現在の人数上限を取得
-            current_limit = vc.user_limit or 0
-            if current_limit == 0:
-                # 無制限だった場合は、今いる人数 + 1 か最低3人にする
-                base = max(len(vc.members), 2)
-                new_limit = base + 1
-            else:
-                new_limit = current_limit + 1
+        # 反映
+        await channel.edit(overwrites=overwrites)
 
-            await vc.edit(user_limit=new_limit)
-
-            return member, new_limit
-
-        # 候補が1人だけならそのまま処理
-        if len(candidates) == 1:
-            member, new_limit = await add_sub_and_increase_limit(candidates[0])
-            return await interaction.response.send_message(
-                f"👤 {member.mention} をサブ垢として追加し、このVCへの接続を許可しました。\n"
-                f"人数上限を {new_limit} 人に設定しました。",
-                ephemeral=True
-            )
-
-        # 複数候補がいる場合はセレクトメニューで選択させる
-        class SubAccountSelect(discord.ui.Select):
-            def __init__(self, members):
-                options = [
-                    discord.SelectOption(
-                        label=m.display_name,
-                        description=f"ID: {m.id}",
-                        value=str(m.id)
-                    )
-                    for m in members
-                ]
-                super().__init__(
-                    placeholder="サブ垢として追加するユーザーを選択してください",
-                    min_values=1,
-                    max_values=1,
-                    options=options,
-                )
-                self.members_map = {str(m.id): m for m in members}
-
-            async def callback(self, select_interaction: discord.Interaction):
-                # 選ばれたユーザーID
-                selected_id = self.values[0]
-                member = self.members_map.get(selected_id)
-                if member is None:
-                    return await select_interaction.response.send_message(
-                        "ユーザーが見つかりませんでした。",
-                        ephemeral=True
-                    )
-
-                added_member, new_limit = await add_sub_and_increase_limit(member)
-
-                await select_interaction.response.edit_message(
-                    content=(
-                        f"👤 {added_member.mention} をサブ垢として追加し、このVCへの接続を許可しました。\n"
-                        f"人数上限を {new_limit} 人に設定しました。"
-                    ),
-                    view=None
-                )
-
-        class SubAccountSelectView(discord.ui.View):
-            def __init__(self, members):
-                super().__init__(timeout=30)
-                self.add_item(SubAccountSelect(members))
-
-        view = SubAccountSelectView(candidates)
+        # ③ 結果報告
+        names = ", ".join(added_users)
         await interaction.response.send_message(
-            "ロール「サブ垢」を持つユーザーが複数見つかりました。追加するユーザーを選択してください👇",
-            view=view,
+            f"✅ 次のサブ垢を部屋に追加しました：**{names}**",
             ephemeral=True
         )
 
