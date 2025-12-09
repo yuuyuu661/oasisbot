@@ -257,3 +257,26 @@ class Database:
             "SELECT * FROM hotel_rooms WHERE channel_id=$1",
             channel_id
         )
+        # ギャンブル進行中データ
+        await self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS gamble_current (
+                guild_id   TEXT PRIMARY KEY,
+                starter_id TEXT,
+                opponent_id TEXT,
+                title      TEXT,
+                content    TEXT,
+                expire_at  TIMESTAMP,
+                status     TEXT,   -- 'waiting' / 'betting' / 'closed'
+                winner     TEXT    -- 'A' or 'B' or NULL
+            );
+        """)
+
+        # ギャンブルのベット一覧
+        await self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS gamble_bets (
+                guild_id TEXT,
+                user_id  TEXT,
+                side     TEXT,     -- 'A'（開始者） or 'B'（対戦者）
+                amount   INTEGER
+            );
+        """)
