@@ -10,73 +10,62 @@ class BalanceCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    # ================================
-    # /bal 残高確認（指定ユーザーを見る場合は管理者ロール必須）
-    # ================================
-    @app_commands.command(
-        name="bal",
-        description="自分または指定ユーザーの残高を確認します"
-    )
-    @app_commands.describe(
-        member="確認したいユーザー（省略時は自分）"
-    )
-    async def bal(
-        self,
-        interaction: discord.Interaction,
-        member: discord.Member | None = None
-    ):
-        bot = self.bot
-        guild = interaction.guild
-        user = interaction.user
+# ================================
+# /bal 残高確認（指定ユーザーは管理者のみ）
+# ================================
+@app_commands.command(
+    name="bal",
+    description="自分または指定ユーザーの残高を確認します"
+)
+@app_commands.describe(
+    member="確認したいユーザー（省略時は自分）"
+)
+async def bal(self, interaction: discord.Interaction, member: discord.Member | None = None):
 
-        if guild is None:
+    guild = interaction.guild
+    user = interaction.user
+    db = self.bot.db
+
+    if guild is None:
+        return await interaction.response.send_message(
+            "サーバー内でのみ使用できます。",
+            ephemeral=True
+        )
+
+    # ▼ 見たい対象
+    target = member or user
+
+    # ▼ 他人の残高を見るときは管理者ロール必須
+    if target.id != user.id:
+
+        settings = await db.get_settings()
+        admin_roles = settings.get("admin_roles", [])  # ['id', 'id', ...]
+
+        # ロールIDの整数化セット
+        admin_role_ids = {int(rid) for rid in admin_roles if rid.isdigit()}
+
+        # 実行者が管理者ロールを持っているか
+        has_admin = any(r.id in admin_role_ids for r in user.roles)
+
+        if not has_admin:
             return await interaction.response.send_message(
-                "サーバー内でのみ使用できます。",
+                "❌ 他ユーザーの残高を確認するには管理者ロールが必要です。",
                 ephemeral=True
             )
 
-        db = bot.db
+    # ▼ DB取得
+    row = await db.get_user(str(target.id), str(guild.id))
+    tickets = await db.get_tickets(str(target.id), str(guild.id))
+    settings = await db.get_settings()
+    unit = settings["currency_unit"]
 
-        # 対象ユーザー（未指定なら自分）
-        target = member or user
+    await interaction.response.send_message(
+        f"💰 **{target.display_name} の残高**\n"
+        f"所持金: **{row['balance']} {unit}**\n"
+        f"チケット: **{tickets}枚**",
+        ephemeral=True
+    )
 
-        if target.id != user.id:
-            settings = await db.get_settings()
-            admin_roles = settings["admin_roles"] or []
-
-            if not any(str(r.id) in admin_roles for r in user.roles):
-                return await interaction.response.send_message(
-                    "❌ 他ユーザーの残高を確認するには管理者ロールが必要です。",
-                    ephemeral=True
-                )
-
-        try:
-            # 残高
-            row = await db.get_user(str(target.id), str(guild.id))
-            # チケット枚数
-            tickets = await db.get_tickets(str(target.id), str(guild.id))
-            # 通貨単位
-            settings = await db.get_settings()
-            unit = settings["currency_unit"]
-        except Exception as e:
-            print("bal error:", repr(e))
-            if interaction.response.is_done():
-                return await interaction.followup.send(
-                    "内部エラーが発生しました。（bal）",
-                    ephemeral=True
-                )
-            else:
-                return await interaction.response.send_message(
-                    "内部エラーが発生しました。（bal）",
-                    ephemeral=True
-                )
-
-        await interaction.response.send_message(
-            f"💰 **{target.display_name} の残高**\n"
-            f"所持金: **{row['balance']} {unit}**\n"
-            f"チケット: **{tickets}枚**",
-            ephemeral=True
-        )
 
 
     # ================================
