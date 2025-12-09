@@ -466,3 +466,4 @@ async def setup(bot):
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
 
+
