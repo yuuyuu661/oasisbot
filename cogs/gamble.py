@@ -459,9 +459,10 @@ class JudgeView(discord.ui.View):
 # setup（必須）
 # --------------------------
 async def setup(bot):
-    cog = AdminCog(bot)
+    cog = GambleCog(bot)
     await bot.add_cog(cog)
 
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
