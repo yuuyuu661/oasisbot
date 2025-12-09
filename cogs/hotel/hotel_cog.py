@@ -145,9 +145,10 @@ class HotelCog(commands.Cog):
                 ephemeral=True
             )
 
-        guild_id = str(interaction.guild.id)
+        guild = interaction.guild
+        guild_id = str(guild.id)
 
-        # 🔍 DB から VC がホテルルームか調べる
+        # 🔍 1) VC がホテルルームか確認
         room = await interaction.client.db.get_room(str(vc.id))
         if not room:
             return await interaction.response.send_message(
@@ -156,40 +157,66 @@ class HotelCog(commands.Cog):
             )
 
         owner_id = room["owner_id"]
-        manager_role_id = int(interaction.client.config[guild_id]["manager_role"])
-        admin_role_id = int(interaction.client.config[guild_id]["admin_role"]) if "admin_role" in interaction.client.config[guild_id] else None
 
-        # 🔑 権限チェック
+        # 🔍 2) ホテル設定（manager / sub_role）を取得
+        hotel_config = await interaction.client.db.conn.fetchrow(
+            "SELECT * FROM hotel_settings WHERE guild_id=$1",
+            guild_id
+        )
+
+        if not hotel_config:
+            return await interaction.response.send_message(
+                "❌ ホテル初期設定がまだ行われていません。",
+                ephemeral=True
+            )
+
+        manager_role_id = int(hotel_config["manager_role"])
+        sub_role_id = int(hotel_config["sub_role"])
+
+        # 🔍 3) bot全体の初期設定から admin_role を取得
+        settings = await self.bot.db.get_settings()
+        admin_roles = settings["admin_roles"] or []     # ← list of role IDs (文字列)
+        
+        # ==========================================================
+        # 🔑 権限チェック（owner / manager / admin）
+        # ==========================================================
         user = interaction.user
         ok = False
 
+        # ホテル作成者
         if str(user.id) == owner_id:
             ok = True
+
+        # ホテル管理者 manager_role
         elif any(r.id == manager_role_id for r in user.roles):
             ok = True
-        elif admin_role_id and any(r.id == admin_role_id for r in user.roles):
+
+        # bot全体 admin_role
+        elif any(str(r.id) in admin_roles for r in user.roles):
             ok = True
 
         if not ok:
             return await interaction.response.send_message(
-                "❌ このルームの作成者、管理者、ホテルマネージャーのみが実行できます。",
+                "❌ このルームの作成者・管理者・ホテルマネージャーのみが実行できます。",
                 ephemeral=True
             )
 
-        # ▼ パネルを再送
+        # ==========================================================
+        # 🔄 パネル再送
+        # ==========================================================
         panel = HotelRoomControlPanel(
             owner_id=owner_id,
             manager_role_id=manager_role_id,
-            sub_role_id=interaction.client.config[guild_id]["sub_role"],
-            config=interaction.client.config[guild_id]
+            sub_role_id=sub_role_id,
+            config=hotel_config
         )
+
+        await vc.send("🔄 **操作パネルを再送しました！**", view=panel)
 
         await interaction.response.send_message(
             "🔄 パネルを再送しました！",
             ephemeral=True
         )
-
-        await vc.send("🔄 **操作パネルを再送しました！**", view=panel)
     # ======================================================
     # /ホテルリセット
     # ======================================================
