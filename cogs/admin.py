@@ -63,7 +63,7 @@ class AdminCog(commands.Cog):
     # ------------------------------------------------------
     # /ロール送金（管理者ロール必須）
     # ------------------------------------------------------
-        @app_commands.command(
+    @app_commands.command(
         name="ロール送金",
         description="指定ロールを持つ全メンバーに一括送金します（管理者）"
     )
@@ -123,17 +123,6 @@ class AdminCog(commands.Cog):
             f"※ サブ垢ロール所持者は自動的に除外されています。"
         )
 
-
-        # 加算処理
-        for member in members:
-            await self.bot.db.add_balance(str(member.id), guild_id, amount)
-
-        total = amount * len(members)
-
-        await interaction.response.send_message(
-            f"💰 ロール **{role.name}** を持つ **{len(members)}名** に "
-            f"**{amount}{unit}** を送金しました！（合計：{total}{unit}）"
-        )
 
     # --------------------------
     # /残高一覧（ギルド別）
