@@ -31,7 +31,7 @@ class HotelRoomControlPanel(discord.ui.View):
         self.add_item(RoomAdd1DayButton())
         self.add_item(RoomAdd3DayButton())
         self.add_item(RoomAdd10DayButton())
-        self.add_item(RoomAddSubRoleButton(self.config))
+        self.add_item(RoomAddSubRoleButton(self))
 
         self.add_item(RoomCheckExpireButton(self))
         self.add_item(RoomCheckTicketsButton(self))
