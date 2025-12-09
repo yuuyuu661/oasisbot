@@ -112,7 +112,37 @@ class Database:
             );
         """)
 
-        # 初期設定が無ければ作成
+        # =====================================================
+        # ギャンブル機能のテーブル（ここが重要）
+        # =====================================================
+
+        # ギャンブル進行中データ
+        await self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS gamble_current (
+                guild_id   TEXT PRIMARY KEY,
+                starter_id TEXT,
+                opponent_id TEXT,
+                title      TEXT,
+                content    TEXT,
+                expire_at  TIMESTAMP,
+                status     TEXT,   -- 'waiting' / 'betting' / 'closed'
+                winner     TEXT    -- 'A' or 'B' or NULL
+            );
+        """)
+
+        # ギャンブルベット一覧
+        await self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS gamble_bets (
+                guild_id TEXT,
+                user_id  TEXT,
+                side     TEXT,     -- 'A' or 'B'
+                amount   INTEGER
+            );
+        """)
+
+        # ------------------------------------------------------
+        # settings の初期行作成
+        # ------------------------------------------------------
         exists = await self.conn.fetchval("SELECT id FROM settings WHERE id = 1")
         if exists is None:
             await self.conn.execute("""
@@ -209,7 +239,6 @@ class Database:
             user_id, guild_id
         )
         if not row:
-            # 自動作成
             await self.conn.execute(
                 "INSERT INTO hotel_tickets (user_id, guild_id, tickets) VALUES ($1, $2, 0)",
                 user_id, guild_id
@@ -257,38 +286,3 @@ class Database:
             "SELECT * FROM hotel_rooms WHERE channel_id=$1",
             channel_id
         )
-    # ホテルルーム管理テーブル
-    await self.conn.execute("""
-        CREATE TABLE IF NOT EXISTS hotel_rooms (
-            channel_id TEXT PRIMARY KEY,
-            guild_id TEXT,
-            owner_id TEXT,
-            expire_at TIMESTAMP
-        );
-    """)
-
-    # 🔥 🔥 🔥 ここにギャンブルテーブルを置く 🔥 🔥 🔥
-
-    # ギャンブル進行中データ
-    await self.conn.execute("""
-        CREATE TABLE IF NOT EXISTS gamble_current (
-            guild_id   TEXT PRIMARY KEY,
-            starter_id TEXT,
-            opponent_id TEXT,
-            title      TEXT,
-            content    TEXT,
-            expire_at  TIMESTAMP,
-            status     TEXT,
-            winner     TEXT
-        );
-    """)
-
-    # ギャンブルのベット一覧
-    await self.conn.execute("""
-        CREATE TABLE IF NOT EXISTS gamble_bets (
-            guild_id TEXT,
-            user_id  TEXT,
-            side     TEXT,
-            amount   INTEGER
-        );
-    """)
