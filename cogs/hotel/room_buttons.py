@@ -419,19 +419,19 @@ async def send_extend_log(interaction, vc, days, new_expire):
 
 
 # ======================================================
-# ⑧ サブ垢追加（選択式・正しい config 連携版）
+# ⑧ サブ垢追加（選択式・完全修正）
 # ======================================================
 class RoomAddSubRoleButton(discord.ui.Button):
-    def __init__(self, parent):
+    def __init__(self, config):
         super().__init__(label="サブ垢追加", style=discord.ButtonStyle.blurple)
-        self.parent = parent  # ← owner / manager / sub_role を保持
+        self.config = config  # ← owner / manager / sub_role を保持
 
     async def callback(self, interaction: discord.Interaction):
 
         guild = interaction.guild
-        owner_id = int(self.parent.config["owner"])
-        manager_role_id = int(self.parent.config["manager_role"])
-        sub_role_id = int(self.parent.config["sub_role"])
+        owner_id = int(self.config["owner"])
+        manager_role_id = int(self.config["manager_role"])
+        sub_role_id = int(self.config["sub_role"])
 
         # 権限チェック
         if interaction.user.id != owner_id and not any(r.id == manager_role_id for r in interaction.user.roles):
@@ -468,7 +468,6 @@ class RoomAddSubRoleButton(discord.ui.Button):
         if len(candidates) == 1:
             target = candidates[0]
             await vc.set_permissions(target, view_channel=True, connect=True)
-            await vc.edit(user_limit=(vc.user_limit or 2) + 1)
 
             return await interaction.response.send_message(
                 f"👤 **{target.display_name}** をサブ垢として追加しました！",
@@ -490,7 +489,6 @@ class RoomAddSubRoleButton(discord.ui.Button):
                 target = self.members_map[uid]
 
                 await vc.set_permissions(target, view_channel=True, connect=True)
-                await vc.edit(user_limit=(vc.user_limit or 2) + 1)
 
                 await inter.response.edit_message(
                     content=f"👤 **{target.display_name}** をサブ垢として追加しました！",
