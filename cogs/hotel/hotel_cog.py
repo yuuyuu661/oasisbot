@@ -6,6 +6,7 @@ from discord import app_commands
 
 from .checkin import CheckinButton
 from .ticket_dropdown import TicketBuyDropdown, TicketBuyExecuteButton
+from .room_panel import HotelRoomControlPanel
 
 
 class HotelCog(commands.Cog):
@@ -128,7 +129,67 @@ class HotelCog(commands.Cog):
             f"🎫 所持チケット: **{tickets}枚**",
             ephemeral=True
         )
+    # ================================
+    # /ホテルボタン再送
+    # ================================
+    @app_commands.command(
+        name="ホテルボタン再送",
+        description="ホテルルームの操作パネルを再送します（Bot再起動で動かない場合用）"
+    )
+    async def hotel_resend_panel(self, interaction: discord.Interaction):
 
+        vc = interaction.channel
+        if not isinstance(vc, discord.VoiceChannel):
+            return await interaction.response.send_message(
+                "❌ このコマンドは VC のテキスト欄で実行してください。",
+                ephemeral=True
+            )
+
+        guild_id = str(interaction.guild.id)
+
+        # 🔍 DB から VC がホテルルームか調べる
+        room = await interaction.client.db.get_room(str(vc.id))
+        if not room:
+            return await interaction.response.send_message(
+                "❌ このVCはホテルルームとして登録されていません。",
+                ephemeral=True
+            )
+
+        owner_id = room["owner_id"]
+        manager_role_id = int(interaction.client.config[guild_id]["manager_role"])
+        admin_role_id = int(interaction.client.config[guild_id]["admin_role"]) if "admin_role" in interaction.client.config[guild_id] else None
+
+        # 🔑 権限チェック
+        user = interaction.user
+        ok = False
+
+        if str(user.id) == owner_id:
+            ok = True
+        elif any(r.id == manager_role_id for r in user.roles):
+            ok = True
+        elif admin_role_id and any(r.id == admin_role_id for r in user.roles):
+            ok = True
+
+        if not ok:
+            return await interaction.response.send_message(
+                "❌ このルームの作成者、管理者、ホテルマネージャーのみが実行できます。",
+                ephemeral=True
+            )
+
+        # ▼ パネルを再送
+        panel = HotelRoomControlPanel(
+            owner_id=owner_id,
+            manager_role_id=manager_role_id,
+            sub_role_id=interaction.client.config[guild_id]["sub_role"],
+            config=interaction.client.config[guild_id]
+        )
+
+        await interaction.response.send_message(
+            "🔄 パネルを再送しました！",
+            ephemeral=True
+        )
+
+        await vc.send("🔄 **操作パネルを再送しました！**", view=panel)
     # ======================================================
     # /ホテルリセット
     # ======================================================
