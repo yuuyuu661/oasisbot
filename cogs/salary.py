@@ -48,32 +48,11 @@ class SalaryCog(commands.Cog):
             embed.description = "設定なし。"
         else:
             lines = []
-            orphan_ids: list[str] = []
-
             for s in salaries:
-                role_id = s["role_id"]
-                role = interaction.guild.get_role(int(role_id))
-
-                # ロールが既にサーバーから削除されている場合
-                if role is None:
-                    orphan_ids.append(role_id)
-                    continue  # 一覧表示からも除外
-
-                role_name = role.name
+                role = interaction.guild.get_role(int(s["role_id"]))
+                role_name = role.name if role else f"不明ロール ({s['role_id']})"
                 lines.append(f"**{role_name}**：{s['salary']} {unit}")
-
-            # 表示用
-            if lines:
-                embed.description = "\n".join(lines)
-            else:
-                embed.description = "設定なし。"
-
-            # DB クリーンアップ（削除されたロールの給料設定を削除）
-            for rid in orphan_ids:
-                await self.bot.db.conn.execute(
-                    "DELETE FROM role_salaries WHERE role_id=$1",
-                    rid
-                )
+            embed.description = "\n".join(lines)
 
         await interaction.response.send_message(embed=embed)
 
@@ -131,11 +110,22 @@ class SalaryCog(commands.Cog):
         guild = interaction.guild
         guild_id = str(guild.id)
 
+        # ▼ ホテル設定からサブ垢ロールID取得
+        hotel_config = await self.bot.db.conn.fetchrow(
+            "SELECT sub_role FROM hotel_settings WHERE guild_id=$1",
+            guild_id
+        )
+        sub_role_id = hotel_config["sub_role"] if hotel_config else None
+
         total_users = 0
         total_amount = 0
 
         for member in guild.members:
             if member.bot:
+                continue
+
+            # サブ垢ロール持ちは除外
+            if sub_role_id and (role := guild.get_role(int(sub_role_id))) and role in member.roles:
                 continue
 
             add_amount = 0
@@ -156,8 +146,9 @@ class SalaryCog(commands.Cog):
         )
 
         await interaction.response.send_message(
-            f"🎉 **{total_users}人** に **{total_amount}{unit}** を配布しました！"
+            f"🎉 **{total_users}人** に **{total_amount}{unit}** を配布しました！\n"
         )
+
 
 
 # --------------------------
