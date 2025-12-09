@@ -96,6 +96,39 @@ class GambleCog(commands.Cog):
 
         await interaction.response.send_message(embed=embed, view=view)
 
+    # ============================================
+    # 🔥 時間切れになったらギャンブルを自動削除する関数
+    # ============================================
+    async def delete_when_expired(bot, guild_id, expire_dt):
+    """締め切り時間になるまで待って、ギャンブルを自動削除する。"""
+
+    now = datetime.now()
+    wait_sec = (expire_dt - now).total_seconds()
+
+    # もし時間がすでに過ぎていたら即削除
+    if wait_sec <= 0:
+        await bot.db.conn.execute("DELETE FROM gamble_current WHERE guild_id=$1", guild_id)
+        await bot.db.conn.execute("DELETE FROM gamble_bets WHERE guild_id=$1", guild_id)
+        return
+
+    # 時間まで待機
+    await asyncio.sleep(wait_sec)
+
+    # ギャンブルがまだ残っていれば削除
+    exist = await bot.db.conn.fetchrow(
+        "SELECT * FROM gamble_current WHERE guild_id=$1",
+        guild_id
+    )
+
+    if exist:
+        await bot.db.conn.execute("DELETE FROM gamble_current WHERE guild_id=$1", guild_id)
+        await bot.db.conn.execute("DELETE FROM gamble_bets WHERE guild_id=$1", guild_id)
+
+        # 必要ならログも送れる（任意）
+        # guild = bot.get_guild(int(guild_id))
+        # channel = guild.system_channel
+        # if channel:
+        #     await channel.send("🕒 ギャンブルは締め切りのため自動キャンセルされました。")
 
     # ================ ギャンブル終了 ================
     @app_commands.command(
@@ -137,11 +170,11 @@ class GambleCog(commands.Cog):
         await interaction.response.send_message(embed=embed, view=view)
 
 
-# ===========================================================
-# -------------------- 承諾ボタン ---------------------------
-# ===========================================================
+    # ===========================================================
+    # -------------------- 承諾ボタン ---------------------------
+    # ===========================================================
 
-class AcceptView(discord.ui.View):
+    class AcceptView(discord.ui.View):
     def __init__(self, bot, guild_id, starter_id, opponent_id):
         super().__init__(timeout=None)
         self.bot = bot
@@ -199,13 +232,24 @@ class BetView(discord.ui.View):
         self.starter_id = starter_id
         self.opponent_id = opponent_id
 
-    @discord.ui.button(label="開始者に賭ける", style=discord.ButtonStyle.blurple)
-    async def bet_starter(self, interaction: discord.Interaction, button):
+        guild = bot.get_guild(int(guild_id))
+        starter_user = guild.get_member(int(starter_id))
+        opponent_user = guild.get_member(int(opponent_id))
+
+        # ボタンに実名を反映
+        self.start_label = f"{starter_user.display_name} に賭ける"
+        self.oppo_label = f"{opponent_user.display_name} に賭ける"
+
+    @discord.ui.button(label="loading...", style=discord.ButtonStyle.blurple)
+    async def bet_starter(self, interaction, button):
+        button.label = self.start_label
         await self.open_bet_modal(interaction, side="A")
 
-    @discord.ui.button(label="対戦者に賭ける", style=discord.ButtonStyle.grey)
-    async def bet_opponent(self, interaction: discord.Interaction, button):
+    @discord.ui.button(label="loading...", style=discord.ButtonStyle.grey)
+    async def bet_opponent(self, interaction, button):
+        button.label = self.oppo_label
         await self.open_bet_modal(interaction, side="B")
+
 
     @discord.ui.button(label="締め切り", style=discord.ButtonStyle.red)
     async def close_bet(self, interaction: discord.Interaction, button):
@@ -295,14 +339,23 @@ class JudgeView(discord.ui.View):
         self.guild_id = guild_id
         self.starter_id = starter_id
         self.opponent_id = opponent_id
-        self.votes = {}  # {user_id: 'A' or 'B'}
+        self.votes = {}
 
-    @discord.ui.button(label="開始者の勝利", style=discord.ButtonStyle.green)
+        guild = bot.get_guild(int(guild_id))
+        starter_user = guild.get_member(int(starter_id))
+        opponent_user = guild.get_member(int(opponent_id))
+
+        self.label_A = f"{starter_user.display_name} の勝利"
+        self.label_B = f"{opponent_user.display_name} の勝利"
+
+    @discord.ui.button(label="loading...", style=discord.ButtonStyle.green)
     async def win_A(self, interaction, button):
+        button.label = self.label_A
         await self.vote(interaction, "A")
 
-    @discord.ui.button(label="対戦者の勝利", style=discord.ButtonStyle.green)
+    @discord.ui.button(label="loading...", style=discord.ButtonStyle.green)
     async def win_B(self, interaction, button):
+        button.label = self.label_B
         await self.vote(interaction, "B")
 
     async def vote(self, interaction, side):
@@ -454,6 +507,8 @@ class JudgeView(discord.ui.View):
 
         return embed, None
 
+# 🔥 時間切れ監視タスクを起動
+asyncio.create_task(delete_when_expired(self.bot, guild_id, expire_dt))
 
 # --------------------------
 # setup（必須）
@@ -465,5 +520,6 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
