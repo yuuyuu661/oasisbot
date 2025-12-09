@@ -11,7 +11,7 @@ class BalanceCog(commands.Cog):
         self.bot = bot
 
     # ================================
-    # /bal 残高確認
+    # /bal 残高確認（指定ユーザーを見る場合は管理者ロール必須）
     # ================================
     @app_commands.command(
         name="bal",
@@ -40,10 +40,23 @@ class BalanceCog(commands.Cog):
         # 対象ユーザー（未指定なら自分）
         target = member or user
 
+        # ======================================================
+        # 🔐 他人の残高を見るときは管理者ロールが必要！
+        # ======================================================
+        if target.id != user.id:
+            settings = await db.get_settings()
+            admin_roles = settings["admin_roles"] or []
+
+            if not any(str(r.id) in admin_roles for r in user.roles):
+                return await interaction.response.send_message(
+                    "❌ 他ユーザーの残高を確認するには管理者ロールが必要です。",
+                    ephemeral=True
+                )
+
         try:
             # 残高
             row = await db.get_user(str(target.id), str(guild.id))
-            # チケット枚数（hotel_tickets テーブル）
+            # チケット枚数
             tickets = await db.get_tickets(str(target.id), str(guild.id))
             # 通貨単位
             settings = await db.get_settings()
@@ -67,6 +80,7 @@ class BalanceCog(commands.Cog):
             f"チケット: **{tickets}枚**",
             ephemeral=True
         )
+
 
     # ================================
     # /pay 送金（メモ対応）
