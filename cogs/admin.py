@@ -63,7 +63,7 @@ class AdminCog(commands.Cog):
     # ------------------------------------------------------
     # /ロール送金（管理者ロール必須）
     # ------------------------------------------------------
-    @app_commands.command(
+        @app_commands.command(
         name="ロール送金",
         description="指定ロールを持つ全メンバーに一括送金します（管理者）"
     )
@@ -89,14 +89,40 @@ class AdminCog(commands.Cog):
         guild = interaction.guild
         guild_id = str(guild.id)
 
-        # 対象メンバー抽出
-        members = [m for m in guild.members if role in m.roles and not m.bot]
+        # ▼ ホテル設定のサブ垢ロール取得
+        hotel_config = await self.bot.db.conn.fetchrow(
+            "SELECT sub_role FROM hotel_settings WHERE guild_id=$1",
+            guild_id
+        )
+        sub_role_id = hotel_config["sub_role"] if hotel_config else None
+        sub_role = guild.get_role(int(sub_role_id)) if sub_role_id else None
+
+        # ▼ 対象メンバー抽出（サブ垢ロールは除外）
+        members = [
+            m for m in guild.members
+            if (role in m.roles)
+            and not m.bot
+            and not (sub_role and sub_role in m.roles)
+        ]
 
         if not members:
             return await interaction.response.send_message(
-                "⚠ 指定ロールを持つユーザーがいません。",
+                "⚠ 対象ユーザーがいません。（サブ垢ロール所持者は除外済み）",
                 ephemeral=True
             )
+
+        # ▼ 加算処理
+        for member in members:
+            await self.bot.db.add_balance(str(member.id), guild_id, amount)
+
+        total = amount * len(members)
+
+        await interaction.response.send_message(
+            f"💰 ロール **{role.name}** を持つ **{len(members)}名** に "
+            f"**{amount}{unit}** を送金しました！（合計：{total}{unit}）\n"
+            f"※ サブ垢ロール所持者は自動的に除外されています。"
+        )
+
 
         # 加算処理
         for member in members:
