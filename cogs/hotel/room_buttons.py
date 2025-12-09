@@ -419,18 +419,17 @@ async def send_extend_log(interaction, vc, days, new_expire):
 
 
 # ======================================================
-# ⑧ サブ垢追加（選択式）
+# ⑧ サブ垢追加（選択式・ページング対応）
 # ======================================================
 class RoomAddSubRoleButton(discord.ui.Button):
     def __init__(self, parent):
         super().__init__(label="サブ垢追加", style=discord.ButtonStyle.blurple)
-        self.parent = parent
+        self.parent = parent  # panel を保持
 
     async def callback(self, interaction: discord.Interaction):
 
         guild = interaction.guild
 
-        # ❗ config ではなく panel に保存されている owner_id を使う
         owner_id = int(self.parent.owner_id)
         manager_role_id = int(self.parent.manager_role_id)
         sub_role_id = int(self.parent.sub_role_id)
@@ -452,6 +451,7 @@ class RoomAddSubRoleButton(discord.ui.Button):
         if not candidates:
             return await interaction.response.send_message("⚠ サブ垢ロール所持者がいません。", ephemeral=True)
 
+        # ▼ 1人だけ
         if len(candidates) == 1:
             t = candidates[0]
             await vc.set_permissions(t, view_channel=True, connect=True)
@@ -461,27 +461,115 @@ class RoomAddSubRoleButton(discord.ui.Button):
                 ephemeral=True
             )
 
+        # ▼ 25 人ずつページング処理
+        CHUNK = 25
+        pages = [candidates[i:i+CHUNK] for i in range(0, len(candidates), CHUNK)]
+
+        # --- ページ描画 ---
+        async def send_page(inter, index):
+            page_members = pages[index]
+
+            class SubSelect(discord.ui.Select):
+                def __init__(self, members):
+                    options = [
+                        discord.SelectOption(label=m.display_name, value=str(m.id))
+                        for m in members
+                    ]
+                    super().__init__(
+                        placeholder=f"サブ垢を選択（{index+1}/{len(pages)}ページ）",
+                        options=options,
+                        min_values=1,
+                        max_values=1
+                    )
+                    self.map = {str(m.id): m for m in members}
+
+                async def callback(self, inter2: discord.Interaction):
+                    uid = self.values[0]
+                    target = self.map[uid]
+
+                    await vc.set_permissions(target, view_channel=True, connect=True)
+                    await vc.edit(user_limit=(vc.user_limit or 2) + 1)
+
+                    await inter2.response.edit_message(
+                        content=f"👤 **{target.display_name}** をサブ垢として追加しました！",
+                        view=None
+                    )
+
+            # ナビゲーションボタン
+            class PrevButton(discord.ui.Button):
+                def __init__(self):
+                    super().__init__(label="⬅ 前", style=discord.ButtonStyle.gray)
+
+                async def callback(self, i):
+                    await send_page(i, index - 1)
+
+            class NextButton(discord.ui.Button):
+                def __init__(self):
+                    super().__init__(label="次 ➡", style=discord.ButtonStyle.gray)
+
+                async def callback(self, i):
+                    await send_page(i, index + 1)
+
+            view = discord.ui.View()
+            view.add_item(SubSelect(page_members))
+
+            if index > 0:
+                view.add_item(PrevButton())
+            if index < len(pages) - 1:
+                view.add_item(NextButton())
+
+            await inter.response.edit_message(
+                content="追加するサブ垢を選択してください👇",
+                view=view
+            )
+
+        # 最初のページを送信
+        view = discord.ui.View()
+        first_page = pages[0]
+
         class SubSelect(discord.ui.Select):
             def __init__(self, members):
-                options = [discord.SelectOption(label=m.display_name, value=str(m.id)) for m in members]
-                super().__init__(placeholder="サブ垢を選択", options=options, min_values=1, max_values=1)
+                options = [
+                    discord.SelectOption(label=m.display_name, value=str(m.id))
+                    for m in members
+                ]
+                super().__init__(
+                    placeholder=f"サブ垢を選択（1/{len(pages)}ページ）",
+                    options=options,
+                    min_values=1,
+                    max_values=1
+                )
                 self.map = {str(m.id): m for m in members}
 
             async def callback(self, inter):
                 uid = self.values[0]
                 target = self.map[uid]
+
                 await vc.set_permissions(target, view_channel=True, connect=True)
                 await vc.edit(user_limit=(vc.user_limit or 2) + 1)
+
                 await inter.response.edit_message(
                     content=f"👤 **{target.display_name}** をサブ垢として追加しました！",
                     view=None
                 )
 
-        view = discord.ui.View()
-        view.add_item(SubSelect(candidates))
+        view.add_item(SubSelect(first_page))
+
+        # ページが複数ある場合は「次へ」ボタンを追加
+        if len(pages) > 1:
+            class NextStart(discord.ui.Button):
+                def __init__(self):
+                    super().__init__(label="次 ➡", style=discord.ButtonStyle.gray)
+
+                async def callback(self, inter):
+                    await send_page(inter, 1)
+
+            view.add_item(NextStart())
 
         await interaction.response.send_message(
-            "追加するサブ垢を選択してください👇", view=view, ephemeral=True
+            "追加するサブ垢を選択してください👇",
+            view=view,
+            ephemeral=True
         )
 
 
