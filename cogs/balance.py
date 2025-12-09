@@ -40,9 +40,6 @@ class BalanceCog(commands.Cog):
         # 対象ユーザー（未指定なら自分）
         target = member or user
 
-        # ======================================================
-        # 🔐 他人の残高を見るときは管理者ロールが必要！
-        # ======================================================
         if target.id != user.id:
             settings = await db.get_settings()
             admin_roles = settings["admin_roles"] or []
