@@ -97,12 +97,6 @@ class BalanceCog(commands.Cog):
                 ephemeral=True
             )
 
-        # --- 基本チェック ---
-        if sender.id == member.id:
-            return await interaction.response.send_message(
-                "自分自身には送金できません。",
-                ephemeral=True
-            )
 
         if amount <= 0:
             return await interaction.response.send_message(
