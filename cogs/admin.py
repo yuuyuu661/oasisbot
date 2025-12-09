@@ -125,11 +125,11 @@ class AdminCog(commands.Cog):
 
 
     # --------------------------
-    # /残高一覧（ギルド別）
+    # /残高一覧（ページ表示 + 並び替え）
     # --------------------------
     @app_commands.command(
         name="残高一覧",
-        description="全ユーザーの残高を上位順に表示します（管理者限定）"
+        description="全ユーザーの残高をページ式で表示します（管理者限定）"
     )
     async def balance_list(self, interaction: discord.Interaction):
 
@@ -137,6 +137,7 @@ class AdminCog(commands.Cog):
         admin_roles = settings["admin_roles"] or []
         unit = settings["currency_unit"]
 
+        # 管理者ロールチェック
         if not any(str(r.id) in admin_roles for r in interaction.user.roles):
             return await interaction.response.send_message(
                 "❌ 管理者ロールが必要です。",
@@ -146,20 +147,123 @@ class AdminCog(commands.Cog):
         guild_id = str(interaction.guild.id)
         rows = await self.bot.db.get_all_balances(guild_id)
 
-        embed = discord.Embed(
+        if not rows:
+            return await interaction.response.send_message(
+                "⚠ データがありません。",
+                ephemeral=True
+            )
+
+        # ---- ページ管理オブジェクト ----
+        view = BalanceListView(
+            rows=rows,
+            unit=unit,
             title="💰 残高一覧（上位順）",
+            reverse=False
+        )
+
+        embed = view.get_page_embed(0)
+
+        await interaction.response.send_message(embed=embed, view=view)
+
+    class BalanceListView(discord.ui.View):
+    def __init__(self, rows, unit, title, reverse=False):
+        super().__init__(timeout=120)
+
+        self.unit = unit
+        self.title = title
+        self.reverse = reverse
+
+        # rows = [{user_id, balance}, ...]
+        self.rows_raw = rows
+        self.page = 0
+
+        self.PAGE_SIZE = 20
+
+        self.refresh_sorted_rows()
+
+    # 並び替え処理
+    def refresh_sorted_rows(self):
+        if self.reverse:
+            # 0円は除外
+            self.rows = [r for r in self.rows_raw if r["balance"] > 0]
+            self.rows.sort(key=lambda r: r["balance"])
+        else:
+            # 上位順
+            self.rows = sorted(self.rows_raw, key=lambda r: r["balance"], reverse=True)
+
+        self.max_page = max(0, (len(self.rows) - 1) // self.PAGE_SIZE)
+
+    # 現在ページの embed を生成
+    def get_page_embed(self, page: int):
+        self.page = page
+
+        start = page * self.PAGE_SIZE
+        end = start + self.PAGE_SIZE
+        chunk = self.rows[start:end]
+
+        embed = discord.Embed(
+            title=self.title + ("（低い順）" if self.reverse else ""),
             color=0xf1c40f
         )
 
-        if not rows:
-            embed.description = "データがありません。"
-        else:
-            lines = []
-            for r in rows:
-                lines.append(f"<@{r['user_id']}>：**{r['balance']}{unit}**")
-            embed.description = "\n".join(lines)
+        if not chunk:
+            embed.description = "データなし"
+            return embed
 
-        await interaction.response.send_message(embed=embed)
+        lines = []
+        for r in chunk:
+            uid = r["user_id"]
+            bal = r["balance"]
+            lines.append(f"<@{uid}>：**{bal}{self.unit}**")
+
+        embed.description = "\n".join(lines)
+        embed.set_footer(text=f"Page {self.page+1} / {self.max_page+1}")
+
+        return embed
+
+    # ---------- ボタン：前へ ----------
+    @discord.ui.button(label="◀ 前へ", style=discord.ButtonStyle.primary)
+    async def prev_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page > 0:
+            self.page -= 1
+        else:
+            return await interaction.response.send_message("これ以上前はないよ！", ephemeral=True)
+
+        embed = self.get_page_embed(self.page)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    # ---------- ボタン：次へ ----------
+    @discord.ui.button(label="次へ ▶", style=discord.ButtonStyle.primary)
+    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page < self.max_page:
+            self.page += 1
+        else:
+            return await interaction.response.send_message("これ以上先はないよ！", ephemeral=True)
+
+        embed = self.get_page_embed(self.page)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    # ---------- ボタン：逆順 ----------
+    @discord.ui.button(label="🔄 低い順", style=discord.ButtonStyle.secondary)
+    async def sort_reverse(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.reverse = True
+        self.refresh_sorted_rows()
+        self.page = 0
+
+        embed = self.get_page_embed(0)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    # ---------- ボタン：上位順 ----------
+    @discord.ui.button(label="🔝 高い順", style=discord.ButtonStyle.secondary)
+    async def sort_normal(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.reverse = False
+        self.refresh_sorted_rows()
+        self.page = 0
+
+        embed = self.get_page_embed(0)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+
 
 
 # --------------------------
