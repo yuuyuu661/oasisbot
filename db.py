@@ -139,6 +139,38 @@ class Database:
                 amount   INTEGER
             );
         """)
+        # 年末ジャンボ購入番号
+        await self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS jumbo_entries (
+                guild_id TEXT,
+                user_id TEXT,
+                number TEXT,
+                purchased_at TIMESTAMP DEFAULT NOW(),
+                PRIMARY KEY (guild_id, number)
+            );
+        """)
+
+# 年末ジャンボ設定
+await self.conn.execute("""
+CREATE TABLE IF NOT EXISTS jumbo_config (
+    guild_id TEXT PRIMARY KEY,
+    title TEXT,
+    description TEXT,
+    deadline TIMESTAMP,
+    is_open BOOLEAN
+);
+""")
+
+# 年末ジャンボ当選者
+await self.conn.execute("""
+CREATE TABLE IF NOT EXISTS jumbo_winners (
+    guild_id TEXT,
+    rank INT,
+    number TEXT,
+    user_id TEXT,
+    PRIMARY KEY (guild_id, rank, number)
+);
+""")
 
         # ------------------------------------------------------
         # settings の初期行作成
@@ -286,3 +318,4 @@ class Database:
             "SELECT * FROM hotel_rooms WHERE channel_id=$1",
             channel_id
         )
+
