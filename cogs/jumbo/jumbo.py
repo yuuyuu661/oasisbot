@@ -74,16 +74,28 @@ class JumboCog(commands.Cog):
         # Discord表示用にUTCタイムスタンプへ変換
         ts = int(deadline_dt.replace(tzinfo=timezone.utc).timestamp())
 
-        # 購入パネル生成
+        # 日本語曜日
+        week = ["月", "火", "水", "木", "金", "土", "日"]
+        w = week[deadline_dt.weekday()]
+
+        deadline_str = (
+            f"{deadline_dt.year}年"
+            f"{deadline_dt.month}月"
+            f"{deadline_dt.day}日"
+            f"（{w}）23:59 締切"
+        )
+
         embed = discord.Embed(
             title=f"🎉 {title}",
             description=(
                 f"{description}\n\n"
-                f"**購入期限：<t:{ts}:F>（23:59締切）**\n"
-                f"1口 = 10,000 spt\n1人最大10口まで\n"
+                f"**購入期限：{deadline_str}**\n"
+                f"1口 = 10,000 rrc\n"
+                f"1人最大10口まで\n"
             ),
             color=0xF1C40F
         )
+
 
         view = JumboBuyView(self.bot, self.jumbo_db, guild_id)
 
@@ -157,3 +169,4 @@ async def setup(bot):
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
 
     print("🎫 Jumbo module loaded.")
+
