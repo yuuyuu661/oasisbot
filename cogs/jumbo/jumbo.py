@@ -150,13 +150,5 @@ class JumboCog(commands.Cog):
 async def setup(bot):
     await bot.add_cog(JumboCog(bot))
 
-    if hasattr(bot, "GUILD_IDS"):
-        for gid in bot.GUILD_IDS:
-            guild = discord.Object(id=gid)
-            try:
-                synced = await bot.tree.sync(guild=guild)
-                print(f"[Jumbo] Synced {len(synced)} cmds → guild {gid}")
-            except Exception as e:
-                print(f"[Jumbo] Sync failed for {gid}: {e}")
-
     print("🎫 Jumbo module loaded.")
+
