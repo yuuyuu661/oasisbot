@@ -38,11 +38,15 @@ async def on_ready():
     print("データベース準備完了")
 
     await load_cogs()
+    print("すべてのCogロード完了")
 
+    # ---- ✨ ここで初めて同期 ----
     for gid in bot.GUILD_IDS:
         guild_obj = discord.Object(id=gid)
         synced = await bot.tree.sync(guild=guild_obj)
         print(f"Slash Command 同期完了（{len(synced)}個） for {gid}")
+
+    print("✔ コマンド完全同期済み！")
 
 
 async def load_cogs():
@@ -67,6 +71,7 @@ async def load_cogs():
 
 if __name__ == "__main__":
     asyncio.run(bot.start(TOKEN))
+
 
 
 
