@@ -28,18 +28,15 @@ class JumboCog(commands.Cog):
             settings = await self.bot.db.get_settings()
             ADMIN_ROLES_CACHE[guild_id] = settings["admin_roles"] or []
 
-        admin_role_ids = {
-            int(r) for r in ADMIN_ROLES_CACHE[guild_id]
-            if r.isdigit()
-        }
+        admin_role_ids = {int(r) for r in ADMIN_ROLES_CACHE[guild_id] if r.isdigit()}
 
         return any(r.id in admin_role_ids for r in interaction.user.roles)
 
     # ----------------------------------------
-    # /年末ジャンボ開催
+    # /jumbo_start（日本語コマンド名バグ回避）
     # ----------------------------------------
     @app_commands.command(
-        name="年末ジャンボ開催",
+        name="jumbo_start",
         description="年末ジャンボを開始し、購入パネルを設置します（管理者のみ）"
     )
     @app_commands.describe(
@@ -57,7 +54,8 @@ class JumboCog(commands.Cog):
 
         if not await self.is_admin(interaction):
             return await interaction.response.send_message(
-                "❌ 管理者ロールが必要です。", ephemeral=True
+                "❌ 管理者ロールが必要です。",
+                ephemeral=True
             )
 
         guild_id = str(interaction.guild.id)
@@ -93,10 +91,10 @@ class JumboCog(commands.Cog):
         await interaction.followup.send(embed=embed, view=view)
 
     # ----------------------------------------
-    # /年末ジャンボ当選者発表
+    # /jumbo_draw
     # ----------------------------------------
     @app_commands.command(
-        name="年末ジャンボ当選者発表",
+        name="jumbo_draw",
         description="年末ジャンボの当選抽選を開始します（管理者のみ）"
     )
     async def jumbo_draw(self, interaction: discord.Interaction):
@@ -118,11 +116,11 @@ class JumboCog(commands.Cog):
         await handler.start(interaction)
 
     # ----------------------------------------
-    # /ジャンボ履歴リセット
+    # /jumbo_reset
     # ----------------------------------------
     @app_commands.command(
-        name="ジャンボ履歴リセット",
-        description="ジャンボの番号・設定・当選履歴を全リセットします（管理者のみ）"
+        name="jumbo_reset",
+        description="ジャンボの履歴データを全てリセットします（管理者のみ）"
     )
     async def jumbo_reset(self, interaction: discord.Interaction):
 
