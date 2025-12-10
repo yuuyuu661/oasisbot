@@ -91,7 +91,10 @@ class JumboCog(commands.Cog):
 
         config = await self.jumbo_db.get_config(str(interaction.guild.id))
         if not config:
-            return await interaction.response.send_message("❌ 開催されていません。", ephemeral=True)
+            return await interaction.response.send_message(
+                "❌ 開催されていません。",
+                ephemeral=True
+            )
 
         handler = JumboDrawHandler(self.bot, self.jumbo_db)
         await handler.start(interaction)
@@ -101,7 +104,7 @@ class JumboCog(commands.Cog):
     # ------------------------
     @app_commands.command(
         name="jumbo_reset",
-        description="年末ジャンボの履歴を全リセット（管理者のみ）"
+        description="年末ジャンボの履歴をリセット（管理者のみ）"
     )
     async def jumbo_reset(self, interaction: discord.Interaction):
 
@@ -114,7 +117,10 @@ class JumboCog(commands.Cog):
         await self.jumbo_db.clear_winners(guild_id)
         await self.jumbo_db.reset_config(guild_id)
 
-        await interaction.response.send_message("🧹 ジャンボデータをリセットしました！", ephemeral=True)
+        await interaction.response.send_message(
+            "🧹 ジャンボデータをリセットしました。",
+            ephemeral=True
+        )
 
 
 async def setup(bot: commands.Bot):
