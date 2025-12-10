@@ -22,7 +22,16 @@ class JumboCog(commands.Cog):
     # 内部：管理者ロール判定
     # ------------------------------------------------------
     async def is_admin(self, interaction: discord.Interaction):
-        guild_id = str(interaction.guild.id)
+
+        # Settings は 1 行固定の共通設定
+        settings = await self.bot.db.get_settings()
+        admin_roles = settings["admin_roles"] or []
+
+        # ユーザーが管理者ロールを所持しているか判定
+        return any(
+            str(role.id) in admin_roles
+            for role in interaction.user.roles
+        )
 
         # 設定ロード
         if guild_id not in ADMIN_ROLES_CACHE:
@@ -156,5 +165,6 @@ async def setup(bot):
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
 
     print("🎫 Jumbo module loaded.")
+
 
 
