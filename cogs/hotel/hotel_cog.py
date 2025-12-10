@@ -3,6 +3,8 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
+import asyncio                    # ★ 追加
+from datetime import datetime     # ★ 追加
 
 from .checkin import CheckinButton
 from .ticket_dropdown import TicketBuyDropdown, TicketBuyExecuteButton
@@ -12,6 +14,52 @@ from .room_panel import HotelRoomControlPanel
 class HotelCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        # ★ 自動削除監視タスクを起動
+        self.bot.loop.create_task(self._hotel_expire_task())
+
+    # ================================
+    # 🔥 ホテル自動削除タスク
+    # ================================
+    async def _hotel_expire_task(self):
+        # Bot起動完了を待つ
+        await self.bot.wait_until_ready()
+
+        while not self.bot.is_closed():
+            try:
+                now = datetime.utcnow()
+
+                # hotel_rooms から全ルーム取得
+                rows = await self.bot.db.conn.fetch(
+                    "SELECT channel_id, guild_id, expire_at FROM hotel_rooms"
+                )
+
+                for row in rows:
+                    expire_at = row["expire_at"]
+                    if expire_at is None:
+                        continue
+
+                    if now >= expire_at:
+                        guild_id = int(row["guild_id"])
+                        channel_id = int(row["channel_id"])
+
+                        guild = self.bot.get_guild(guild_id)
+                        if guild:
+                            vc = guild.get_channel(channel_id)
+                            if vc:
+                                try:
+                                    await vc.delete(reason="高級ホテル：期限切れによる自動削除")
+                                except Exception as e:
+                                    print("Hotel auto delete VC error:", e)
+
+                        # DB側も削除
+                        await self.bot.db.delete_room(str(channel_id))
+                        print(f"[Hotel] Auto delete → VC {channel_id}")
+
+            except Exception as e:
+                print("Hotel expire task error:", e)
+
+            # 30秒ごとにチェック（お好みで調整可）
+            await asyncio.sleep(30)
 
     # ================================
     # VC削除 → DBクリーンアップ
