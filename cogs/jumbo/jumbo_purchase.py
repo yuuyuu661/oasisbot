@@ -1,10 +1,8 @@
-# cogs/jumbo/jumbo_purchase.py
+### cogs/jumbo/jumbo_purchase.py
 
 import discord
 from discord.ext import commands
-from discord import app_commands
-import random
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 
 from .jumbo_db import JumboDB
 
@@ -49,22 +47,26 @@ class JumboBuyModal(discord.ui.Modal):
         if not config or not config["is_open"]:
             return await interaction.response.send_message("❌ 現在、購入はできません。", ephemeral=True)
 
-        deadline = config["deadline"]
-        now = datetime.now(timezone.utc)
+        deadline = config["deadline"]     # DBのTIMESTAMPはnaive
+        now = datetime.now()              # naiveに統一
+
         if now > deadline:
-            return await interaction.response.send_message("❌ 購入期限を過ぎています。", ephemeral=True)
+            return await interaction.response.send_message(
+                "❌ 購入期限を過ぎています。",
+                ephemeral=True
+            )
 
         # ===========================
-        # 残高チェック
+        # 残高チェック（通貨 rrc）
         # ===========================
-        PRICE = 10000  # 1口 = 10000 spt
+        PRICE = 10000  # 1口 = 10000 rrc
 
         user_data = await self.bot.db.get_user(user_id, guild_id)
 
         cost = PRICE * count
         if user_data["balance"] < cost:
             return await interaction.response.send_message(
-                f"❌ 残高不足です。\n必要: {cost} spt / 所持: {user_data['balance']} spt",
+                f"❌ 残高不足です。\n必要: {cost} rrc / 所持: {user_data['balance']} rrc",
                 ephemeral=True
             )
 
@@ -76,6 +78,7 @@ class JumboBuyModal(discord.ui.Modal):
         # ===========================
         # 番号生成（6桁・被りなし）
         # ===========================
+        import random
         numbers = []
 
         for _ in range(count):
@@ -105,7 +108,7 @@ class JumboBuyModal(discord.ui.Modal):
             await interaction.user.send(embed=embed)
 
         except:
-            pass  # DM閉じてても処理は成功扱い
+            pass
 
         # ===========================
         # 購入完了メッセージ
