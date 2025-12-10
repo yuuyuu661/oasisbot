@@ -126,5 +126,13 @@ class JumboCog(commands.Cog):
 
 
 async def setup(bot):
-    await bot.add_cog(JumboCog(bot))
+    cog = JumboCog(bot)
+    await bot.add_cog(cog)
+
+    print("=== JumboCog attributes ===")
+    for attr in dir(cog):
+        if not attr.startswith("_"):
+            print(attr)
+
     print("🎫 Jumbo module loaded.")
+
