@@ -10,66 +10,60 @@ class BalanceCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-# ================================
-# /bal 残高確認（指定ユーザーは管理者のみ）
-# ================================
-@app_commands.command(
-    name="bal",
-    description="自分または指定ユーザーの残高を確認します"
-)
-@app_commands.describe(
-    member="確認したいユーザー（省略時は自分）"
-)
-async def bal(self, interaction: discord.Interaction, member: discord.Member | None = None):
+    # ================================
+    # /bal 残高確認
+    # ================================
+    @app_commands.command(
+        name="bal",
+        description="自分または指定ユーザーの残高を確認します"
+    )
+    @app_commands.describe(
+        member="確認したいユーザー（省略時は自分）"
+    )
+    async def bal(self, interaction: "discord.Interaction", member: discord.Member | None = None):
 
-    guild = interaction.guild
-    user = interaction.user
-    db = self.bot.db
+        guild = interaction.guild
+        user = interaction.user
+        db = self.bot.db
 
-    if guild is None:
-        return await interaction.response.send_message(
-            "サーバー内でのみ使用できます。",
-            ephemeral=True
-        )
-
-    # ▼ 見たい対象
-    target = member or user
-
-    # ▼ 他人の残高を見るときは管理者ロール必須
-    if target.id != user.id:
-
-        settings = await db.get_settings()
-        admin_roles = settings.get("admin_roles", [])  # ['id', 'id', ...]
-
-        # ロールIDの整数化セット
-        admin_role_ids = {int(rid) for rid in admin_roles if rid.isdigit()}
-
-        # 実行者が管理者ロールを持っているか
-        has_admin = any(r.id in admin_role_ids for r in user.roles)
-
-        if not has_admin:
+        if guild is None:
             return await interaction.response.send_message(
-                "❌ 他ユーザーの残高を確認するには管理者ロールが必要です。",
+                "サーバー内でのみ使用できます。",
                 ephemeral=True
             )
 
-    # ▼ DB取得
-    row = await db.get_user(str(target.id), str(guild.id))
-    tickets = await db.get_tickets(str(target.id), str(guild.id))
-    settings = await db.get_settings()
-    unit = settings["currency_unit"]
+        target = member or user
 
-    await interaction.response.send_message(
-        f"💰 **{target.display_name} の残高**\n"
-        f"所持金: **{row['balance']} {unit}**\n"
-        f"チケット: **{tickets}枚**",
-        ephemeral=True
-    )
+        # ▼ 他人の残高を見る → 管理者チェック
+        if target.id != user.id:
+            settings = await db.get_settings()
+            admin_roles = settings.get("admin_roles", [])
+            admin_role_ids = {int(rid) for rid in admin_roles if rid.isdigit()}
 
+            has_admin = any(r.id in admin_role_ids for r in user.roles)
 
+            if not has_admin:
+                return await interaction.response.send_message(
+                    "❌ 他ユーザーの残高を見るには管理者ロールが必要です。",
+                    ephemeral=True
+                )
+
+        # ▼ DB取得
+        row = await db.get_user(str(target.id), str(guild.id))
+        tickets = await db.get_tickets(str(target.id), str(guild.id))
+
+        settings = await db.get_settings()
+        unit = settings["currency_unit"]
+
+        await interaction.response.send_message(
+            f"💰 **{target.display_name} の残高**\n"
+            f"所持金: **{row['balance']} {unit}**\n"
+            f"チケット: **{tickets}枚**",
+            ephemeral=True
+        )
 
     # ================================
-    # /pay 送金（メモ対応）
+    # /pay 送金
     # ================================
     @app_commands.command(
         name="pay",
@@ -82,11 +76,12 @@ async def bal(self, interaction: discord.Interaction, member: discord.Member | N
     )
     async def pay(
         self,
-        interaction: discord.Interaction,
+        interaction: "discord.Interaction",
         member: discord.Member,
         amount: int,
         memo: str | None = None
     ):
+
         bot = self.bot
         guild = interaction.guild
         sender = interaction.user
@@ -96,7 +91,6 @@ async def bal(self, interaction: discord.Interaction, member: discord.Member | N
                 "サーバー内でのみ使用できます。",
                 ephemeral=True
             )
-
 
         if amount <= 0:
             return await interaction.response.send_message(
@@ -110,7 +104,7 @@ async def bal(self, interaction: discord.Interaction, member: discord.Member | N
             settings = await db.get_settings()
             unit = settings["currency_unit"]
 
-            # 残高チェック
+            # ▼ 残高チェック
             sender_row = await db.get_user(str(sender.id), str(guild.id))
             if sender_row["balance"] < amount:
                 return await interaction.response.send_message(
@@ -118,9 +112,10 @@ async def bal(self, interaction: discord.Interaction, member: discord.Member | N
                     ephemeral=True
                 )
 
-            # 送金実行
+            # ▼ 送金実行
             await db.remove_balance(str(sender.id), str(guild.id), amount)
             await db.add_balance(str(member.id), str(guild.id), amount)
+
         except Exception as e:
             print("pay error:", repr(e))
             if interaction.response.is_done():
@@ -145,11 +140,10 @@ async def bal(self, interaction: discord.Interaction, member: discord.Member | N
 
         await interaction.response.send_message(msg)
 
-        # --- ログ ---
+        # --- ログ出力 ---
         try:
             sig = inspect.signature(log_pay)
             if "memo" in sig.parameters:
-                # memo 対応版 logger の場合
                 await log_pay(
                     bot=bot,
                     settings=settings,
@@ -159,7 +153,6 @@ async def bal(self, interaction: discord.Interaction, member: discord.Member | N
                     memo=memo,
                 )
             else:
-                # 旧 logger（memo なし）の場合
                 await log_pay(
                     bot=bot,
                     settings=settings,
@@ -172,11 +165,10 @@ async def bal(self, interaction: discord.Interaction, member: discord.Member | N
 
 
 async def setup(bot: commands.Bot):
-    """Cog を登録し、/bal と /pay を各ギルドに紐付ける"""
     cog = BalanceCog(bot)
     await bot.add_cog(cog)
 
-    # 既存設計と同じ方式でギルドコマンドとして登録
+    # 既存のsync方式
     for cmd in cog.get_app_commands():
         for gid in getattr(bot, "GUILD_IDS", []):
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
