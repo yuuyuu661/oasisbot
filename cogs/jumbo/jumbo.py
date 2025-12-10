@@ -10,38 +10,23 @@ from .jumbo_purchase import JumboBuyView
 from .jumbo_draw import JumboDrawHandler
 
 
-ADMIN_ROLES_CACHE = {}  # ギルドごとの管理者ロールキャッシュ
-
-
 class JumboCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.jumbo_db = JumboDB(bot)
 
     # ------------------------------------------------------
-    # 内部：管理者ロール判定
+    # 内部：管理者ロール判定（AdminCog と統一）
     # ------------------------------------------------------
     async def is_admin(self, interaction: discord.Interaction):
 
-        # Settings は 1 行固定の共通設定
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
 
-        # ユーザーが管理者ロールを所持しているか判定
         return any(
             str(role.id) in admin_roles
             for role in interaction.user.roles
         )
-
-        # 設定ロード
-        if guild_id not in ADMIN_ROLES_CACHE:
-            settings = await self.bot.db.get_settings()
-            ADMIN_ROLES_CACHE[guild_id] = settings["admin_roles"] or []
-
-        admin_roles = ADMIN_ROLES_CACHE[guild_id]
-        if not any(str(r.id) in admin_roles for r in interaction.user.roles):
-            return False
-        return True
 
     # ------------------------------------------------------
     # /年末ジャンボ開催
@@ -53,14 +38,14 @@ class JumboCog(commands.Cog):
     @app_commands.describe(
         title="イベントタイトル",
         description="説明文",
-        deadline="購入期限（例：2025-12-31 23:59）"
+        deadline="締切日（例：12-31 のみ）"
     )
     async def jumbo_start(
         self,
         interaction: discord.Interaction,
         title: str,
         description: str,
-        deadline: str
+        deadline: str  # ← 例： "12-31"
     ):
 
         # 管理者チェック
@@ -69,25 +54,32 @@ class JumboCog(commands.Cog):
 
         guild_id = str(interaction.guild.id)
 
-        # 期限パース
+        # 今年の年を自動取得
+        current_year = datetime.now().year
+
+        # 期限パース（月-日 のみ）
         try:
-            deadline_dt = datetime.strptime(deadline, "%Y-%m-%d %H:%M")
-            deadline_dt = deadline_dt.replace(tzinfo=timezone.utc)
-        except:
+            # "12-31" → datetime(current_year, 12, 31, 23, 59)
+            month, day = map(int, deadline.split("-"))
+            deadline_dt = datetime(current_year, month, day, 23, 59)
+        except Exception:
             return await interaction.response.send_message(
-                "❌ 期限形式は `YYYY-MM-DD HH:MM` で入力してください。",
+                "❌ 期限形式は `MM-DD`（例：12-31）で入力してください。",
                 ephemeral=True
             )
 
-        # 設定保存
+        # DBには naive datetime のまま保存
         await self.jumbo_db.set_config(guild_id, title, description, deadline_dt)
+
+        # Discord表示用にUTCタイムスタンプへ変換
+        ts = int(deadline_dt.replace(tzinfo=timezone.utc).timestamp())
 
         # 購入パネル生成
         embed = discord.Embed(
             title=f"🎉 {title}",
             description=(
                 f"{description}\n\n"
-                f"**購入期限：<t:{int(deadline_dt.timestamp())}:F>**\n"
+                f"**購入期限：<t:{ts}:F>（23:59締切）**\n"
                 f"1口 = 10,000 spt\n1人最大10口まで\n"
             ),
             color=0xF1C40F
@@ -116,7 +108,6 @@ class JumboCog(commands.Cog):
 
         guild_id = str(interaction.guild.id)
 
-        # 設定があるか確認
         config = await self.jumbo_db.get_config(guild_id)
         if not config or not config["is_open"]:
             return await interaction.response.send_message(
@@ -154,17 +145,15 @@ class JumboCog(commands.Cog):
 
 
 # ------------------------------------------------------
-# setup
+# setup（GuildCommand 登録）
 # ------------------------------------------------------
 async def setup(bot):
     cog = JumboCog(bot)
     await bot.add_cog(cog)
-    
+
+    # ギルド毎にコマンドを登録（日本語スラッシュ対応）
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
 
     print("🎫 Jumbo module loaded.")
-
-
-
