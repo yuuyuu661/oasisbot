@@ -1,5 +1,3 @@
-# cogs/jumbo/jumbo.py
-
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -58,7 +56,6 @@ class JumboCog(commands.Cog):
 
         guild_id = str(interaction.guild.id)
 
-        # 期限パース
         try:
             dt = datetime.strptime(deadline, "%Y-%m-%d %H:%M")
             dt = dt.replace(tzinfo=timezone.utc)
@@ -128,9 +125,6 @@ class JumboCog(commands.Cog):
         )
 
 
-# -------------------------
-# setup（同期はしない！ bot.py が担当）
-# -------------------------
 async def setup(bot):
     await bot.add_cog(JumboCog(bot))
     print("🎫 Jumbo module loaded.")
