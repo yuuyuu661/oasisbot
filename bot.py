@@ -11,22 +11,19 @@ load_dotenv()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-# intents（ホテル機能対応版）
 intents = discord.Intents.default()
 intents.guilds = True
 intents.members = True
 intents.voice_states = True
 
-# Bot インスタンス作成
 bot = commands.Bot(command_prefix="!", intents=intents)
+bot.synced = False  # ★ 同期が1回しか走らないようにする
 
-# GUILD_IDS
 bot.GUILD_IDS = [
     1444580349773348951,
     1420918259187712093
 ]
 
-# DB
 bot.db = Database()
 
 
@@ -40,13 +37,15 @@ async def on_ready():
     await load_cogs()
     print("すべてのCogロード完了")
 
-    # ---- ✨ ここで初めて同期 ----
-    for gid in bot.GUILD_IDS:
-        guild_obj = discord.Object(id=gid)
-        synced = await bot.tree.sync(guild=guild_obj)
-        print(f"Slash Command 同期完了（{len(synced)}個） for {gid}")
+    # ★ ここが重要！ syncは一度だけ
+    if not bot.synced:
+        for gid in bot.GUILD_IDS:
+            guild_obj = discord.Object(id=gid)
+            synced = await bot.tree.sync(guild=guild_obj)
+            print(f"Slash Command 同期完了（{len(synced)}個） for {gid}")
 
-    print("✔ コマンド完全同期済み！")
+        bot.synced = True
+        print("✔ コマンド完全同期済み！")
 
 
 async def load_cogs():
@@ -58,8 +57,8 @@ async def load_cogs():
         "cogs.interview",
         "cogs.subscription",
         "cogs.hotel.setup",
-        "cogs.gamble", 
-        "cogs.jumbo", 
+        "cogs.gamble",
+        "cogs.jumbo",      # ★正しくここを読む
     ]
     for ext in extensions:
         try:
@@ -71,6 +70,3 @@ async def load_cogs():
 
 if __name__ == "__main__":
     asyncio.run(bot.start(TOKEN))
-
-
-
