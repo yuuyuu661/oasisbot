@@ -330,11 +330,11 @@ class JumboDrawHandler:
         # 等級ごとに豪華カラー
         rank_colors = {
             6: 0xC0C0C0,   # 銀
-            5: 0xCD7F32,   # ブロンズ
-            4: 0x4AA3FF,   # 青宝石
-            3: 0xC77DFF,   # 紫水晶
-            2: 0xE74C3C,   # 赤（強運）
-            1: 0xF1C40F,   # 金（最上位）
+            5: 0xCD7F32,   # 銅
+            4: 0x4AA3FF,   # 青
+            3: 0xC77DFF,   # 紫
+            2: 0xE74C3C,   # 赤
+            1: 0xF1C40F,   # 金
         }
 
         # 6 → 1 等の順で豪華に表示
@@ -356,4 +356,5 @@ class JumboDrawHandler:
             embed.set_footer(text="Oasis 年末ジャンボ 2025")
 
             await interaction.followup.send(embed=embed)
+
 
