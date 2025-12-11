@@ -1,4 +1,5 @@
 # jumbo_draw.py
+
 import discord
 from discord.ext import commands
 import asyncio
@@ -8,105 +9,116 @@ from PIL import Image
 import os
 from io import BytesIO
 
+
+# =========================================
+# 画像パス
+# =========================================
 DIGIT_PATH = os.path.join(os.path.dirname(__file__), "digits")
 
 
-# ─────────────────────────────────────────────
-# ★ 画像読み込み（キャッシュ）
-# ─────────────────────────────────────────────
+# =========================================
+# 画像キャッシュ読み込み
+# =========================================
 digit_cache = {}
 
 def load_digit(num: int):
-    """digit_0.png 〜 digit_9.png を読み込む"""
+    """ digit_0.png ~ digit_9.png を読み込む（キャッシュ対応） """
     if num in digit_cache:
         return digit_cache[num]
 
     path = os.path.join(DIGIT_PATH, f"digit_{num}.png")
     img = Image.open(path).convert("RGBA")
-
-    # 念のため 200x200 に揃える
     img = img.resize((200, 200), Image.LANCZOS)
 
     digit_cache[num] = img
     return img
 
 
-# ─────────────────────────────────────────────
-# ★ GIF生成本体
-# ─────────────────────────────────────────────
-async def generate_gif(width, height, columns, result_digits, duration=2.0):
+# =========================================
+# GIF（1列用）
+# =========================================
+async def generate_gif(width, height, columns, result_digits, duration=4.0):
     """
-    width, height  : GIF全体のサイズ
-    columns        : 桁数（通常6桁）
-    result_digits  : 最後に確定する数字 [1st,2nd,...]
-    duration       : 秒（2秒）
+    width, height : GIF全体のサイズ
+    columns      : 桁数（通常6）
+    result_digits: 確定数字 [0,1,2,3,4,5]
+    duration     : 秒数（4秒）
     """
 
     fps = 18
     frames = int(duration * fps)
 
-    # 1フレームずつ生成
     gif_frames = []
 
+    # 数字の幅（隙間あり）
+    cell_width = width // columns
+
     for frame_index in range(frames):
+
         img = Image.new("RGBA", (width, height), (0, 0, 0, 255))
 
         for col in range(columns):
-            # ランダム数字または確定寄せ
-            if frame_index < frames - 3:
-                # ランダム高速回転
+
+            # 最後の5フレームで着地
+            if frame_index < frames - 5:
                 digit = random.randint(0, 9)
             else:
-                # 最終3フレームで確定数字に寄せる
                 digit = result_digits[col]
 
             dimg = load_digit(digit)
 
-            # ─ ギチギチ配置（隙間ゼロ） ─
-            x = col * (width // columns)
-            y = (height // 2) - 100  # 数字の高さ200px → 中央配置
+            # 隙間ありギチギチ配置
+            x = col * cell_width + 10
+            y = (height // 2) - 100
+
             img.paste(dimg, (x, y), dimg)
 
         gif_frames.append(img)
 
-    # GIF書き出し
     buffer = BytesIO()
     imageio.mimsave(buffer, gif_frames, format="GIF", fps=fps)
     buffer.seek(0)
     return buffer
 
 
-# ─────────────────────────────────────────────
-# ★ 6等用（5名ぶん同時抽選）
-# ─────────────────────────────────────────────
-async def generate_gif_multiple(result_list):
+# =========================================
+# GIF（5列 × 6桁 = 5名同時抽選）
+# =========================================
+async def generate_gif_multiple(result_list, duration=4.0):
     """
-    result_list = [ [6桁], [6桁], [6桁], [6桁], [6桁] ]  
-    5名ぶんの番号リスト
+    result_list = [ [6桁], [6桁], [6桁], [6桁], [6桁] ]
     """
-    width, height = 600, 600
+
+    width = 600
+    height = 1000  # 高さ余裕
     columns = 6
 
     fps = 18
-    frames = int(2.0 * fps)
+    frames = int(duration * fps)
 
     gif_frames = []
 
+    cell_width = width // columns
+    row_height = 180  # 数字の高さ＋余白
+
     for frame_index in range(frames):
+
         img = Image.new("RGBA", (width, height), (0, 0, 0, 255))
 
         for row, digits in enumerate(result_list):
+
             for col in range(columns):
-                # ランダム or 確定寄せ
-                if frame_index < frames - 3:
+
+                if frame_index < frames - 5:
                     digit = random.randint(0, 9)
                 else:
                     digit = digits[col]
 
                 dimg = load_digit(digit)
 
-                x = col * 100  # 600 / 6 = 100
-                y = row * 100
+                x = col * cell_width + 10
+                y = row * row_height + 20
+
                 img.paste(dimg, (x, y), dimg)
 
         gif_frames.append(img)
@@ -117,64 +129,70 @@ async def generate_gif_multiple(result_list):
     return buffer
 
 
-# ─────────────────────────────────────────────
-# ★ 次へボタン
-# ─────────────────────────────────────────────
+# =========================================
+# 次へボタン
+# =========================================
 class NextView(discord.ui.View):
+
     def __init__(self, message_to_delete: discord.Message):
         super().__init__(timeout=None)
         self.message_to_delete = message_to_delete
+        self.pressed = False
 
     @discord.ui.button(label="次へ", style=discord.ButtonStyle.primary)
     async def next_step(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # 押されたら古いGIFメッセージを削除
+
+        # 押されたことを記録 → メインロジックを進める
+        self.pressed = True
+
+        # GIFメッセージ削除
         try:
             await self.message_to_delete.delete()
         except:
             pass
 
-        await interaction.response.send_message("次の抽選へ進みます…", ephemeral=True)
+        await interaction.response.send_message("次へ進みます…", ephemeral=True)
         self.stop()
 
 
-# ─────────────────────────────────────────────
-# ★ メイン抽選クラス
-# ─────────────────────────────────────────────
+# =========================================
+# メイン抽選クラス
+# =========================================
 class JumboDrawHandler:
+
     def __init__(self, bot, jumbo_db):
         self.bot = bot
         self.db = jumbo_db
 
+
     async def start(self, interaction):
-        await interaction.response.send_message("🎉 年末ジャンボ抽選開始！", ephemeral=False)
+
+        await interaction.response.send_message("🎉 年末ジャンボ抽選開始！")
         await asyncio.sleep(1)
 
         guild_id = str(interaction.guild.id)
-
-        # 全購入番号をDBから取得
         entries = await self.db.get_all_entries(guild_id)
+
         if not entries:
             return await interaction.followup.send("⚠ 購入者がいません。")
 
-        # ランク別に抽選開始
-        await self.draw_rank(interaction, guild_id, entries, 1)
-        await self.draw_rank(interaction, guild_id, entries, 2)
-        await self.draw_rank(interaction, guild_id, entries, 3)
-        await self.draw_rank(interaction, guild_id, entries, 4)
-        await self.draw_rank(interaction, guild_id, entries, 5)
+        # 1〜5等
+        for rank in range(1, 6):
+            await self.draw_rank(interaction, guild_id, entries, rank)
 
-        # 6等は5名同時抽選
+        # 6等（5名同時）
         await self.draw_rank_6(interaction, guild_id, entries)
 
-        await interaction.followup.send("🎉 **年末ジャンボ全抽選が完了しました！！**")
+        await interaction.followup.send("🎉 **年末ジャンボ全抽選が完了しました！**")
 
-    # ──────────────────────────
-    # ★ 1〜5等の抽選
-    # ──────────────────────────
+
+    # --------------------------------------------------
+    # 1〜5等（1名）
+    # --------------------------------------------------
     async def draw_rank(self, interaction, guild_id, entries, rank: int):
+
         await interaction.followup.send(f"🎰 第{rank}等 抽選中…")
 
-        # ランダムに1つ選ぶ
         winner = random.choice(entries)
         number = winner["number"]
         user_id = winner["user_id"]
@@ -182,39 +200,56 @@ class JumboDrawHandler:
         digits = [int(c) for c in number]
 
         # GIF生成
-        gif = await generate_gif(600, 200, 6, digits, duration=2.0)
+        gif = await generate_gif(600, 240, 6, digits, duration=4.0)
 
-        # GIF送信
         file = discord.File(gif, filename="draw.gif")
+
+        # ネタバレ防止 → まずGIFだけ表示
         msg = await interaction.followup.send(
-            f"🎉 **第{rank}等 当選番号 発表！**\n番号：`{number}` → <@{user_id}>",
+            f"🎉 **第{rank}等 当選番号 発表！**\n（数字はアニメーション後に表示されます）",
             file=file
         )
 
-        # 次へボタン
+        # 次へボタンを置く
         view = NextView(msg)
         await msg.edit(view=view)
 
-    # ──────────────────────────
-    # ★ 6等（5名同時抽選）
-    # ──────────────────────────
+        # ボタンが押されるまで待つ
+        timeout = await view.wait()
+
+        # ボタン押されたら当選情報を表示
+        await interaction.followup.send(
+            f"✨ **第{rank}等 確定！**\n番号：`{number}`\n当選者：<@{user_id}>"
+        )
+
+
+    # --------------------------------------------------
+    # 6等（5名同時抽選）
+    # --------------------------------------------------
     async def draw_rank_6(self, interaction, guild_id, entries):
+
         await interaction.followup.send("🎰 第6等 抽選中…（5名）")
 
         winners = random.sample(entries, 5)
         numbers = [w["number"] for w in winners]
-
         digits_list = [[int(c) for c in num] for num in numbers]
 
-        # GIF生成（5名同時）
-        gif = await generate_gif_multiple(digits_list)
-
+        gif = await generate_gif_multiple(digits_list, duration=4.0)
         file = discord.File(gif, filename="draw6.gif")
+
         msg = await interaction.followup.send(
-            "🎉 **第6等 当選番号 5名 発表！**",
+            "🎉 **第6等 当選番号 5名 発表！**\n（数字はアニメーション後に表示されます）",
             file=file
         )
 
-        # 次へボタン
         view = NextView(msg)
         await msg.edit(view=view)
+
+        timeout = await view.wait()
+
+        # 結果表示
+        result_text = "✨ **第6等 確定！**\n\n"
+        for num, w in zip(numbers, winners):
+            result_text += f"番号 `{num}` → <@{w['user_id']}>\n"
+
+        await interaction.followup.send(result_text)
