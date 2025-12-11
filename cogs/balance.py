@@ -11,7 +11,27 @@ class BalanceCog(commands.Cog):
         self.bot = bot
 
     # ================================
-    # /bal 残高確認
+    # 内部ヘルパー: 管理者判定
+    # ================================
+    async def _can_view_others(self, member: discord.Member) -> bool:
+        """
+        他ユーザーの残高を見てもよいかどうかを判定する。
+        ・Discordの管理者権限
+        ・settings.admin_roles に登録されたロール
+        のどちらかを持っていれば True
+        """
+        # Discord の「サーバー管理者」権限
+        if member.guild_permissions.administrator:
+            return True
+
+        # DB設定に登録されている管理者ロール
+        settings = await self.bot.db.get_settings()
+        admin_roles = settings["admin_roles"] or []
+
+        return any(str(r.id) in admin_roles for r in member.roles)
+
+    # ================================
+    # /bal 残高確認（指定ユーザーを見る場合は管理者ロール必須）
     # ================================
     @app_commands.command(
         name="bal",
@@ -20,11 +40,14 @@ class BalanceCog(commands.Cog):
     @app_commands.describe(
         member="確認したいユーザー（省略時は自分）"
     )
-    async def bal(self, interaction: "discord.Interaction", member: discord.Member | None = None):
-
+    async def bal(
+        self,
+        interaction: discord.Interaction,
+        member: discord.Member | None = None
+    ):
+        bot = self.bot
         guild = interaction.guild
         user = interaction.user
-        db = self.bot.db
 
         if guild is None:
             return await interaction.response.send_message(
@@ -32,28 +55,41 @@ class BalanceCog(commands.Cog):
                 ephemeral=True
             )
 
+        db = bot.db
+
+        # 対象ユーザー（未指定なら自分）
         target = member or user
 
-        # ▼ 他人の残高を見る → 管理者チェック
         if target.id != user.id:
             settings = await db.get_settings()
-            admin_roles = settings.get("admin_roles", [])
-            admin_role_ids = {int(rid) for rid in admin_roles if rid.isdigit()}
+            admin_roles = settings["admin_roles"] or []
 
-            has_admin = any(r.id in admin_role_ids for r in user.roles)
-
-            if not has_admin:
+            if not any(str(r.id) in admin_roles for r in user.roles):
                 return await interaction.response.send_message(
-                    "❌ 他ユーザーの残高を見るには管理者ロールが必要です。",
+                    "❌ 他ユーザーの残高を確認するには管理者ロールが必要です。",
                     ephemeral=True
                 )
 
-        # ▼ DB取得
-        row = await db.get_user(str(target.id), str(guild.id))
-        tickets = await db.get_tickets(str(target.id), str(guild.id))
-
-        settings = await db.get_settings()
-        unit = settings["currency_unit"]
+        try:
+            # 残高
+            row = await db.get_user(str(target.id), str(guild.id))
+            # チケット枚数
+            tickets = await db.get_tickets(str(target.id), str(guild.id))
+            # 通貨単位
+            settings = await db.get_settings()
+            unit = settings["currency_unit"]
+        except Exception as e:
+            print("bal error:", repr(e))
+            if interaction.response.is_done():
+                return await interaction.followup.send(
+                    "内部エラーが発生しました。（bal）",
+                    ephemeral=True
+                )
+            else:
+                return await interaction.response.send_message(
+                    "内部エラーが発生しました。（bal）",
+                    ephemeral=True
+                )
 
         await interaction.response.send_message(
             f"💰 **{target.display_name} の残高**\n"
@@ -62,8 +98,9 @@ class BalanceCog(commands.Cog):
             ephemeral=True
         )
 
+
     # ================================
-    # /pay 送金
+    # /pay 送金（メモ対応）
     # ================================
     @app_commands.command(
         name="pay",
@@ -76,12 +113,11 @@ class BalanceCog(commands.Cog):
     )
     async def pay(
         self,
-        interaction: "discord.Interaction",
+        interaction: discord.Interaction,
         member: discord.Member,
         amount: int,
         memo: str | None = None
     ):
-
         bot = self.bot
         guild = interaction.guild
         sender = interaction.user
@@ -104,7 +140,7 @@ class BalanceCog(commands.Cog):
             settings = await db.get_settings()
             unit = settings["currency_unit"]
 
-            # ▼ 残高チェック
+            # 残高チェック
             sender_row = await db.get_user(str(sender.id), str(guild.id))
             if sender_row["balance"] < amount:
                 return await interaction.response.send_message(
@@ -112,10 +148,9 @@ class BalanceCog(commands.Cog):
                     ephemeral=True
                 )
 
-            # ▼ 送金実行
+            # 送金実行
             await db.remove_balance(str(sender.id), str(guild.id), amount)
             await db.add_balance(str(member.id), str(guild.id), amount)
-
         except Exception as e:
             print("pay error:", repr(e))
             if interaction.response.is_done():
@@ -140,7 +175,7 @@ class BalanceCog(commands.Cog):
 
         await interaction.response.send_message(msg)
 
-        # --- ログ出力 ---
+        # --- ログ ---
         try:
             sig = inspect.signature(log_pay)
             if "memo" in sig.parameters:
@@ -165,10 +200,10 @@ class BalanceCog(commands.Cog):
 
 
 async def setup(bot: commands.Bot):
+    """Cog を登録し、/bal と /pay を各ギルドに紐付ける"""
     cog = BalanceCog(bot)
     await bot.add_cog(cog)
 
-    # 既存のsync方式
     for cmd in cog.get_app_commands():
         for gid in getattr(bot, "GUILD_IDS", []):
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
