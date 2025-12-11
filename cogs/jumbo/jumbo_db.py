@@ -1,6 +1,7 @@
 # cogs/jumbo/jumbo_db.py
 
 import asyncpg
+from asyncpg.exceptions import UniqueViolationError
 from datetime import datetime
 
 
@@ -63,9 +64,17 @@ class JumboDB:
                 INSERT INTO jumbo_entries (guild_id, user_id, number)
                 VALUES ($1, $2, $3)
             """, guild_id, user_id, number)
-            return True
-        except asyncpg.UniqueViolationError:
-            return False  # 重複した場合は False
+
+            return True  # 成功
+
+        except UniqueViolationError:
+            # 番号被り（PRIMARY KEY(guild_id, number)違反）
+            return False
+
+        except Exception as e:
+            # 他の例外もログを残し False を返す（安全）
+            print("[JUMBO add_number ERROR]:", e)
+            return False
 
     async def get_all_numbers(self, guild_id: str):
         """ギルド内の全番号取得"""
@@ -76,12 +85,20 @@ class JumboDB:
         """, guild_id)
 
     async def get_user_numbers(self, guild_id: str, user_id: str):
-        """ユーザーが買った全番号"""
+        """ユーザーが購入した全番号"""
         return await self.db.conn.fetch("""
             SELECT number FROM jumbo_entries
             WHERE guild_id=$1 AND user_id=$2
             ORDER BY number ASC
         """, guild_id, user_id)
+
+    async def get_all_entries(self, guild_id: str):
+        """抽選用：全エントリーを取得（ユーザーIDつき）"""
+        return await self.db.conn.fetch("""
+            SELECT guild_id, user_id, number
+            FROM jumbo_entries
+            WHERE guild_id=$1
+        """, guild_id)
 
     async def clear_entries(self, guild_id: str):
         """全番号リセット"""
