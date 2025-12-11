@@ -184,8 +184,8 @@ class BalanceCog(commands.Cog):
             title="💸  送金完了！",
             description=(
                 f"\n"
-                f"👤 **送金者**：{sender.mention}\n"
-                f"👤 **受取側**：{member.mention}\n"
+                f" **送金者**：{sender.mention}\n"
+                f" **受取**：{member.mention}\n"
                 f"\n"
             ),
             color=color
@@ -193,7 +193,7 @@ class BalanceCog(commands.Cog):
 
         # 金額フィールド（見やすく太字）
         embed.add_field(
-            name="💰  送金額",
+            name="  送金額",
             value=f"\n**{amount:,} {unit}**\n",
             inline=False
         )
