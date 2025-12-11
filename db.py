@@ -78,6 +78,26 @@ class Database:
                 log_channel TEXT
             );
         """)
+        # -----------------------------------------
+        # 既存 settings テーブルに log_backup カラムが無ければ追加
+        # -----------------------------------------
+        col_check = await self.conn.fetch("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'settings';
+        """)
+
+        existing_cols = {row["column_name"] for row in col_check}
+
+        if "log_backup" not in existing_cols:
+            print("🛠 settings テーブルに log_backup カラムを追加します…")
+            await self.conn.execute("""
+                ALTER TABLE settings ADD COLUMN log_backup TEXT;
+            """)
+            # NULL 初期化（念のため）
+            await self.conn.execute("""
+                UPDATE settings SET log_backup = NULL WHERE id = 1;
+            """)
+            print("✅ log_backup カラム追加完了")
 
         # ホテル設定テーブル
         await self.conn.execute("""
@@ -319,5 +339,6 @@ class Database:
             "SELECT * FROM hotel_rooms WHERE channel_id=$1",
             channel_id
         )
+
 
 
