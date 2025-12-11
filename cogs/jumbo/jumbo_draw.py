@@ -1,6 +1,6 @@
 # jumbo_draw.py
 # ---------------------------------------------------------
-# 🎉 Oasis 年末ジャンボ 抽選モジュール（ゆう専用 豪華版）
+# Oasis 年末ジャンボ 抽選モジュール
 # ---------------------------------------------------------
 #   - 抽選順：6等 → 5等 → 4等 → 3等 → 2等 → １等
 #   - GIFは1200px幅（数字6桁 × 200px）で見切れゼロ
@@ -239,7 +239,7 @@ class JumboDrawHandler:
     async def draw_rank_single(self, interaction, entries, rank: int):
 
         # 「第◯等 抽選中…」メッセージを保持
-        msg_status = await interaction.followup.send(f"🎰 第{rank}等 抽選中…")
+        msg_status = await interaction.followup.send(f" 第{rank}等 抽選中…")
 
         # ランダムに1名選出
         winner = random.choice(entries)
@@ -251,9 +251,9 @@ class JumboDrawHandler:
         gif = await generate_gif_single(digits, duration=4.0)
         file = discord.File(gif, filename=f"rank{rank}.gif")
 
-        # GIF表示（ネタバレ防止）
+        # GIF表示
         msg_gif = await interaction.followup.send(
-            f"🎬 **第{rank}等 抽選結果…（確認中）**",
+            f"**第{rank}等 抽選結果…**",
             file=file
         )
 
@@ -279,7 +279,7 @@ class JumboDrawHandler:
     async def draw_rank_6(self, interaction, entries):
 
         # ステータスメッセージ
-        msg_status = await interaction.followup.send("🎰 第6等（5名） 抽選中…")
+        msg_status = await interaction.followup.send(" 第6等（5名） 抽選中…")
 
         # 5名選出
         winners = random.sample(entries, 5)
@@ -291,7 +291,7 @@ class JumboDrawHandler:
         file = discord.File(gif, filename="rank6.gif")
 
         msg_gif = await interaction.followup.send(
-            "🎬 **第6等 抽選結果…（確認中）**",
+            " **第6等 抽選結果…**",
             file=file
         )
 
@@ -356,3 +356,4 @@ class JumboDrawHandler:
             embed.set_footer(text="Oasis 年末ジャンボ 2025")
 
             await interaction.followup.send(embed=embed)
+
