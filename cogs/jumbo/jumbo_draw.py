@@ -1,283 +1,220 @@
-# cogs/jumbo/jumbo_draw.py
-
+# jumbo_draw.py
 import discord
 from discord.ext import commands
-import random
 import asyncio
-from datetime import datetime, timezone
+import random
+import imageio
+from PIL import Image
+import os
+from io import BytesIO
 
-from .jumbo_db import JumboDB
-
-
-# ======================================================
-# 絵文字数字
-# ======================================================
-DIGIT_EMOJIS = [
-    ":zero:", ":one:", ":two:", ":three:", ":four:",
-    ":five:", ":six:", ":seven:", ":eight:", ":nine:"
-]
+DIGIT_PATH = os.path.join(os.path.dirname(__file__), "digits")
 
 
-# ======================================================
-# 当選番号事前生成
-# ======================================================
-async def choose_winners(jumbo_db: JumboDB, guild_id: str):
-    entries = await jumbo_db.get_all_numbers(guild_id)
-    all_numbers = [row["number"] for row in entries]
-    random.shuffle(all_numbers)
+# ─────────────────────────────────────────────
+# ★ 画像読み込み（キャッシュ）
+# ─────────────────────────────────────────────
+digit_cache = {}
 
-    if len(all_numbers) < 10:
-        return None
+def load_digit(num: int):
+    """digit_0.png 〜 digit_9.png を読み込む"""
+    if num in digit_cache:
+        return digit_cache[num]
 
-    winners = {
-        6: all_numbers[:5],       # 6等は 5 名
-        5: all_numbers[5],
-        4: all_numbers[6],
-        3: all_numbers[7],
-        2: all_numbers[8],
-        1: all_numbers[9]
-    }
-    return winners
+    path = os.path.join(DIGIT_PATH, f"digit_{num}.png")
+    img = Image.open(path).convert("RGBA")
+
+    # 念のため 200x200 に揃える
+    img = img.resize((200, 200), Image.LANCZOS)
+
+    digit_cache[num] = img
+    return img
 
 
-# ======================================================
-# 次へボタン（押したあとにパネル削除）
-# ======================================================
-class JumboNextButton(discord.ui.Button):
-    def __init__(self, handler, current_rank):
-        super().__init__(label="➡️ 次へ", style=discord.ButtonStyle.primary)
-        self.handler = handler
-        self.current_rank = current_rank
+# ─────────────────────────────────────────────
+# ★ GIF生成本体
+# ─────────────────────────────────────────────
+async def generate_gif(width, height, columns, result_digits, duration=2.0):
+    """
+    width, height  : GIF全体のサイズ
+    columns        : 桁数（通常6桁）
+    result_digits  : 最後に確定する数字 [1st,2nd,...]
+    duration       : 秒（2秒）
+    """
 
-    async def callback(self, interaction: discord.Interaction):
-        # ① まず押したことを返す
-        await interaction.response.defer()
+    fps = 18
+    frames = int(duration * fps)
 
-        # ② 次の抽選処理へ進む
-        await self.handler.start_next_rank(interaction, self.current_rank)
+    # 1フレームずつ生成
+    gif_frames = []
 
-        # ③ 次の抽選処理が開始したあとに、元メッセージ削除
+    for frame_index in range(frames):
+        img = Image.new("RGBA", (width, height), (0, 0, 0, 255))
+
+        for col in range(columns):
+            # ランダム数字または確定寄せ
+            if frame_index < frames - 3:
+                # ランダム高速回転
+                digit = random.randint(0, 9)
+            else:
+                # 最終3フレームで確定数字に寄せる
+                digit = result_digits[col]
+
+            dimg = load_digit(digit)
+
+            # ─ ギチギチ配置（隙間ゼロ） ─
+            x = col * (width // columns)
+            y = (height // 2) - 100  # 数字の高さ200px → 中央配置
+            img.paste(dimg, (x, y), dimg)
+
+        gif_frames.append(img)
+
+    # GIF書き出し
+    buffer = BytesIO()
+    imageio.mimsave(buffer, gif_frames, format="GIF", fps=fps)
+    buffer.seek(0)
+    return buffer
+
+
+# ─────────────────────────────────────────────
+# ★ 6等用（5名ぶん同時抽選）
+# ─────────────────────────────────────────────
+async def generate_gif_multiple(result_list):
+    """
+    result_list = [ [6桁], [6桁], [6桁], [6桁], [6桁] ]  
+    5名ぶんの番号リスト
+    """
+    width, height = 600, 600
+    columns = 6
+
+    fps = 18
+    frames = int(2.0 * fps)
+
+    gif_frames = []
+
+    for frame_index in range(frames):
+        img = Image.new("RGBA", (width, height), (0, 0, 0, 255))
+
+        for row, digits in enumerate(result_list):
+            for col in range(columns):
+                # ランダム or 確定寄せ
+                if frame_index < frames - 3:
+                    digit = random.randint(0, 9)
+                else:
+                    digit = digits[col]
+
+                dimg = load_digit(digit)
+
+                x = col * 100  # 600 / 6 = 100
+                y = row * 100
+                img.paste(dimg, (x, y), dimg)
+
+        gif_frames.append(img)
+
+    buffer = BytesIO()
+    imageio.mimsave(buffer, gif_frames, format="GIF", fps=fps)
+    buffer.seek(0)
+    return buffer
+
+
+# ─────────────────────────────────────────────
+# ★ 次へボタン
+# ─────────────────────────────────────────────
+class NextView(discord.ui.View):
+    def __init__(self, message_to_delete: discord.Message):
+        super().__init__(timeout=None)
+        self.message_to_delete = message_to_delete
+
+    @discord.ui.button(label="次へ", style=discord.ButtonStyle.primary)
+    async def next_step(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # 押されたら古いGIFメッセージを削除
         try:
-            await interaction.message.delete()
+            await self.message_to_delete.delete()
         except:
             pass
 
-
-class JumboNextView(discord.ui.View):
-    def __init__(self, handler, current_rank):
-        super().__init__(timeout=None)
-        self.add_item(JumboNextButton(handler, current_rank))
+        await interaction.response.send_message("次の抽選へ進みます…", ephemeral=True)
+        self.stop()
 
 
-# ======================================================
-# メイン抽選 Handler
-# ======================================================
+# ─────────────────────────────────────────────
+# ★ メイン抽選クラス
+# ─────────────────────────────────────────────
 class JumboDrawHandler:
     def __init__(self, bot, jumbo_db):
         self.bot = bot
-        self.jumbo_db = jumbo_db
-        self.rank_order = [6, 5, 4, 3, 2, 1]
-        self.winners = {}
+        self.db = jumbo_db
 
-    async def start(self, interaction: discord.Interaction):
+    async def start(self, interaction):
+        await interaction.response.send_message("🎉 年末ジャンボ抽選開始！", ephemeral=False)
+        await asyncio.sleep(1)
+
         guild_id = str(interaction.guild.id)
-        await self.jumbo_db.close_config(guild_id)
 
-        self.winners = await choose_winners(self.jumbo_db, guild_id)
-        if not self.winners:
-            return await interaction.response.send_message("❌ 参加人数が不足しています。", ephemeral=True)
+        # 全購入番号をDBから取得
+        entries = await self.db.get_all_entries(guild_id)
+        if not entries:
+            return await interaction.followup.send("⚠ 購入者がいません。")
 
-        await interaction.response.send_message("🎉 年末ジャンボ抽選開始！")
-        await self.start_rank(interaction, 6)
+        # ランク別に抽選開始
+        await self.draw_rank(interaction, guild_id, entries, 1)
+        await self.draw_rank(interaction, guild_id, entries, 2)
+        await self.draw_rank(interaction, guild_id, entries, 3)
+        await self.draw_rank(interaction, guild_id, entries, 4)
+        await self.draw_rank(interaction, guild_id, entries, 5)
 
-    async def start_rank(self, interaction, rank):
-        if rank == 6:
-            await self.draw_rank_multi(interaction, rank, self.winners[rank])
-        else:
-            await self.draw_rank_single(interaction, rank, self.winners[rank])
+        # 6等は5名同時抽選
+        await self.draw_rank_6(interaction, guild_id, entries)
 
-    async def start_next_rank(self, interaction, current_rank):
-        idx = self.rank_order.index(current_rank)
-        if idx == len(self.rank_order) - 1:
-            await self.send_final_result(interaction)
-            return
+        await interaction.followup.send("🎉 **年末ジャンボ全抽選が完了しました！！**")
 
-        next_rank = self.rank_order[idx + 1]
-        await self.start_rank(interaction, next_rank)
+    # ──────────────────────────
+    # ★ 1〜5等の抽選
+    # ──────────────────────────
+    async def draw_rank(self, interaction, guild_id, entries, rank: int):
+        await interaction.followup.send(f"🎰 第{rank}等 抽選中…")
 
-    # ======================================================
-    # ６等：5名同時抽選（全桁高速回転）
-    # ======================================================
-    async def draw_rank_multi(self, interaction, rank, numbers):
+        # ランダムに1つ選ぶ
+        winner = random.choice(entries)
+        number = winner["number"]
+        user_id = winner["user_id"]
 
+        digits = [int(c) for c in number]
+
+        # GIF生成
+        gif = await generate_gif(600, 200, 6, digits, duration=2.0)
+
+        # GIF送信
+        file = discord.File(gif, filename="draw.gif")
         msg = await interaction.followup.send(
-            embed=discord.Embed(
-                title=f"🎰 第{rank}等 抽選中（5名）",
-                description="開始します…",
-                color=0x3498DB
-            )
+            f"🎉 **第{rank}等 当選番号 発表！**\n番号：`{number}` → <@{user_id}>",
+            file=file
         )
 
-        final_digits = [[int(d) for d in num] for num in numbers]
-        rolling = [[0] * 6 for _ in range(5)]
+        # 次へボタン
+        view = NextView(msg)
+        await msg.edit(view=view)
 
-        # 6桁ぶん繰り返す
-        for col in range(6):
+    # ──────────────────────────
+    # ★ 6等（5名同時抽選）
+    # ──────────────────────────
+    async def draw_rank_6(self, interaction, guild_id, entries):
+        await interaction.followup.send("🎰 第6等 抽選中…（5名）")
 
-            # 全桁高速ルーレット
-            for _ in range(18):
-                for row in range(5):
-                    for i in range(6):
-                        if i < col:
-                            rolling[row][i] = final_digits[row][i]  # 確定桁
-                        else:
-                            rolling[row][i] = random.randint(0, 9)
+        winners = random.sample(entries, 5)
+        numbers = [w["number"] for w in winners]
 
-                desc = "\n".join(
-                    "".join(DIGIT_EMOJIS[d] for d in rolling[row])
-                    for row in range(5)
-                )
+        digits_list = [[int(c) for c in num] for num in numbers]
 
-                await msg.edit(embed=discord.Embed(
-                    title=f"🎰 第{rank}等 抽選中（5名）",
-                    description=desc,
-                    color=0x3498DB
-                ))
-                await asyncio.sleep(0.04)
+        # GIF生成（5名同時）
+        gif = await generate_gif_multiple(digits_list)
 
-            # 一桁確定
-            for row in range(5):
-                rolling[row][col] = final_digits[row][col]
-
-            desc = "\n".join(
-                "".join(DIGIT_EMOJIS[d] for d in rolling[row])
-                for row in range(5)
-            )
-
-            await msg.edit(embed=discord.Embed(
-                title=f"🎉 第{rank}等 確定！（{col+1} 桁目）",
-                description=desc,
-                color=0x2ecc71
-            ))
-            await asyncio.sleep(0.35)
-
-        # DB登録
-        guild_id = str(interaction.guild.id)
-        all_entries = await self.jumbo_db.get_all_numbers(guild_id)
-
-        for num in numbers:
-            user_id = next((r["user_id"] for r in all_entries if r["number"] == num), None)
-            await self.jumbo_db.set_winner(guild_id, rank, num, user_id)
-
-        # 消して次へ
-        try:
-            await msg.delete()
-        except:
-            pass
-
-        await interaction.followup.send(
-            f"🎉 第{rank}等の発表が完了しました！",
-            view=JumboNextView(self, rank)
-        )
-
-
-    # ======================================================
-    # 1〜5等：1名抽選（全桁高速回転）
-    # ======================================================
-    async def draw_rank_single(self, interaction, rank, number):
-
+        file = discord.File(gif, filename="draw6.gif")
         msg = await interaction.followup.send(
-            embed=discord.Embed(
-                title=f"🎰 第{rank}等 抽選中…",
-                description="開始します…",
-                color=0xE67E22
-            )
+            "🎉 **第6等 当選番号 5名 発表！**",
+            file=file
         )
 
-        final = [int(n) for n in number]
-        rolling = [0] * 6
-
-        for col in range(6):
-
-            # 全桁高速ルーレット
-            for _ in range(18):
-                for i in range(6):
-                    if i < col:
-                        rolling[i] = final[i]
-                    else:
-                        rolling[i] = random.randint(0, 9)
-
-                desc = "".join(DIGIT_EMOJIS[d] for d in rolling)
-
-                await msg.edit(embed=discord.Embed(
-                    title=f"🎰 第{rank}等 抽選中…",
-                    description=desc,
-                    color=0xE67E22
-                ))
-                await asyncio.sleep(0.04)
-
-            # 一桁確定
-            rolling[col] = final[col]
-
-            desc = "".join(DIGIT_EMOJIS[d] for d in rolling)
-            await msg.edit(embed=discord.Embed(
-                title=f"🎉 第{rank}等 確定！（{col+1} 桁目）",
-                description=desc,
-                color=0x2ecc71
-            ))
-            await asyncio.sleep(0.35)
-
-        # 当選登録
-        guild_id = str(interaction.guild.id)
-        entries = await self.jumbo_db.get_all_numbers(guild_id)
-        user_id = next((r["user_id"] for r in entries if r["number"] == number), None)
-        await self.jumbo_db.set_winner(guild_id, rank, number, user_id)
-
-        # 消して次へ
-        try:
-            await msg.delete()
-        except:
-            pass
-
-        await interaction.followup.send(
-            f"🎉 第{rank}等の発表が完了しました！",
-            view=JumboNextView(self, rank)
-        )
-
-
-    # ======================================================
-    # 最終結果
-    # ======================================================
-    async def send_final_result(self, interaction):
-
-        guild_id = str(interaction.guild.id)
-        winners = await self.jumbo_db.get_all_winners(guild_id)
-
-        embed = discord.Embed(
-            title="🎉 年末ジャンボ 最終結果 🎉",
-            color=0xF1C40F
-        )
-
-        rank_label = {
-            1: "1等",
-            2: "2等",
-            3: "3等",
-            4: "4等",
-            5: "5等",
-            6: "6等（5名）"
-        }
-
-        desc = ""
-
-        for rank in [1,2,3,4,5,6]:
-            rows = [r for r in winners if r["rank"] == rank]
-            if not rows:
-                continue
-
-            desc += f"\n**【{rank_label[rank]}】**\n"
-            for r in rows:
-                user = f"<@{r['user_id']}>" if r["user_id"] else "不明"
-                desc += f"- {r['number']} → {user}\n"
-
-        embed.description = desc
-        await interaction.followup.send(embed=embed)
+        # 次へボタン
+        view = NextView(msg)
+        await msg.edit(view=view)
