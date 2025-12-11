@@ -31,14 +31,28 @@ class InitCog(commands.Cog):
         log_salary: discord.TextChannel = None,
         log_backup: discord.TextChannel = None,
     ):
-        # --- 権限チェック ---
-        # 初期設定は Discord の Administrator 権限でも許可する
-        if not (interaction.user.guild_permissions.administrator or 
-            await self.bot.db.is_bot_admin(interaction.guild.id, interaction.user)):
-                return await interaction.response.send_message(
-                    "❌ このコマンドを実行できるのは bot 管理者のみです。",
-                    ephemeral=True
-                    )
+        # --- 権限チェック（修正版） ---
+        settings = await self.bot.db.get_settings()
+        admin_roles = settings["admin_roles"] or []
+
+        # settings に登録されたロールをユーザーが持っているか
+        is_bot_admin = any(
+            str(role.id) in admin_roles
+            for role in interaction.user.roles
+        )
+
+        # 実行を許可する条件
+        has_permission = (
+            interaction.user.guild_permissions.administrator  # Discord管理者権限
+            or is_bot_admin                                   # Bot独自の管理者ロール
+            or interaction.user.id == SUPER_ADMIN             # スーパー管理者
+        )
+
+        if not has_permission:
+            return await interaction.response.send_message(
+                "❌ このコマンドを実行できる権限がありません。",
+                ephemeral=True
+            )
 
 
         settings = await self.bot.db.get_settings()
