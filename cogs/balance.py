@@ -165,51 +165,58 @@ class BalanceCog(commands.Cog):
                 )
 
         # --- 返信メッセージ ---
-# 金額に応じてパネル色を決定
-if amount >= 1_000_000:
-    color = 0xE74C3C  # 赤
-elif amount >= 500_000:
-    color = 0xE67E22  # オレンジ
-elif amount >= 300_000:
-    color = 0xF1C40F  # 黄色
-elif amount >= 100_000:
-    color = 0x2ECC71  # 緑
-elif amount >= 10_000:
-    color = 0x1ABC9C  # 水色
-else:
-    color = 0x3498DB  # 青
+        # --- 返信メッセージ（パネルUI） ---
+        # 金額に応じてパネル色を決定
+        if amount >= 1_000_000:
+            color = 0xE74C3C  # 赤
+        elif amount >= 500_000:
+            color = 0xE67E22  # オレンジ
+        elif amount >= 300_000:
+            color = 0xF1C40F  # 黄色
+        elif amount >= 100_000:
+            color = 0x2ECC71  # 緑
+        elif amount >= 10_000:
+            color = 0x1ABC9C  # 水色
+        else:
+            color = 0x3498DB  # 青
 
-embed = discord.Embed(
-    title="💸  送金完了！",
-    description=(
-        f"\n👤 **送金者**：{sender.mention}\n"
-        f"👤 **受取側**：{member.mention}\n"
-    ),
-    color=color
-)
+        embed = discord.Embed(
+            title="💸  送金完了！",
+            description=(
+                f"\n"
+                f"👤 **送金者**：{sender.mention}\n"
+                f"👤 **受取側**：{member.mention}\n"
+                f"\n"
+            ),
+            color=color
+        )
 
-# 金額フィールド（見やすく太字）
-embed.add_field(
-    name="💰  送金額",
-    value=f"\n**{amount:,} {unit}**\n",
-    inline=False
-)
+        # 金額フィールド（見やすく太字）
+        embed.add_field(
+            name="💰  送金額",
+            value=f"\n**{amount:,} {unit}**\n",
+            inline=False
+        )
 
-# メモ（任意）
-if memo:
-    embed.add_field(
-        name="📝  メモ",
-        value=f"\n{memo}\n",
-        inline=False
-    )
+        # メモ（任意）
+        if memo:
+            embed.add_field(
+                name="📝  メモ",
+                value=f"\n{memo}\n",
+                inline=False
+            )
 
-# サムネイル画像（右上に表示）
-embed.set_thumbnail(url="attachment://pay.png")
+        # サムネイル画像（右上に表示）
+        embed.set_thumbnail(url="attachment://pay.png")
 
-# 画像ファイルの添付
-file = discord.File("pay.png", filename="pay.png")
+        # 画像ファイルの添付
+        file = discord.File("pay.png", filename="pay.png")
 
-await interaction.response.send_message(embed=embed, file=file)
+        await interaction.response.send_message(
+            embed=embed,
+            file=file
+        )
+
 
 
         # --- ログ ---
