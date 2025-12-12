@@ -14,8 +14,10 @@ BACKUP_DIR = "backups"  # バックアップファイル保存用ディレクト
 class BackupCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+
+    async def cog_load(self):
         self.auto_backup.start()
-        print("[Backup] auto_backup started")
+        print("[Backup] auto_backup started (cog_load)")
 
     # --------------------------------------------------
     # ヘルパー：管理者判定（settings.admin_roles + Discord管理者権限）
