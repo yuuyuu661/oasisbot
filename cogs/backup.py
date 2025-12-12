@@ -295,57 +295,65 @@ class BackupCog(commands.Cog):
             f"from attachment {file.filename}"
         )
 
-    # --------------------------------------------------
-    # 自動バックアップ（1時間ごと）
-    # --------------------------------------------------
-    @tasks.loop(hours=1)
-    async def auto_backup(self):
-        """
-        1時間ごとに、設定されたバックアップチャンネルへ自動バックアップを送信。
-        """
-        if not hasattr(self.bot, "GUILD_IDS"):
-            return
+# --------------------------------------------------
+# 自動バックアップ（手動バックアップと同じロジック）
+# --------------------------------------------------
+# ★ バックアップ頻度はここで調整できる（例：hours=1 → hours=3）
+@tasks.loop(minutes=1)
+async def auto_backup(self):
+    """
+    手動バックアップの処理をそのまま自動化。
+    Botが所属する全ギルドを対象とする。
+    """
+    await self.bot.wait_until_ready()
 
-        for gid in self.bot.GUILD_IDS:
-            guild = self.bot.get_guild(gid)
-            if guild is None:
-                continue
+    # Bot が所属する全ギルドをループ
+    for guild in self.bot.guilds:
+        if guild is None:
+            continue
 
-            # 設定取得
-            settings = await self.bot.db.get_settings()
-            settings_dict = dict(settings) if settings else {}
-            backup_ch_id = settings_dict.get("log_backup")
-            if not backup_ch_id:
-                continue
+        # settings からバックアップチャンネル取得
+        settings = await self.bot.db.get_settings()
+        settings_dict = dict(settings) if settings else {}
+        backup_ch_id = settings_dict.get("log_backup")
 
-            channel = self.bot.get_channel(int(backup_ch_id))
-            if not isinstance(channel, discord.TextChannel):
-                continue
+        if not backup_ch_id:
+            print(f"[auto_backup] No backup channel set. skipped guild={guild.id}")
+            continue
 
-            try:
-                payload = await self.make_backup_payload(guild)
+        channel = self.bot.get_channel(int(backup_ch_id))
+        if not isinstance(channel, discord.TextChannel):
+            print(f"[auto_backup] Invalid backup channel. skipped guild={guild.id}")
+            continue
 
-                os.makedirs(BACKUP_DIR, exist_ok=True)
-                ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-                filename = f"backup_{guild.id}_{ts}.json"
-                path = os.path.join(BACKUP_DIR, filename)
+        try:
+            # ★ 手動バックアップと同じ処理
+            payload = await self.make_backup_payload(guild)
 
-                with open(path, "w", encoding="utf-8") as f:
-                    json.dump(payload, f, ensure_ascii=False, indent=2)
+            os.makedirs(BACKUP_DIR, exist_ok=True)
+            ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            filename = f"backup_{guild.id}_{ts}.json"
+            path = os.path.join(BACKUP_DIR, filename)
 
-                file = discord.File(path, filename=filename)
-                await channel.send(
-                    content=f"⏰ 自動バックアップ ({guild.name}) `{ts}`", file=file
-                )
-                print(
-                    f"[auto_backup] sent for guild {guild.id} at {ts}",
-                )
-            except Exception as e:
-                print(f"[auto_backup] error for guild {gid}: {e}")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
 
-    @auto_backup.before_loop
-    async def before_auto_backup(self):
-        await self.bot.wait_until_ready()
+            file = discord.File(path, filename=filename)
+
+            await channel.send(
+                content=f"⏰ 自動バックアップ ({guild.name}) `{ts}`",
+                file=file
+            )
+
+            print(f"[auto_backup] SUCCESS guild={guild.id}")
+
+        except Exception as e:
+            print(f"[auto_backup] ERROR guild={guild.id}: {e}")
+
+
+@auto_backup.before_loop
+async def before_auto_backup(self):
+    await self.bot.wait_until_ready()
 
 
 # --------------------------
