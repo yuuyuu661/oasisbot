@@ -105,7 +105,7 @@ class BackupCog(commands.Cog):
         # バックアップチャンネル設定取得
         settings = await self.bot.db.get_settings()
         settings_dict = dict(settings) if settings else {}
-        backup_ch_id = settings_dict.get("backup_channel")
+        backup_ch_id = settings_dict.get("log_backup")
 
         if not backup_ch_id:
             return await interaction.response.send_message(
@@ -314,7 +314,7 @@ class BackupCog(commands.Cog):
             # 設定取得
             settings = await self.bot.db.get_settings()
             settings_dict = dict(settings) if settings else {}
-            backup_ch_id = settings_dict.get("backup_channel")
+            backup_ch_id = settings_dict.get("log_backup")
             if not backup_ch_id:
                 continue
 
