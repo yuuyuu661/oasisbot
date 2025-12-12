@@ -295,21 +295,19 @@ class BackupCog(commands.Cog):
             f"from attachment {file.filename}"
         )
     # --------------------------------------------------
-    # 自動バックアップ（手動バックアップと同じロジック）
+    # 自動バックアップ（1分ごと）
     # --------------------------------------------------
-    @tasks.loop(hours=1)
+    @tasks.loop(minutes=1)
     async def auto_backup(self):
         """
-        手動バックアップと完全同じ処理を、自動で定期実行。
+        手動バックアップと同じ処理を自動で定期実行する。
         Bot が所属する全ギルドが対象。
         """
-        await self.bot.wait_until_ready()
-
         for guild in self.bot.guilds:
             if guild is None:
                 continue
 
-            # settings（共通）からバックアップチャンネル取得
+            # settings（共通設定）からバックアップチャンネルを取得
             settings = await self.bot.db.get_settings()
             settings_dict = dict(settings) if settings else {}
             backup_ch_id = settings_dict.get("log_backup")
@@ -324,7 +322,7 @@ class BackupCog(commands.Cog):
                 continue
 
             try:
-                # 手動と同じ処理
+                # 手動バックアップと同じ処理
                 payload = await self.make_backup_payload(guild)
 
                 os.makedirs(BACKUP_DIR, exist_ok=True)
@@ -332,14 +330,16 @@ class BackupCog(commands.Cog):
                 filename = f"backup_{guild.id}_{ts}.json"
                 path = os.path.join(BACKUP_DIR, filename)
 
+                # JSON 書き込み
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump(payload, f, ensure_ascii=False, indent=2)
 
                 file = discord.File(path, filename=filename)
 
+                # Discord へ送信
                 await channel.send(
                     content=f"⏰ 自動バックアップ ({guild.name}) `{ts}`",
-                    file=file,
+                    file=file
                 )
 
                 print(f"[auto_backup] SUCCESS guild={guild.id}")
@@ -350,7 +350,9 @@ class BackupCog(commands.Cog):
 
     @auto_backup.before_loop
     async def before_auto_backup(self):
-        """バックアップ開始前にbotの準備完了を待つ"""
+        """
+        自動バックアップ開始前に Bot の準備が整うまで待つ。
+        """
         await self.bot.wait_until_ready()
 
 
