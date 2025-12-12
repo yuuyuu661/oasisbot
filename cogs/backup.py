@@ -298,21 +298,21 @@ class BackupCog(commands.Cog):
 # --------------------------------------------------
 # 自動バックアップ（手動バックアップと同じロジック）
 # --------------------------------------------------
-# ★ バックアップ頻度はここで調整できる（例：hours=1 → hours=3）
-@tasks.loop(minutes=1)
+# ★ バックアップ頻度はここで調整（例：hours=1 → hours=3）
+@tasks.loop(hours=1)
 async def auto_backup(self):
     """
     手動バックアップの処理をそのまま自動化。
-    Botが所属する全ギルドを対象とする。
+    Bot が所属する全ギルドを対象とする。
     """
     await self.bot.wait_until_ready()
 
-    # Bot が所属する全ギルドをループ
+    # Bot が所属している全ギルドで実行
     for guild in self.bot.guilds:
         if guild is None:
             continue
 
-        # settings からバックアップチャンネル取得
+        # settings からバックアップチャンネルを取得
         settings = await self.bot.db.get_settings()
         settings_dict = dict(settings) if settings else {}
         backup_ch_id = settings_dict.get("log_backup")
@@ -327,7 +327,7 @@ async def auto_backup(self):
             continue
 
         try:
-            # ★ 手動バックアップと同じ処理
+            # ★ 手動バックアップとまったく同じ処理
             payload = await self.make_backup_payload(guild)
 
             os.makedirs(BACKUP_DIR, exist_ok=True)
@@ -335,11 +335,13 @@ async def auto_backup(self):
             filename = f"backup_{guild.id}_{ts}.json"
             path = os.path.join(BACKUP_DIR, filename)
 
+            # JSON 書き込み
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(payload, f, ensure_ascii=False, indent=2)
 
             file = discord.File(path, filename=filename)
 
+            # Discord に送信
             await channel.send(
                 content=f"⏰ 自動バックアップ ({guild.name}) `{ts}`",
                 file=file
@@ -353,6 +355,7 @@ async def auto_backup(self):
 
 @auto_backup.before_loop
 async def before_auto_backup(self):
+    """バックアップ開始前に bot の準備を待機"""
     await self.bot.wait_until_ready()
 
 
