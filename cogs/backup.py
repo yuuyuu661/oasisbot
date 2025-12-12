@@ -15,11 +15,8 @@ class BackupCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        if not self.auto_backup.is_running():
-            self.auto_backup.start()
-            print("[Backup] auto_backup STARTED after on_ready.")
+        # 自動バックアップタスク開始
+        self.auto_backup.start()
 
     # --------------------------------------------------
     # ヘルパー：管理者判定（settings.admin_roles + Discord管理者権限）
