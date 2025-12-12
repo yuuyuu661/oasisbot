@@ -14,9 +14,8 @@ BACKUP_DIR = "backups"  # バックアップファイル保存用ディレクト
 class BackupCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-
-        # 自動バックアップタスク開始
         self.auto_backup.start()
+        print("[Backup] auto_backup started")
 
     # --------------------------------------------------
     # ヘルパー：管理者判定（settings.admin_roles + Discord管理者権限）
@@ -297,7 +296,7 @@ class BackupCog(commands.Cog):
     # --------------------------------------------------
     # 自動バックアップ（1分ごと）
     # --------------------------------------------------
-    @tasks.loop(minutes=1)
+    @tasks.loop(hours=1)
     async def auto_backup(self):
         """
         手動バックアップと同じ処理を自動で定期実行する。
@@ -354,6 +353,7 @@ class BackupCog(commands.Cog):
         自動バックアップ開始前に Bot の準備が整うまで待つ。
         """
         await self.bot.wait_until_ready()
+        await self.auto_backup()  # 起動時に1回実行
 
 
 
