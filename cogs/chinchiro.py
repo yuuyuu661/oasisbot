@@ -6,6 +6,17 @@ import asyncio
 from discord.ext import commands
 from discord import app_commands
 
+
+# =========================
+# ギルド限定（bot.py と一致させる）
+# =========================
+
+GUILD_IDS = [
+    1444580349773348951,
+    1420918259187712093,
+]
+
+
 # =========================
 # 役・強さ・倍率定義
 # =========================
@@ -18,6 +29,7 @@ ROLE_ORDER = {
     "ブタ": 2,
     "ヒフミ": 1,
 }
+
 
 def judge_role(dice: list[int]):
     a, b, c = sorted(dice)
@@ -36,14 +48,12 @@ def judge_role(dice: list[int]):
 
 
 # =========================
-# rrc通貨処理（フック）
+# 通貨処理（今回は未使用）
 # =========================
 
 async def add_rrc(user: discord.Member, amount: int):
-    """
-    ここを既存の通貨Bot処理に差し替えてください
-    """
-    pass
+    # 今回は計算表示のみ
+    return
 
 
 # =========================
@@ -52,7 +62,9 @@ async def add_rrc(user: discord.Member, amount: int):
 
 async def roll_animation(channel: discord.TextChannel, user: discord.Member):
     final = [random.randint(1, 6) for _ in range(3)]
-    msg = await channel.send(f"🎲 **{user.display_name}** がサイコロを振っています…")
+    msg = await channel.send(
+        f"🎲 **{user.display_name}** がサイコロを振っています…"
+    )
 
     for _ in range(10):
         a = [random.randint(1, 6) for _ in range(3)]
@@ -60,6 +72,7 @@ async def roll_animation(channel: discord.TextChannel, user: discord.Member):
         await asyncio.sleep(0.15)
 
     role, mult = judge_role(final)
+
     await msg.edit(
         content=(
             f"🎉 **結果：{final[0]} | {final[1]} | {final[2]}**\n"
@@ -70,18 +83,20 @@ async def roll_animation(channel: discord.TextChannel, user: discord.Member):
 
 
 # =========================
-# メインCog
+# メイン Cog
 # =========================
 
 class ChinchiroCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.sessions = {}  # guild_id -> session
+        self.sessions: dict[int, dict] = {}
+
 
     # -------------------------
     # /チンチロ
     # -------------------------
     @app_commands.command(name="チンチロ", description="チンチロを開始する")
+    @app_commands.guilds(*GUILD_IDS)
     async def chinchiro(self, interaction: discord.Interaction, rate: int):
         gid = interaction.guild.id
 
@@ -109,16 +124,16 @@ class ChinchiroCog(commands.Cog):
             view=JoinView(self, gid)
         )
 
+
     # -------------------------
-    # ゲーム本編開始
+    # ゲーム本編
     # -------------------------
     async def start_game(self, channel: discord.TextChannel):
         session = self.sessions[channel.guild.id]
         parent = session["parent"]
-
         results = {}
 
-        # 子の順番（ランダム）
+        # 子の順番
         children = [p for p in session["players"] if p != parent]
         random.shuffle(children)
 
@@ -140,15 +155,17 @@ class ChinchiroCog(commands.Cog):
             view=ResultView(self, channel.guild.id)
         )
 
-    async def roll_turn(self, channel, user):
+
+    async def roll_turn(self, channel: discord.TextChannel, user: discord.Member):
         for i in range(3):
             role, mult = await roll_animation(channel, user)
             if role != "ブタ":
                 return role, mult
-            await channel.send(f"⚠️ 役無し… 振り直し ({i+1}/3)")
+            await channel.send(f"⚠️ 役無し… 振り直し ({i + 1}/3)")
         return "ブタ", -1
 
-    async def calc_payout(self, session):
+
+    async def calc_payout(self, session: dict):
         rate = session["rate"]
         parent = session["parent"]
         results = session["results"]
@@ -160,13 +177,11 @@ class ChinchiroCog(commands.Cog):
             if user == parent:
                 continue
 
-            # 親勝ち
             if ROLE_ORDER[p_role] > ROLE_ORDER[role]:
                 amt = rate * max(p_mult, 1)
                 ledger[parent] += amt
                 ledger[user] -= amt
 
-            # 親負け
             elif ROLE_ORDER[p_role] < ROLE_ORDER[role]:
                 amt = rate * max(mult, 1)
                 ledger[parent] -= amt
@@ -174,8 +189,10 @@ class ChinchiroCog(commands.Cog):
 
         return ledger
 
-    async def show_result(self, channel, ledger):
+
+    async def show_result(self, channel: discord.TextChannel, ledger: dict):
         lines = ["🎲 **リザルト**"]
+
         for user, amt in ledger.items():
             sign = "+" if amt >= 0 else ""
             lines.append(f"{user.display_name}　{sign}{amt}rrc")
@@ -183,10 +200,12 @@ class ChinchiroCog(commands.Cog):
 
         await channel.send("\n".join(lines))
 
+
     # -------------------------
     # /チンチロリセット
     # -------------------------
     @app_commands.command(name="チンチロリセット", description="チンチロを強制終了")
+    @app_commands.guilds(*GUILD_IDS)
     @app_commands.checks.has_permissions(administrator=True)
     async def chinchiro_reset(self, interaction: discord.Interaction):
         self.sessions.pop(interaction.guild.id, None)
@@ -213,8 +232,8 @@ class JoinView(discord.ui.View):
         embed = interaction.message.embeds[0]
         embed.description = (
             f"レート：{session['rate']}rrc\n\n"
-            "参加者：\n" +
-            "\n".join(p.display_name for p in session["players"])
+            "参加者：\n"
+            + "\n".join(p.display_name for p in session["players"])
         )
 
         await interaction.response.edit_message(embed=embed)
@@ -244,7 +263,7 @@ class ParentButton(discord.ui.Button):
         super().__init__(label="親決め", style=discord.ButtonStyle.primary)
         self.cog = cog
         self.gid = gid
-        self.done = {}
+        self.done: dict[discord.Member, str] = {}
 
     async def callback(self, interaction: discord.Interaction):
         session = self.cog.sessions[self.gid]
