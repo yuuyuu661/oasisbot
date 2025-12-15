@@ -21,59 +21,96 @@ class Database:
     # ------------------------------------------------------
     #   初期化（テーブル自動作成）
     # ------------------------------------------------------
-async def init_db(self):
-    await self.connect()
+class Database:
+    def __init__(self):
+        self.conn = None
+        self.dsn = os.getenv("DATABASE_URL")
 
-    # Users テーブル（ギルド別通貨管理）
-    await self.conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS users (
-            user_id TEXT NOT NULL,
-            guild_id TEXT NOT NULL,
-            balance INTEGER NOT NULL DEFAULT 0,
-            PRIMARY KEY (user_id, guild_id)
-        );
-        """
-    )
+    # ------------------------------------------------------
+    #   DB接続
+    # ------------------------------------------------------
+    async def connect(self):
+        if self.conn is None:
+            self.conn = await asyncpg.connect(self.dsn)
 
-    # --------------------------------------------------
-    # users テーブル：プレミアム演出用カラム追加
-    # --------------------------------------------------
-    col_check = await self.conn.fetch(
-        """
-        SELECT column_name
-        FROM information_schema.columns
-        WHERE table_name = 'users';
-        """
-    )
+    # ------------------------------------------------------
+    #   初期化（テーブル自動作成）
+    # ------------------------------------------------------
+    async def init_db(self):
+        await self.connect()
 
-    existing_cols = {row["column_name"] for row in col_check}
-
-    if "premium_until" not in existing_cols:
+        # Users テーブル（ギルド別通貨管理）
         await self.conn.execute(
             """
-            ALTER TABLE users
-            ADD COLUMN premium_until TIMESTAMP;
+            CREATE TABLE IF NOT EXISTS users (
+                user_id TEXT NOT NULL,
+                guild_id TEXT NOT NULL,
+                balance INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (user_id, guild_id)
+            );
             """
         )
 
-    if "grad_color_1" not in existing_cols:
-        await self.conn.execute(
+        # --------------------------------------------------
+        # users テーブル：プレミアム演出用カラム追加
+        # --------------------------------------------------
+        col_check = await self.conn.fetch(
             """
-            ALTER TABLE users
-            ADD COLUMN grad_color_1 TEXT;
-            """
-        )
-
-    if "grad_color_2" not in existing_cols:
-        await self.conn.execute(
-            """
-            ALTER TABLE users
-            ADD COLUMN grad_color_2 TEXT;
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'users';
             """
         )
 
-    # ← この下に role_salaries / settings / hotel / gamble … が続く
+        existing_cols = {row["column_name"] for row in col_check}
+
+        if "premium_until" not in existing_cols:
+            await self.conn.execute(
+                """
+                ALTER TABLE users
+                ADD COLUMN premium_until TIMESTAMP;
+                """
+            )
+
+        if "grad_color_1" not in existing_cols:
+            await self.conn.execute(
+                """
+                ALTER TABLE users
+                ADD COLUMN grad_color_1 TEXT;
+                """
+            )
+
+        if "grad_color_2" not in existing_cols:
+            await self.conn.execute(
+                """
+                ALTER TABLE users
+                ADD COLUMN grad_color_2 TEXT;
+                """
+            )
+
+        # 給料ロールテーブル
+        await self.conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS role_salaries (
+                role_id TEXT PRIMARY KEY,
+                salary INTEGER NOT NULL
+            );
+            """
+        )
+
+        # Settings テーブル
+        await self.conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS settings (
+                id INTEGER PRIMARY KEY,
+                admin_roles TEXT[],
+                currency_unit TEXT,
+                log_pay TEXT,
+                log_manage TEXT,
+                log_salary TEXT
+            );
+            """
+        )
 
 
         # 給料ロールテーブル
@@ -454,6 +491,7 @@ async def init_db(self):
             row.get("grad_color_1"),
             row.get("grad_color_2"),
         )
+
 
 
 
