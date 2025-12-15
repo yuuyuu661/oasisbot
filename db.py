@@ -1,6 +1,7 @@
 import os
 import asyncpg
 from dotenv import load_dotenv
+from datetime import datetime, timedelta
 
 load_dotenv()
 
@@ -32,6 +33,37 @@ class Database:
                 PRIMARY KEY (user_id, guild_id)
             );
         """)
+# --------------------------------------------------
+# users テーブル：プレミアム演出用カラム追加
+# --------------------------------------------------
+col_check = await self.conn.fetch("""
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_name = 'users';
+""")
+
+existing_cols = {row["column_name"] for row in col_check}
+
+if "premium_until" not in existing_cols:
+    print("🛠 users テーブルに premium_until を追加します…")
+    await self.conn.execute("""
+        ALTER TABLE users
+        ADD COLUMN premium_until TIMESTAMP;
+    """)
+
+if "grad_color_1" not in existing_cols:
+    print("🛠 users テーブルに grad_color_1 を追加します…")
+    await self.conn.execute("""
+        ALTER TABLE users
+        ADD COLUMN grad_color_1 TEXT;
+    """)
+
+if "grad_color_2" not in existing_cols:
+    print("🛠 users テーブルに grad_color_2 を追加します…")
+    await self.conn.execute("""
+        ALTER TABLE users
+        ADD COLUMN grad_color_2 TEXT;
+    """)
 
         # 給料ロールテーブル
         await self.conn.execute("""
@@ -340,5 +372,79 @@ class Database:
             channel_id
         )
 
+# --------------------------------------------------
+# プレミアム付与（days=None で永久）
+# --------------------------------------------------
+async def set_premium(self, user_id, guild_id, days: int | None = 30):
+    await self.get_user(user_id, guild_id)
+
+    if days is None:
+        premium_until = None
+    else:
+        premium_until = datetime.utcnow() + timedelta(days=days)
+
+    await self.conn.execute(
+        """
+        UPDATE users
+        SET premium_until = $3
+        WHERE user_id = $1
+          AND guild_id = $2
+        """,
+        user_id,
+        guild_id,
+        premium_until
+    )
+
+
+# --------------------------------------------------
+# プレミアム判定
+# --------------------------------------------------
+async def is_premium(self, user_id, guild_id) -> bool:
+    row = await self.get_user(user_id, guild_id)
+
+    premium_until = row.get("premium_until")
+    if not premium_until:
+        return False
+
+    return premium_until > datetime.utcnow()
+
+
+# --------------------------------------------------
+# グラデーション色保存（片方だけでもOK）
+# --------------------------------------------------
+async def set_gradient_color(
+    self,
+    user_id,
+    guild_id,
+    c1: str | None = None,
+    c2: str | None = None
+):
+    await self.get_user(user_id, guild_id)
+
+    await self.conn.execute(
+        """
+        UPDATE users
+        SET grad_color_1 = COALESCE($3, grad_color_1),
+            grad_color_2 = COALESCE($4, grad_color_2)
+        WHERE user_id = $1
+          AND guild_id = $2
+        """,
+        user_id,
+        guild_id,
+        c1,
+        c2
+    )
+
+
+# --------------------------------------------------
+# グラデーション色取得
+# --------------------------------------------------
+async def get_gradient_color(self, user_id, guild_id):
+    row = await self.get_user(user_id, guild_id)
+
+    return (
+        row.get("grad_color_1"),
+        row.get("grad_color_2"),
+    )
 
 
