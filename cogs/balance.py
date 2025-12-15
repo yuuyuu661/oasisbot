@@ -183,7 +183,7 @@ class BalanceCog(commands.Cog):
             create_gradient_text_image(
                 username=sender.display_name,
                 amount=amount,
-                unit=unit,
+                unit="rrc",
                 color1=color1 or "#FFD700",
                 color2=color2 or "#FF00FF",
                 output_path=output_path
@@ -206,13 +206,11 @@ class BalanceCog(commands.Cog):
             )
             embed.add_field(
                 name="送金額",
-                value=f"**{amount:,} {unit}**",
+                value=f"**{amount:,} rrc**",
                 inline=False
             )
 
-            embed.set_image(
-                url="attachment://pay.png"
-            )
+            embed.set_image(url="attachment://pay.png")
 
             file = discord.File(
                 output_path,
@@ -226,7 +224,7 @@ class BalanceCog(commands.Cog):
             return
 
         # ==================================================
-        # 通常ユーザー：既存パネルUI
+        # 通常ユーザー：通常UI（1回だけ）
         # ==================================================
         if amount >= 1_000_000:
             color = 0xE74C3C
@@ -244,16 +242,15 @@ class BalanceCog(commands.Cog):
         embed = discord.Embed(
             title="💸 送金完了！",
             description=(
-                f"\n"
                 f"**送金者**：{sender.mention}\n"
-                f"**受取**：{member.mention}\n"
+                f"**受取**：{member.mention}"
             ),
             color=color
         )
 
         embed.add_field(
             name="送金額",
-            value=f"**{amount:,} {unit}**",
+            value=f"**{amount:,} rrc**",
             inline=False
         )
 
@@ -267,60 +264,6 @@ class BalanceCog(commands.Cog):
         await interaction.response.send_message(
             embed=embed
         )
-
-        # --- 返信メッセージ ---
-        # --- 返信メッセージ（パネルUI） ---
-        # 金額に応じてパネル色を決定
-        if amount >= 1_000_000:
-            color = 0xE74C3C  # 赤
-        elif amount >= 500_000:
-            color = 0xE67E22  # オレンジ
-        elif amount >= 300_000:
-            color = 0xF1C40F  # 黄色
-        elif amount >= 100_000:
-            color = 0x2ECC71  # 緑
-        elif amount >= 10_000:
-            color = 0x1ABC9C  # 水色
-        else:
-            color = 0x3498DB  # 青
-
-        embed = discord.Embed(
-            title="💸  送金完了！",
-            description=(
-                f"\n"
-                f" **送金者**：{sender.mention}\n"
-                f" **受取**：{member.mention}\n"
-                f"\n"
-            ),
-            color=color
-        )
-
-        # 金額フィールド（見やすく太字）
-        embed.add_field(
-            name="  送金額",
-            value=f"\n**{amount:,} {unit}**\n",
-            inline=False
-        )
-
-        # メモ（任意）
-        if memo:
-            embed.add_field(
-                name="📝  メモ",
-                value=f"\n{memo}\n",
-                inline=False
-            )
-
-        # サムネイル画像（右上に表示）
-        embed.set_thumbnail(url="attachment://pay.png")
-
-        # 画像ファイルの添付
-        file = discord.File("pay.png", filename="pay.png")
-
-        await interaction.response.send_message(
-            embed=embed,
-            file=file
-        )
-
 
 
         # --- ログ ---
