@@ -107,177 +107,144 @@ class BalanceCog(commands.Cog):
         name="pay",
         description="指定ユーザーに通貨を送金します（メモ対応）"
     )
-    @app_commands.describe(
-        member="送金先のユーザー",
-        amount="送金額（整数）",
-        memo="任意のメモ（省略可）"
-    )
     async def pay(
         self,
         interaction: discord.Interaction,
         member: discord.Member,
         amount: int,
-        memo: str | None = None
+        memo: str | None = None,
     ):
         bot = self.bot
         guild = interaction.guild
         sender = interaction.user
+        db = bot.db
 
         if guild is None:
-            return await interaction.response.send_message(
+            await interaction.response.send_message(
                 "サーバー内でのみ使用できます。",
-                ephemeral=True
+                ephemeral=True,
             )
+            return
 
         if amount <= 0:
-            return await interaction.response.send_message(
+            await interaction.response.send_message(
                 "送金額は1以上を指定してください。",
-                ephemeral=True
+                ephemeral=True,
             )
-
-        db = bot.db
+            return
 
         try:
             settings = await db.get_settings()
             unit = settings["currency_unit"]
 
-            # 残高チェック
             sender_row = await db.get_user(str(sender.id), str(guild.id))
             if sender_row["balance"] < amount:
-                return await interaction.response.send_message(
+                await interaction.response.send_message(
                     f"残高が足りません。\n現在: {sender_row['balance']} {unit}",
-                    ephemeral=True
+                    ephemeral=True,
                 )
+                return
 
-            # 送金実行
             await db.remove_balance(str(sender.id), str(guild.id), amount)
             await db.add_balance(str(member.id), str(guild.id), amount)
-            
+
         except Exception as e:
             print("pay error:", repr(e))
-            if interaction.response.is_done():
-                return await interaction.followup.send(
-                    "内部エラーが発生しました。（pay）",
-                    ephemeral=True
-                )
-            else:
-                return await interaction.response.send_message(
-                    "内部エラーが発生しました。（pay）",
-                    ephemeral=True
-                )
+            await interaction.response.send_message(
+                "内部エラーが発生しました。（pay）",
+                ephemeral=True,
+            )
             return
 
-# ==================================================
-# プレミアムユーザー：グラデーションUI
-# ==================================================
-if await db.is_premium(str(sender.id), str(guild.id)):
-    try:
-        import os
+        # ==================================================
+        # プレミアムUI
+        # ==================================================
+        if await db.is_premium(str(sender.id), str(guild.id)):
+            try:
+                import os
+                os.makedirs("generated", exist_ok=True)
 
-        os.makedirs("generated", exist_ok=True)
+                color1, color2 = await db.get_gradient_color(
+                    str(sender.id),
+                    str(guild.id),
+                )
 
-        color1, color2 = await db.get_gradient_color(
-            str(sender.id),
-            str(guild.id),
-        )
+                output_path = f"generated/pay_{sender.id}.png"
 
-        output_path = f"generated/pay_{sender.id}.png"
+                create_gradient_text_image(
+                    username=sender.display_name,
+                    amount=amount,
+                    unit="rrc",
+                    color1=color1 or "#FFD700",
+                    color2=color2 or "#FF00FF",
+                    output_path=output_path,
+                )
 
-        create_gradient_text_image(
-            username=sender.display_name,
-            amount=amount,
-            unit="rrc",
-            color1=color1 or "#FFD700",
-            color2=color2 or "#FF00FF",
-            output_path=output_path,
-        )
+                embed = discord.Embed(
+                    title="💎 PREMIUM PAYMENT",
+                    color=0xFFD700,
+                )
 
-        embed = discord.Embed(
-            title="💎 PREMIUM PAYMENT",
-            color=0xFFD700,
-        )
+                embed.add_field(
+                    name="送金者",
+                    value=sender.mention,
+                    inline=True,
+                )
+                embed.add_field(
+                    name="受取",
+                    value=member.mention,
+                    inline=True,
+                )
+                embed.add_field(
+                    name="送金額",
+                    value=f"**{amount:,} rrc**",
+                    inline=False,
+                )
 
-        embed.add_field(
-            name="送金者",
-            value=sender.mention,
-            inline=True,
-        )
-        embed.add_field(
-            name="受取",
-            value=member.mention,
-            inline=True,
-        )
-        embed.add_field(
-            name="送金額",
-            value=f"**{amount:,} rrc**",
-            inline=False,
-        )
+                embed.set_image(url="attachment://pay.png")
 
-        embed.set_image(
-            url="attachment://pay.png",
-        )
+                file = discord.File(output_path, filename="pay.png")
 
-        file = discord.File(
-            output_path,
-            filename="pay.png",
-        )
+                await interaction.response.send_message(
+                    embed=embed,
+                    file=file,
+                )
+                return
 
-        await interaction.response.send_message(
-            embed=embed,
-            file=file,
-        )
-        return
-
-    except Exception as e:
-        print("❌ premium pay ui error:", repr(e))
-        await interaction.response.send_message(
-            "⚠️ プレミアムUI生成中にエラーが発生しました。",
-            ephemeral=True,
-        )
-        return
-
+            except Exception as e:
+                print("premium ui error:", repr(e))
+                await interaction.response.send_message(
+                    "⚠️ プレミアムUI生成に失敗しました。",
+                    ephemeral=True,
+                )
+                return
 
         # ==================================================
-        # 通常ユーザー：通常UI（1回だけ）
+        # 通常UI
         # ==================================================
-        if amount >= 1_000_000:
-            color = 0xE74C3C
-        elif amount >= 500_000:
-            color = 0xE67E22
-        elif amount >= 300_000:
-            color = 0xF1C40F
-        elif amount >= 100_000:
-            color = 0x2ECC71
-        elif amount >= 10_000:
-            color = 0x1ABC9C
-        else:
-            color = 0x3498DB
-
         embed = discord.Embed(
             title="💸 送金完了！",
             description=(
                 f"**送金者**：{sender.mention}\n"
                 f"**受取**：{member.mention}"
             ),
-            color=color
+            color=0x3498DB,
         )
 
         embed.add_field(
             name="送金額",
             value=f"**{amount:,} rrc**",
-            inline=False
+            inline=False,
         )
 
         if memo:
             embed.add_field(
                 name="📝 メモ",
                 value=memo,
-                inline=False
+                inline=False,
             )
 
-        await interaction.response.send_message(
-            embed=embed
-        )
+        await interaction.response.send_message(embed=embed)
 
 
         # --- ログ ---
