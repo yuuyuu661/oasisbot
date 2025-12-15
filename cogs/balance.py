@@ -151,6 +151,7 @@ class BalanceCog(commands.Cog):
             # 送金実行
             await db.remove_balance(str(sender.id), str(guild.id), amount)
             await db.add_balance(str(member.id), str(guild.id), amount)
+            
         except Exception as e:
             print("pay error:", repr(e))
             if interaction.response.is_done():
@@ -163,6 +164,109 @@ class BalanceCog(commands.Cog):
                     "内部エラーが発生しました。（pay）",
                     ephemeral=True
                 )
+            return
+
+        # ==================================================
+        # プレミアムユーザー：グラデーションUI
+        # ==================================================
+        if await db.is_premium(
+            str(sender.id),
+            str(guild.id)
+        ):
+            color1, color2 = await db.get_gradient_color(
+                str(sender.id),
+                str(guild.id)
+            )
+
+            output_path = f"generated/pay_{sender.id}.png"
+
+            create_gradient_text_image(
+                username=sender.display_name,
+                amount=amount,
+                unit=unit,
+                color1=color1 or "#FFD700",
+                color2=color2 or "#FF00FF",
+                output_path=output_path
+            )
+
+            embed = discord.Embed(
+                title="💎 PREMIUM PAYMENT",
+                color=0xFFD700
+            )
+
+            embed.add_field(
+                name="送金者",
+                value=sender.mention,
+                inline=True
+            )
+            embed.add_field(
+                name="受取",
+                value=member.mention,
+                inline=True
+            )
+            embed.add_field(
+                name="送金額",
+                value=f"**{amount:,} {unit}**",
+                inline=False
+            )
+
+            embed.set_image(
+                url="attachment://pay.png"
+            )
+
+            file = discord.File(
+                output_path,
+                filename="pay.png"
+            )
+
+            await interaction.response.send_message(
+                embed=embed,
+                file=file
+            )
+            return
+
+        # ==================================================
+        # 通常ユーザー：既存パネルUI
+        # ==================================================
+        if amount >= 1_000_000:
+            color = 0xE74C3C
+        elif amount >= 500_000:
+            color = 0xE67E22
+        elif amount >= 300_000:
+            color = 0xF1C40F
+        elif amount >= 100_000:
+            color = 0x2ECC71
+        elif amount >= 10_000:
+            color = 0x1ABC9C
+        else:
+            color = 0x3498DB
+
+        embed = discord.Embed(
+            title="💸 送金完了！",
+            description=(
+                f"\n"
+                f"**送金者**：{sender.mention}\n"
+                f"**受取**：{member.mention}\n"
+            ),
+            color=color
+        )
+
+        embed.add_field(
+            name="送金額",
+            value=f"**{amount:,} {unit}**",
+            inline=False
+        )
+
+        if memo:
+            embed.add_field(
+                name="📝 メモ",
+                value=memo,
+                inline=False
+            )
+
+        await interaction.response.send_message(
+            embed=embed
+        )
 
         # --- 返信メッセージ ---
         # --- 返信メッセージ（パネルUI） ---
