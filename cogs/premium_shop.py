@@ -127,6 +127,12 @@ class ConfirmButton(discord.ui.Button):
             self.view_ref.color1,
             self.view_ref.color2
         )
+        # プレミアム付与（30日）
+        await db.set_premium(
+            user_id,
+            guild_id,
+           days=30
+        )
 
         await interaction.response.send_message(
             "🎉 プレミアム購入が完了しました！\n"
@@ -200,4 +206,5 @@ async def setup(bot):
                 cmd,
                 guild=discord.Object(id=gid)
             )
+
 
