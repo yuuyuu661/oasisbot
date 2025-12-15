@@ -185,22 +185,6 @@ class BalanceCog(commands.Cog):
                     color=0xFFD700,
                 )
 
-                embed.add_field(
-                    name="送金者",
-                    value=sender.mention,
-                    inline=True,
-                )
-                embed.add_field(
-                    name="受取",
-                    value=member.mention,
-                    inline=True,
-                )
-                embed.add_field(
-                    name="送金額",
-                    value=f"**{amount:,} rrc**",
-                    inline=False,
-                )
-
                 embed.set_image(url="attachment://pay.png")
 
                 file = discord.File(output_path, filename="pay.png")
