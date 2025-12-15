@@ -2,6 +2,7 @@ import inspect
 import discord
 from discord.ext import commands
 from discord import app_commands
+from utils.image import create_gradient_text_image
 
 from logger import log_pay
 
