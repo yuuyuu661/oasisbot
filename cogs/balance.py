@@ -193,6 +193,16 @@ class BalanceCog(commands.Cog):
                     embed=embed,
                     file=file,
                 )
+                
+                # --- ログは必ずここ ---
+                await log_pay(
+                    bot=bot,
+                    settings=settings,
+                    from_id=sender.id,
+                    to_id=member.id,
+                    amount=amount,
+                    memo=memo,
+                )
                 return
 
             except Exception as e:
