@@ -167,62 +167,75 @@ class BalanceCog(commands.Cog):
                 )
             return
 
-        # ==================================================
-        # プレミアムユーザー：グラデーションUI
-        # ==================================================
-        if await db.is_premium(
+# ==================================================
+# プレミアムユーザー：グラデーションUI
+# ==================================================
+if await db.is_premium(str(sender.id), str(guild.id)):
+    try:
+        import os
+
+        os.makedirs("generated", exist_ok=True)
+
+        color1, color2 = await db.get_gradient_color(
             str(sender.id),
-            str(guild.id)
-        ):
-            color1, color2 = await db.get_gradient_color(
-                str(sender.id),
-                str(guild.id)
-            )
+            str(guild.id),
+        )
 
-            output_path = f"generated/pay_{sender.id}.png"
+        output_path = f"generated/pay_{sender.id}.png"
 
-            create_gradient_text_image(
-                username=sender.display_name,
-                amount=amount,
-                unit="rrc",
-                color1=color1 or "#FFD700",
-                color2=color2 or "#FF00FF",
-                output_path=output_path
-            )
+        create_gradient_text_image(
+            username=sender.display_name,
+            amount=amount,
+            unit="rrc",
+            color1=color1 or "#FFD700",
+            color2=color2 or "#FF00FF",
+            output_path=output_path,
+        )
 
-            embed = discord.Embed(
-                title="💎 PREMIUM PAYMENT",
-                color=0xFFD700
-            )
+        embed = discord.Embed(
+            title="💎 PREMIUM PAYMENT",
+            color=0xFFD700,
+        )
 
-            embed.add_field(
-                name="送金者",
-                value=sender.mention,
-                inline=True
-            )
-            embed.add_field(
-                name="受取",
-                value=member.mention,
-                inline=True
-            )
-            embed.add_field(
-                name="送金額",
-                value=f"**{amount:,} rrc**",
-                inline=False
-            )
+        embed.add_field(
+            name="送金者",
+            value=sender.mention,
+            inline=True,
+        )
+        embed.add_field(
+            name="受取",
+            value=member.mention,
+            inline=True,
+        )
+        embed.add_field(
+            name="送金額",
+            value=f"**{amount:,} rrc**",
+            inline=False,
+        )
 
-            embed.set_image(url="attachment://pay.png")
+        embed.set_image(
+            url="attachment://pay.png",
+        )
 
-            file = discord.File(
-                output_path,
-                filename="pay.png"
-            )
+        file = discord.File(
+            output_path,
+            filename="pay.png",
+        )
 
-            await interaction.response.send_message(
-                embed=embed,
-                file=file
-            )
-            return
+        await interaction.response.send_message(
+            embed=embed,
+            file=file,
+        )
+        return
+
+    except Exception as e:
+        print("❌ premium pay ui error:", repr(e))
+        await interaction.response.send_message(
+            "⚠️ プレミアムUI生成中にエラーが発生しました。",
+            ephemeral=True,
+        )
+        return
+
 
         # ==================================================
         # 通常ユーザー：通常UI（1回だけ）
