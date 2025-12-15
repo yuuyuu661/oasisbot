@@ -23,7 +23,7 @@ def create_gradient_text_image(
         base_dir,
         "utils",
         "fonts",
-        "NotoSansJP-Bold.ttf",
+        "NotoSansJP-VariableFont_wght.ttf",
     )
 
     # フォント読み込み
@@ -46,3 +46,4 @@ def create_gradient_text_image(
     )
 
     image.save(output_path)
+
