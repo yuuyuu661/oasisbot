@@ -257,7 +257,11 @@ class SlotJoinView(discord.ui.View):
         self.players: list[int] = []
 
 @discord.ui.button(label="参加", style=discord.ButtonStyle.success)
-async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
+async def join(
+    self,
+    interaction: discord.Interaction,
+    button: discord.ui.Button
+):
     user = interaction.user
     guild = interaction.guild
 
@@ -268,12 +272,17 @@ async def join(self, interaction: discord.Interaction, button: discord.ui.Button
         )
 
     # VCチェック
-    if not user.voice or not user.voice.channel or user.voice.channel.id != self.vc.id:
+    if (
+        not user.voice
+        or not user.voice.channel
+        or user.voice.channel.id != self.vc.id
+    ):
         return await interaction.response.send_message(
             "❌ 主催者と同じボイスチャットに居る必要があります。",
             ephemeral=True
         )
 
+    # 二重参加防止
     if user.id in self.players:
         return await interaction.response.send_message(
             "❌ すでに参加しています。",
@@ -283,7 +292,10 @@ async def join(self, interaction: discord.Interaction, button: discord.ui.Button
     try:
         guild_id = guild.id
 
-        user_row = await self.cog.bot.db.get_user(user.id, guild_id)
+        user_row = await self.cog.bot.db.get_user(
+            user.id,
+            guild_id
+        )
         bal = user_row["balance"]
 
         if bal < self.fee:
@@ -293,7 +305,11 @@ async def join(self, interaction: discord.Interaction, button: discord.ui.Button
             )
 
         # 参加費支払い
-        await self.cog.bot.db.add_balance(user.id, guild_id, -self.fee)
+        await self.cog.bot.db.add_balance(
+            user.id,
+            guild_id,
+            -self.fee
+        )
 
     except Exception as e:
         print("Slot join error:", e)
@@ -302,10 +318,17 @@ async def join(self, interaction: discord.Interaction, button: discord.ui.Button
             ephemeral=True
         )
 
+    # 参加確定
     self.players.append(user.id)
 
-    embed = self.cog._build_recruit_embed(self.rate, self.fee, self.players)
+    embed = self.cog._build_recruit_embed(
+        self.rate,
+        self.fee,
+        self.players
+    )
+
     await interaction.response.edit_message(embed=embed)
+
 
 
     @discord.ui.button(label="締め切り", style=discord.ButtonStyle.danger)
@@ -415,4 +438,5 @@ async def setup(bot: commands.Bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
