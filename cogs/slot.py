@@ -245,8 +245,16 @@ class SlotCog(commands.Cog):
 # View：参加・締め切り
 # =========================
 class SlotJoinView(discord.ui.View):
-    def __init__(self, cog: SlotCog, host: discord.Member, vc: discord.VoiceChannel, rate: int, fee: int):
+    def __init__(
+        self,
+        cog: SlotCog,
+        host: discord.Member,
+        vc: discord.VoiceChannel,
+        rate: int,
+        fee: int
+    ):
         super().__init__(timeout=None)
+
         self.cog = cog
         self.host = host
         self.vc = vc
@@ -256,102 +264,123 @@ class SlotJoinView(discord.ui.View):
         # ★ 最初は空（主催者も未参加）
         self.players: list[int] = []
 
-@discord.ui.button(label="参加", style=discord.ButtonStyle.success)
-async def join(
-    self,
-    interaction: discord.Interaction,
-    button: discord.ui.Button
-):
-    user = interaction.user
-    guild = interaction.guild
-
-    if not guild:
-        return await interaction.response.send_message(
-            "❌ サーバー内でのみ使用できます。",
-            ephemeral=True
-        )
-
-    # VCチェック
-    if (
-        not user.voice
-        or not user.voice.channel
-        or user.voice.channel.id != self.vc.id
+    # -------------------------
+    # 参加ボタン
+    # -------------------------
+    @discord.ui.button(label="参加", style=discord.ButtonStyle.success)
+    async def join(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button
     ):
-        return await interaction.response.send_message(
-            "❌ 主催者と同じボイスチャットに居る必要があります。",
-            ephemeral=True
-        )
+        user = interaction.user
+        guild = interaction.guild
 
-    # 二重参加防止
-    if user.id in self.players:
-        return await interaction.response.send_message(
-            "❌ すでに参加しています。",
-            ephemeral=True
-        )
-
-    try:
-        guild_id = guild.id
-
-        user_row = await self.cog.bot.db.get_user(
-            user.id,
-            guild_id
-        )
-        bal = user_row["balance"]
-
-        if bal < self.fee:
+        if not guild:
             return await interaction.response.send_message(
-                "❌ rrcが不足しています。",
+                "❌ サーバー内でのみ使用できます。",
                 ephemeral=True
             )
 
-        # 参加費支払い
-        await self.cog.bot.db.add_balance(
-            user.id,
-            guild_id,
-            -self.fee
+        # VCチェック
+        if (
+            not user.voice
+            or not user.voice.channel
+            or user.voice.channel.id != self.vc.id
+        ):
+            return await interaction.response.send_message(
+                "❌ 主催者と同じボイスチャットに居る必要があります。",
+                ephemeral=True
+            )
+
+        # 二重参加防止
+        if user.id in self.players:
+            return await interaction.response.send_message(
+                "❌ すでに参加しています。",
+                ephemeral=True
+            )
+
+        try:
+            guild_id = guild.id
+
+            user_row = await self.cog.bot.db.get_user(
+                user.id,
+                guild_id
+            )
+            bal = user_row["balance"]
+
+            if bal < self.fee:
+                return await interaction.response.send_message(
+                    "❌ rrcが不足しています。",
+                    ephemeral=True
+                )
+
+            # 参加費支払い
+            await self.cog.bot.db.add_balance(
+                user.id,
+                guild_id,
+                -self.fee
+            )
+
+        except Exception as e:
+            print("Slot join error:", e)
+            return await interaction.response.send_message(
+                "❌ 内部エラーが発生しました（管理者に連絡してください）",
+                ephemeral=True
+            )
+
+        # 参加確定
+        self.players.append(user.id)
+
+        embed = self.cog._build_recruit_embed(
+            self.rate,
+            self.fee,
+            self.players
         )
 
-    except Exception as e:
-        print("Slot join error:", e)
-        return await interaction.response.send_message(
-            "❌ 内部エラーが発生しました（管理者に連絡してください）",
-            ephemeral=True
-        )
+        await interaction.response.edit_message(embed=embed)
 
-    # 参加確定
-    self.players.append(user.id)
-
-    embed = self.cog._build_recruit_embed(
-        self.rate,
-        self.fee,
-        self.players
-    )
-
-    await interaction.response.edit_message(embed=embed)
-
-
-
+    # -------------------------
+    # 締め切りボタン
+    # -------------------------
     @discord.ui.button(label="締め切り", style=discord.ButtonStyle.danger)
-    async def close(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def close(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button
+    ):
         if interaction.user.id != self.host.id:
-            return await interaction.response.send_message("❌ 主催者のみ使用できます。", ephemeral=True)
+            return await interaction.response.send_message(
+                "❌ 主催者のみ使用できます。",
+                ephemeral=True
+            )
 
         if len(self.players) < 2:
-            return await interaction.response.send_message("❌ 参加者は2人以上必要です。", ephemeral=True)
+            return await interaction.response.send_message(
+                "❌ 参加者は2人以上必要です。",
+                ephemeral=True
+            )
 
-        game = SlotGame(self.host, self.vc, self.rate, self.fee)
+        game = SlotGame(
+            self.host,
+            self.vc,
+            self.rate,
+            self.fee
+        )
         game.players = self.players.copy()
         random.shuffle(game.players)
 
         self.cog.games[interaction.message.id] = game
 
         await interaction.response.edit_message(
-            content="☠️ **DEAD OR ALIVE！**\n気合を入れてレバーを叩け！\n\n"
-                    f"最初は <@{game.current_player_id()}> の番！",
+            content=(
+                "☠️ **DEAD OR ALIVE！**\n"
+                "気合を入れてレバーを叩け！\n\n"
+                f"最初は <@{game.current_player_id()}> の番！"
+            ),
             embed=None,
             view=SlotSpinView(self.cog, game)
         )
-
 
 # =========================
 # View：スピン
@@ -438,5 +467,6 @@ async def setup(bot: commands.Bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
