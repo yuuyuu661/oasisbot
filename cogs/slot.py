@@ -256,34 +256,57 @@ class SlotJoinView(discord.ui.View):
         # ★ 最初は空（主催者も未参加）
         self.players: list[int] = []
 
-    @discord.ui.button(label="参加", style=discord.ButtonStyle.success)
-    async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
-        user = interaction.user
+@discord.ui.button(label="参加", style=discord.ButtonStyle.success)
+async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
+    user = interaction.user
+    guild = interaction.guild
 
-        # VCチェック
-        if not user.voice or not user.voice.channel or user.voice.channel.id != self.vc.id:
+    if not guild:
+        return await interaction.response.send_message(
+            "❌ サーバー内でのみ使用できます。",
+            ephemeral=True
+        )
+
+    # VCチェック
+    if not user.voice or not user.voice.channel or user.voice.channel.id != self.vc.id:
+        return await interaction.response.send_message(
+            "❌ 主催者と同じボイスチャットに居る必要があります。",
+            ephemeral=True
+        )
+
+    if user.id in self.players:
+        return await interaction.response.send_message(
+            "❌ すでに参加しています。",
+            ephemeral=True
+        )
+
+    try:
+        guild_id = guild.id
+
+        user_row = await self.cog.bot.db.get_user(user.id, guild_id)
+        bal = user_row["balance"]
+
+        if bal < self.fee:
             return await interaction.response.send_message(
-                "❌ 主催者と同じボイスチャットに居る必要があります。",
+                "❌ rrcが不足しています。",
                 ephemeral=True
             )
 
-        # 二重参加防止
-        if user.id in self.players:
-            return await interaction.response.send_message("❌ すでに参加しています。", ephemeral=True)
+        # 参加費支払い
+        await self.cog.bot.db.add_balance(user.id, guild_id, -self.fee)
 
-        # 残高チェック（あなたのDB仕様に合わせて）
-        bal = await self.cog.bot.db.get_balance(user.id)
-        if bal < self.fee:
-            return await interaction.response.send_message("❌ rrcが不足しています。", ephemeral=True)
+    except Exception as e:
+        print("Slot join error:", e)
+        return await interaction.response.send_message(
+            "❌ 内部エラーが発生しました（管理者に連絡してください）",
+            ephemeral=True
+        )
 
-        # 参加費支払い（参加確定）
-        await self.cog.bot.db.add_balance(user.id, -self.fee)
+    self.players.append(user.id)
 
-        self.players.append(user.id)
+    embed = self.cog._build_recruit_embed(self.rate, self.fee, self.players)
+    await interaction.response.edit_message(embed=embed)
 
-        # Embed更新（作り直しが安全）
-        embed = self.cog._build_recruit_embed(self.rate, self.fee, self.players)
-        await interaction.response.edit_message(embed=embed)
 
     @discord.ui.button(label="締め切り", style=discord.ButtonStyle.danger)
     async def close(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -392,3 +415,4 @@ async def setup(bot: commands.Bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
