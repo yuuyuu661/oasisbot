@@ -155,49 +155,74 @@ class SlotCog(commands.Cog):
     # =========================
     # 終了処理（全額支払い＋配給）
     # =========================
-    async def finish_game(self, interaction: discord.Interaction, game: SlotGame, loser: discord.Member, attachment: discord.File | None = None):
-        total = game.total_pool
-        players = game.players[:]  # copy
+async def finish_game(
+    self,
+    interaction: discord.Interaction,
+    game: SlotGame,
+    loser: discord.Member,
+    attachment: discord.File | None = None
+):
+    total = game.total_pool
+    players = game.players[:]
 
-        game.active = False
+    game.active = False
 
-        # 念のため（参加者2人未満は成立しない）
-        if len(players) < 2:
-            embed = discord.Embed(
-                title="📊 リザルト",
-                description="❌ 参加者が不足していたためゲームを終了しました。",
-                color=0xFF0000
-            )
-            return await interaction.response.edit_message(content=None, embed=embed, view=None)
+    guild = interaction.guild
+    if not guild:
+        return
 
-        # 配給額（終了者以外で割る）
-        receivers = [uid for uid in players if uid != loser.id]
-        share = total // len(receivers) if receivers else 0
+    guild_id = guild.id
 
-        # 残高処理（DB関数名はあなたの環境に合わせてOK）
-        # loser が全額支払い
-        await self.bot.db.add_balance(loser.id, -total)
-        # 他メンバーへ配給
-        for uid in receivers:
-            await self.bot.db.add_balance(uid, share)
-
+    if len(players) < 2:
         embed = discord.Embed(
             title="📊 リザルト",
-            description=(
-                f"総額：{total} rrc\n\n"
-                f"全額支払い者：{loser.mention}\n\n"
-                "配給：\n" +
-                ("\n".join([f"<@{uid}>：{share} rrc" for uid in receivers]) if receivers else "（配給対象なし）")
-            ),
+            description="❌ 参加者が不足していたためゲームを終了しました。",
             color=0xFF0000
         )
-
-        await interaction.response.edit_message(
+        return await interaction.response.edit_message(
             content=None,
             embed=embed,
-            attachments=[attachment] if attachment else None,
-            view=SlotContinueView(self, game)
+            view=None
         )
+
+    receivers = [uid for uid in players if uid != loser.id]
+    share = total // len(receivers) if receivers else 0
+
+    # ❗ ここが重要：guild_id を渡す
+    await self.bot.db.add_balance(
+        loser.id,
+        guild_id,
+        -total
+    )
+
+    for uid in receivers:
+        await self.bot.db.add_balance(
+            uid,
+            guild_id,
+            share
+        )
+
+    embed = discord.Embed(
+        title="📊 リザルト",
+        description=(
+            f"総額：{total} rrc\n\n"
+            f"全額支払い者：{loser.mention}\n\n"
+            "配給：\n"
+            + "\n".join(
+                f"<@{uid}>：{share} rrc"
+                for uid in receivers
+            )
+        ),
+        color=0xFF0000
+    )
+
+    await interaction.response.edit_message(
+        content=None,
+        embed=embed,
+        attachments=[attachment] if attachment else None,
+        view=SlotContinueView(self, game)
+    )
+
 
     # =========================
     # 静的画像（今はこれでOK：後でGIFに置き換え）
@@ -467,6 +492,7 @@ async def setup(bot: commands.Bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
