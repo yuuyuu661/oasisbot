@@ -68,25 +68,21 @@ class SlotCog(commands.Cog):
         name="スロット",
         description="ボイスチャット参加者限定のパチンコスロット"
     )
-    async def slot(
-        self,
-        interaction: discord.Interaction,
-        rate: int,
-        fee: int
-    ):
-        await interaction.response.defer()
-        member = interaction.user
+    async def slot(self, interaction: discord.Interaction, rate: int, fee: int):
+    await interaction.response.defer(ephemeral=True)
 
-        if not member.voice or not member.voice.channel:
-            return await interaction.response.send_message(
-                "❌ ボイスチャット参加中のみ使用できます。",
-                ephemeral=True
-            )
+    member = interaction.user
 
-        vc = member.voice.channel
-        session_id = str(interaction.id)
+    if not member.voice or not member.voice.channel:
+        return await interaction.followup.send(
+            "❌ ボイスチャット参加中のみ使用できます。",
+            ephemeral=True
+        )
 
-        # DBにセッション作成（正本）
+    vc = member.voice.channel
+    session_id = str(interaction.id)
+
+    try:
         await self.bot.db.create_slot_session(
             session_id=session_id,
             guild_id=interaction.guild.id,
@@ -96,21 +92,29 @@ class SlotCog(commands.Cog):
             fee=fee
         )
 
-        embed = self._build_recruit_embed(rate, fee, [])
-
-        view = SlotJoinView(
-            cog=self,
-            host=member,
-            vc=vc,
-            rate=rate,
-            fee=fee,
-            session_id=session_id
+    except Exception as e:
+        print("SLOT CREATE ERROR:", e)
+        return await interaction.followup.send(
+            "❌ 内部エラー（DB）",
+            ephemeral=True
         )
 
-        await interaction.response.send_message(
-            embed=embed,
-            view=view
-        )
+    embed = self._build_recruit_embed(rate, fee, [])
+
+    view = SlotJoinView(
+        cog=self,
+        host=member,
+        vc=vc,
+        rate=rate,
+        fee=fee,
+        session_id=session_id
+    )
+
+    await interaction.followup.send(
+        embed=embed,
+        view=view
+    )
+
 
     # -------------------------
     # 募集用 Embed
@@ -444,5 +448,6 @@ async def setup(bot: commands.Bot):
                 cmd,
                 guild=discord.Object(id=gid)
             )
+
 
 
