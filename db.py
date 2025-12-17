@@ -21,21 +21,6 @@ class Database:
     # ------------------------------------------------------
     #   初期化（テーブル自動作成）
     # ------------------------------------------------------
-class Database:
-    def __init__(self):
-        self.conn = None
-        self.dsn = os.getenv("DATABASE_URL")
-
-    # ------------------------------------------------------
-    #   DB接続
-    # ------------------------------------------------------
-    async def connect(self):
-        if self.conn is None:
-            self.conn = await asyncpg.connect(self.dsn)
-
-    # ------------------------------------------------------
-    #   初期化（テーブル自動作成）
-    # ------------------------------------------------------
     async def init_db(self):
         await self.connect()
 
@@ -574,6 +559,7 @@ class Database:
             SET status = 'finished'
             WHERE session_id = $1
         """, session_id)
+
 
 
 
