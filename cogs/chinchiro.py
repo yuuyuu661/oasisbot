@@ -333,3 +333,8 @@ class ResultView(discord.ui.View):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ChinchiroCog(bot))
+
+    # 既存設計に合わせてギルド別コマンド登録
+    for cmd in cog.get_app_commands():
+        for gid in getattr(bot, "GUILD_IDS", []):
+            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
