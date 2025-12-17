@@ -23,16 +23,15 @@ class HotelRoomControlPanel(discord.ui.View):
         self.sub_role_id = int(sub_role_id)
         self.config = config
 
-        # ▼ 各ボタンに parent（self） or config を正しく渡す
+        # ▼ ここが重要：すべてのボタンに「self」を渡す！
         self.add_item(RoomAddMemberLimitButton(self))
         self.add_item(RoomRenameButton(self))
-        self.add_item(RoomAllowMemberButton()) 
+        self.add_item(RoomAllowMemberButton())  # ← parent 無しのクラスは今のままでOK
         self.add_item(RoomDenyMemberButton(self))
         self.add_item(RoomAdd1DayButton())
         self.add_item(RoomAdd3DayButton())
         self.add_item(RoomAdd10DayButton())
         self.add_item(RoomAddSubRoleButton(self))
-
         self.add_item(RoomCheckExpireButton(self))
         self.add_item(RoomCheckTicketsButton(self))
 
@@ -59,3 +58,4 @@ class HotelRoomControlPanel(discord.ui.View):
             ephemeral=True
         )
         return False
+

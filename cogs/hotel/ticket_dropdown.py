@@ -100,9 +100,9 @@ class TicketBuyDropdown(discord.ui.Select):
         self.config = config
 
         options = [
-            discord.SelectOption(label=f"1枚（{config['ticket_price_1']}pt）", value="1"),
-            discord.SelectOption(label=f"10枚（{config['ticket_price_10']}pt）", value="10"),
-            discord.SelectOption(label=f"30枚（{config['ticket_price_30']}pt）", value="30"),
+            discord.SelectOption(label=f"1枚（{config['ticket_price_1']}rrc）", value="1"),
+            discord.SelectOption(label=f"10枚（{config['ticket_price_10']}rrc）", value="10"),
+            discord.SelectOption(label=f"30枚（{config['ticket_price_30']}rrc）", value="30"),
         ]
 
         super().__init__(

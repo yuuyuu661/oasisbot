@@ -17,9 +17,7 @@ class BackupCog(commands.Cog):
 
     async def cog_load(self):
         self.auto_backup.start()
-        print("[Backup] auto_backup started (cog_load)")
-
-    # --------------------------------------------------
+        print("[Backup] auto_backup started (cog_load)")    # --------------------------------------------------
     # ヘルパー：管理者判定（settings.admin_roles + Discord管理者権限）
     # --------------------------------------------------
     async def is_admin(self, member: discord.Member) -> bool:
@@ -295,10 +293,11 @@ class BackupCog(commands.Cog):
             f"[restore_backup] restored guild {guild.id} "
             f"from attachment {file.filename}"
         )
+
     # --------------------------------------------------
-    # 自動バックアップ（1分ごと）
+    # 自動バックアップ（1時間ごと）
     # --------------------------------------------------
-    @tasks.loop(hours=1)
+    @tasks.loop(minutes=1)
     async def auto_backup(self):
         """
         手動バックアップと同じ処理を自動で定期実行する。
@@ -348,15 +347,12 @@ class BackupCog(commands.Cog):
             except Exception as e:
                 print(f"[auto_backup] ERROR guild={guild.id}: {e}")
 
-
     @auto_backup.before_loop
     async def before_auto_backup(self):
         """
         自動バックアップ開始前に Bot の準備が整うまで待つ。
         """
         await self.bot.wait_until_ready()
-        await self.auto_backup()  # 起動時に1回実行
-
 
 
 # --------------------------
@@ -368,11 +364,5 @@ async def setup(bot: commands.Bot):
 
     # 既存設計と同じく、各ギルドにスラッシュコマンドを登録
     for cmd in cog.get_app_commands():
-                        # 🔒 すでに登録済みならスキップ
-        if cmd.name in bot._added_app_commands:
-            continue
-
-        # ✅ 初回登録
-        bot._added_app_commands.add(cmd.name)
         for gid in getattr(bot, "GUILD_IDS", []):
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))

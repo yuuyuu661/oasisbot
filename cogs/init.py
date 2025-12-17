@@ -19,7 +19,8 @@ class InitCog(commands.Cog):
         currency_unit="通貨単位（例：Spt）",
         log_pay="通貨ログを送信するチャンネル",
         log_manage="管理ログを送信するチャンネル",
-        log_salary="給料ログを送信するチャンネル"
+        log_salary="給料ログを送信するチャンネル",
+        log_backup="バックアップログを送信するチャンネル", 
     )
     async def init_settings(
         self,
@@ -35,17 +36,12 @@ class InitCog(commands.Cog):
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
 
-        # settings に登録されたロールをユーザーが持っているか
-        is_bot_admin = any(
-            str(role.id) in admin_roles
-            for role in interaction.user.roles
-        )
+        is_bot_admin = any(str(r.id) in admin_roles for r in interaction.user.roles)
 
-        # 実行を許可する条件
         has_permission = (
-            interaction.user.guild_permissions.administrator  # Discord管理者権限
-            or is_bot_admin                                   # Bot独自の管理者ロール
-            or interaction.user.id == SUPER_ADMIN             # スーパー管理者
+            interaction.user.guild_permissions.administrator
+            or is_bot_admin
+            or interaction.user.id == SUPER_ADMIN
         )
 
         if not has_permission:
@@ -114,12 +110,6 @@ async def setup(bot):
     await bot.add_cog(cog)
 
     for cmd in cog.get_app_commands():
-                        # 🔒 すでに登録済みならスキップ
-        if cmd.name in bot._added_app_commands:
-            continue
-
-        # ✅ 初回登録
-        bot._added_app_commands.add(cmd.name)
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
 

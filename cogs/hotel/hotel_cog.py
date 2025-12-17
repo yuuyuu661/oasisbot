@@ -3,13 +3,12 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import asyncio                    # ★ 追加
-from datetime import datetime     # ★ 追加
+import asyncio                    # 追加
+from datetime import datetime     # 追加
 
 from .checkin import CheckinButton
 from .ticket_dropdown import TicketBuyDropdown, TicketBuyExecuteButton
 from .room_panel import HotelRoomControlPanel
-
 
 class HotelCog(commands.Cog):
     def __init__(self, bot):
@@ -58,7 +57,7 @@ class HotelCog(commands.Cog):
             except Exception as e:
                 print("Hotel expire task error:", e)
 
-            # 30秒ごとにチェック（お好みで調整可）
+            # 30秒ごとにチェック（調整可）
             await asyncio.sleep(30)
 
     # ================================
@@ -177,6 +176,8 @@ class HotelCog(commands.Cog):
             f"🎫 所持チケット: **{tickets}枚**",
             ephemeral=True
         )
+
+
     # ================================
     # /ホテルボタン再送
     # ================================
@@ -265,6 +266,8 @@ class HotelCog(commands.Cog):
             "🔄 パネルを再送しました！",
             ephemeral=True
         )
+
+
     # ======================================================
     # /ホテルリセット
     # ======================================================
@@ -319,6 +322,137 @@ class HotelCog(commands.Cog):
             ephemeral=True
         )
 
+    # ============================================
+    # /hotel_ticket : ホテルチケット増減・設定（管理用）
+    # ============================================
+    @app_commands.command(
+        name="hotel_ticket",
+        description="指定ユーザーの高級ホテルチケットを増減または設定します（管理用）"
+    )
+    @app_commands.describe(
+        member="対象ユーザー",
+        mode="add=付与, remove=減算, set=指定枚数に上書き",
+        amount="枚数（1以上）"
+    )
+    @app_commands.choices(
+        mode=[
+            app_commands.Choice(name="付与（増やす）", value="add"),
+            app_commands.Choice(name="減算（減らす）", value="remove"),
+            app_commands.Choice(name="設定（上書き）", value="set"),
+        ]
+    )
+    async def hotel_ticket(
+        self,
+        interaction: discord.Interaction,
+        member: discord.Member,
+        mode: app_commands.Choice[str],
+        amount: int,
+    ):
+        # サーバー内のみ
+        guild = interaction.guild
+        if guild is None:
+            return await interaction.response.send_message(
+                "サーバー内でのみ使用できます。",
+                ephemeral=True
+            )
+
+        # --- 権限チェック（通貨管理ロール or ホテル管理ロール） ---
+        settings = await self.bot.db.get_settings()
+        admin_roles = settings["admin_roles"] or []
+
+        # 通貨管理ロールを持っているか
+        is_admin_role = any(str(r.id) in admin_roles for r in interaction.user.roles)
+
+        # ホテル設定から manager_role を取得
+        guild_id = str(guild.id)
+        hotel_config = await self.bot.db.conn.fetchrow(
+            "SELECT * FROM hotel_settings WHERE guild_id=$1",
+            guild_id
+        )
+
+        manager_role_id = hotel_config["manager_role"] if hotel_config else None
+        has_manager_role = False
+        if manager_role_id:
+            has_manager_role = any(str(r.id) == manager_role_id for r in interaction.user.roles)
+
+        if not (is_admin_role or has_manager_role):
+            return await interaction.response.send_message(
+                "❌ このコマンドを実行できるのは通貨管理ロールまたはホテル管理ロールのみです。",
+                ephemeral=True
+            )
+
+        # --- 入力チェック ---
+        if amount < 0:
+            return await interaction.response.send_message(
+                "枚数は 0 以上を指定してください。",
+                ephemeral=True
+            )
+
+        user_id = str(member.id)
+
+        # --- 実際の処理 ---
+        if mode.value == "add":
+            # 付与
+            new_amount = await self.bot.db.add_tickets(user_id, guild_id, amount)
+            op_text = f"+{amount}枚（付与）"
+
+        elif mode.value == "remove":
+            # 減算（マイナスにはならない）
+            new_amount = await self.bot.db.remove_tickets(user_id, guild_id, amount)
+            op_text = f"-{amount}枚（減算）"
+
+        else:  # "set"
+            # 上書き
+            await self.bot.db.conn.execute(
+                """
+                INSERT INTO hotel_tickets (user_id, guild_id, tickets)
+                VALUES ($1,$2,$3)
+                ON CONFLICT (user_id, guild_id)
+                DO UPDATE SET tickets=$3;
+                """,
+                user_id, guild_id, amount
+            )
+            new_amount = amount
+            op_text = f"={amount}枚（上書き）"
+
+        # --- 応答 ---
+        await interaction.response.send_message(
+            f"🎫 {member.mention} の高級ホテルチケットを {op_text} しました。\n"
+            f"現在の所持枚数: **{new_amount}枚**",
+            ephemeral=True
+        )
+
+        # --- ログ送信（ホテルログチャンネルが設定されていれば） ---
+        if hotel_config and hotel_config.get("log_channel"):
+            log_ch = guild.get_channel(int(hotel_config["log_channel"]))
+            if log_ch:
+                embed = discord.Embed(
+                    title="🎫 ホテルチケット調整ログ",
+                    color=0xF4D03F
+                )
+                embed.add_field(
+                    name="対象ユーザー",
+                    value=f"{member.mention} (`{member.id}`)",
+                    inline=False
+                )
+                embed.add_field(
+                    name="操作",
+                    value=op_text,
+                    inline=True
+                )
+                embed.add_field(
+                    name="結果枚数",
+                    value=f"{new_amount}枚",
+                    inline=True
+                )
+                embed.add_field(
+                    name="実行者",
+                    value=f"{interaction.user.mention} (`{interaction.user.id}`)",
+                    inline=False
+                )
+                await log_ch.send(embed=embed)
+
+
 # ======================================================
 # 旧UI互換：HotelPanelView
 # ======================================================
@@ -331,6 +465,9 @@ class HotelPanelView(discord.ui.View):
         self.add_item(CheckinButton(config))
         self.add_item(selector)
         self.add_item(TicketBuyExecuteButton(selector, config))
+
+
+
 
 
 # ======================================================

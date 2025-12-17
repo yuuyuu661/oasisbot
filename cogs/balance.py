@@ -164,7 +164,7 @@ class BalanceCog(commands.Cog):
                     ephemeral=True
                 )
 
-        # --- 返信メッセージ（パネルUI） ---
+        # --- 返信メッセージ ---
         # 金額に応じてパネル色を決定
         if amount >= 1_000_000:
             color = 0xE74C3C  # 赤
@@ -215,7 +215,6 @@ class BalanceCog(commands.Cog):
             embed=embed,
             file=file
         )
-
         # --- ログ ---
         try:
             sig = inspect.signature(log_pay)
@@ -246,11 +245,5 @@ async def setup(bot: commands.Bot):
     await bot.add_cog(cog)
 
     for cmd in cog.get_app_commands():
-                # 🔒 すでに登録済みならスキップ
-        if cmd.name in bot._added_app_commands:
-            continue
-
-        # ✅ 初回登録
-        bot._added_app_commands.add(cmd.name)
         for gid in getattr(bot, "GUILD_IDS", []):
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
