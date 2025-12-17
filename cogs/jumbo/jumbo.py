@@ -159,16 +159,11 @@ class JumboCog(commands.Cog):
 # ------------------------------------------------------
 # setup（GuildCommand 登録）
 # ------------------------------------------------------
-async def setup(bot):
-    cog = JumboCog(bot)
-    await bot.add_cog(cog)
-
-    # ギルド毎にコマンドを登録（日本語スラッシュ対応）
-    for cmd in cog.get_app_commands():
-        for gid in bot.GUILD_IDS:
-            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(jumboCog(bot))
 
     print("🎫 Jumbo module loaded.")
+
 
 
 
