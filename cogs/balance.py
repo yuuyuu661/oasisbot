@@ -240,10 +240,5 @@ class BalanceCog(commands.Cog):
 
 
 async def setup(bot: commands.Bot):
-    """Cog を登録し、/bal と /pay を各ギルドに紐付ける"""
-    cog = BalanceCog(bot)
     await bot.add_cog(cog)
 
-    for cmd in cog.get_app_commands():
-        for gid in getattr(bot, "GUILD_IDS", []):
-            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
