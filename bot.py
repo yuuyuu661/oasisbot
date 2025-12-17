@@ -46,7 +46,7 @@ async def on_ready():
     global_commands = await bot.tree.fetch_commands()
     for cmd in global_commands:
         if cmd.name == "backup_now":
-            await bot.tree.remove_command(cmd.name)
+            bot.tree.remove_command("backup_now")
             print(f"🗑 グローバルコマンド削除: {cmd.name}")
 
     # グローバル同期（削除反映）
@@ -85,6 +85,7 @@ async def load_cogs():
 
 if __name__ == "__main__":
     asyncio.run(bot.start(TOKEN))
+
 
 
 
