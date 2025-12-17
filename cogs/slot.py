@@ -74,6 +74,7 @@ class SlotCog(commands.Cog):
         rate: int,
         fee: int
     ):
+        await interaction.response.defer()
         member = interaction.user
 
         if not member.voice or not member.voice.channel:
@@ -441,4 +442,5 @@ async def setup(bot: commands.Bot):
         bot.tree.copy_global_to(guild=discord.Object(id=gid))
 
     await bot.tree.sync()
+
 
