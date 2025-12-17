@@ -165,15 +165,10 @@ async def setup(bot):
 
     # ギルド毎にコマンドを登録（日本語スラッシュ対応）
     for cmd in cog.get_app_commands():
-                        # 🔒 すでに登録済みならスキップ
-        if cmd.name in bot._added_app_commands:
-            continue
-
-        # ✅ 初回登録
-        bot._added_app_commands.add(cmd.name)
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
 
     print("🎫 Jumbo module loaded.")
+
 
 
