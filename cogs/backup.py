@@ -157,7 +157,7 @@ class BackupCog(commands.Cog):
     # /backup_now
     # --------------------------------------------------
     @app_commands.command(
-        name="backup_now",
+        name="バックアップ",
         description="このサーバーのデータをバックアップします（管理者）",
     )
     async def backup_now(self, interaction: discord.Interaction):
