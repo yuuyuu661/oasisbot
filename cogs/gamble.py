@@ -612,13 +612,8 @@ class JudgeView(discord.ui.View):
 # setup
 # ===========================================================
 async def setup(bot: commands.Bot):
-    cog = GambleCog(bot)
-    await bot.add_cog(cog)
+    await bot.add_cog(GambleCog(bot))
 
-    # 既存設計に合わせてギルド別コマンド登録
-    for cmd in cog.get_app_commands():
-        for gid in getattr(bot, "GUILD_IDS", []):
-            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
 
 
 
