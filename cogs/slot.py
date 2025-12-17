@@ -437,6 +437,8 @@ async def setup(bot: commands.Bot):
     cog = SlotCog(bot)
     await bot.add_cog(cog)
 
-    for cmd in cog.get_app_commands():
-        for gid in bot.GUILD_IDS:
-            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+    for gid in bot.GUILD_IDS:
+        bot.tree.copy_global_to(guild=discord.Object(id=gid))
+
+    await bot.tree.sync()
+
