@@ -68,53 +68,56 @@ class SlotCog(commands.Cog):
         name="スロット",
         description="ボイスチャット参加者限定のパチンコスロット"
     )
-    async def slot(self, interaction: discord.Interaction, rate: int, fee: int):
-    await interaction.response.defer(ephemeral=True)
+    async def slot(
+        self,
+        interaction: discord.Interaction,
+        rate: int,
+        fee: int
+    ):
+        await interaction.response.defer(ephemeral=True)
 
-    member = interaction.user
+        member = interaction.user
 
-    if not member.voice or not member.voice.channel:
-        return await interaction.followup.send(
-            "❌ ボイスチャット参加中のみ使用できます。",
-            ephemeral=True
-        )
+        if not member.voice or not member.voice.channel:
+            return await interaction.followup.send(
+                "❌ ボイスチャット参加中のみ使用できます。",
+                ephemeral=True
+            )
 
-    vc = member.voice.channel
-    session_id = str(interaction.id)
+        vc = member.voice.channel
+        session_id = str(interaction.id)
 
-    try:
-        await self.bot.db.create_slot_session(
-            session_id=session_id,
-            guild_id=interaction.guild.id,
-            channel_id=interaction.channel.id,
-            host_id=member.id,
+        try:
+            await self.bot.db.create_slot_session(
+                session_id=session_id,
+                guild_id=interaction.guild.id,
+                channel_id=interaction.channel.id,
+                host_id=member.id,
+                rate=rate,
+                fee=fee
+            )
+        except Exception as e:
+            print("SLOT CREATE ERROR:", e)
+            return await interaction.followup.send(
+                "❌ 内部エラー（DB）",
+                ephemeral=True
+            )
+
+        embed = self._build_recruit_embed(rate, fee, [])
+
+        view = SlotJoinView(
+            cog=self,
+            host=member,
+            vc=vc,
             rate=rate,
-            fee=fee
+            fee=fee,
+            session_id=session_id
         )
 
-    except Exception as e:
-        print("SLOT CREATE ERROR:", e)
-        return await interaction.followup.send(
-            "❌ 内部エラー（DB）",
-            ephemeral=True
+        await interaction.followup.send(
+            embed=embed,
+            view=view
         )
-
-    embed = self._build_recruit_embed(rate, fee, [])
-
-    view = SlotJoinView(
-        cog=self,
-        host=member,
-        vc=vc,
-        rate=rate,
-        fee=fee,
-        session_id=session_id
-    )
-
-    await interaction.followup.send(
-        embed=embed,
-        view=view
-    )
-
 
     # -------------------------
     # 募集用 Embed
@@ -448,6 +451,7 @@ async def setup(bot: commands.Bot):
                 cmd,
                 guild=discord.Object(id=gid)
             )
+
 
 
 
