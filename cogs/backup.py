@@ -224,17 +224,5 @@ class BackupCog(commands.Cog):
 # --------------------------
 # setup
 # --------------------------
-# --------------------------
-# setup（Guild 明示登録）
-# --------------------------
 async def setup(bot: commands.Bot):
-    cog = BackupCog(bot)
-    await bot.add_cog(cog)
-
-    # 🔹 この Cog が持つ SlashCommand を guild 登録
-    for cmd in cog.get_app_commands():
-        for gid in getattr(bot, "GUILD_IDS", []):
-            bot.tree.add_command(
-                cmd,
-                guild=discord.Object(id=gid)
-            )
+    await bot.add_cog(BackupCog(bot))
