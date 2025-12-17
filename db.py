@@ -524,6 +524,7 @@ class Database:
         rate,
         fee
     ):
+        await self.connect() 
         await self.conn.execute("""
             INSERT INTO slot_sessions
                 (session_id, guild_id, channel_id, host_id, rate, fee, status)
@@ -559,6 +560,7 @@ class Database:
             SET status = 'finished'
             WHERE session_id = $1
         """, session_id)
+
 
 
 
