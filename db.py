@@ -197,39 +197,6 @@ class Database:
             );
         """)
 
-        # =============================
-        # スロット：セッション管理
-        # =============================
-        await self.conn.execute("""
-            CREATE TABLE IF NOT EXISTS slot_sessions (
-                session_id   TEXT PRIMARY KEY,
-                guild_id     TEXT NOT NULL,
-                channel_id   TEXT NOT NULL,
-                host_id      TEXT NOT NULL,
-
-                rate         INTEGER NOT NULL,
-                fee          INTEGER NOT NULL,
-
-                total_pool   INTEGER NOT NULL DEFAULT 0,
-                turn_index   INTEGER NOT NULL DEFAULT 0,
-                status       TEXT NOT NULL, -- waiting / playing / finished
-                created_at   TIMESTAMP DEFAULT NOW()
-            );
-        """)
-
-        # =============================
-        # スロット：参加者キュー
-        # =============================
-        await self.conn.execute("""
-            CREATE TABLE IF NOT EXISTS slot_players (
-                session_id TEXT,
-                user_id    TEXT,
-                position   INTEGER,
-                joined_at  TIMESTAMP DEFAULT NOW(),
-                PRIMARY KEY (session_id, user_id)
-            );
-        """)
-
         # =====================================================
         # ギャンブル機能のテーブル（ここが重要）
         # =====================================================
@@ -560,6 +527,7 @@ class Database:
             SET status = 'finished'
             WHERE session_id = $1
         """, session_id)
+
 
 
 
