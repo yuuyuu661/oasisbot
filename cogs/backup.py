@@ -9,23 +9,20 @@ from discord.ext import commands
 from discord import app_commands
 
 
-BACKUP_DIR = "backups"  # バックアップファイル保存用ディレクトリ
+BACKUP_DIR = "backups"
 
 
 class BackupCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.auto_backup_task: asyncio.Task | None = None
-        self.auto_backup_minutes: int | None = None
 
     # --------------------------------------------------
-    # ヘルパー：管理者判定（settings.admin_roles + Discord管理者権限）
+    # 管理者判定
     # --------------------------------------------------
     async def is_admin(self, member: discord.Member) -> bool:
-        db = self.bot.db
-        settings = await db.get_settings()
-        settings_dict = dict(settings) if settings else {}
-        admin_roles = settings_dict.get("admin_roles") or []
+        settings = await self.bot.db.get_settings()
+        admin_roles = settings["admin_roles"] or []
 
         if member.guild_permissions.administrator:
             return True
@@ -33,56 +30,55 @@ class BackupCog(commands.Cog):
         return any(str(r.id) in admin_roles for r in member.roles)
 
     # --------------------------------------------------
-    # ヘルパー：1ギルド分のバックアップデータ生成
+    # バックアップデータ生成
     # --------------------------------------------------
     async def make_backup_payload(self, guild: discord.Guild) -> dict:
         await self.bot.db.connect()
         conn = self.bot.db.conn
         gid = str(guild.id)
 
-        payload: dict = {
+        payload = {
             "meta": {
                 "guild_id": gid,
                 "timestamp": datetime.utcnow().isoformat(),
             }
         }
 
-        async def fetch_table(table: str, where: str | None = None, *params):
-            rows = []
+        async def fetch(table: str, where: str | None = None, *params):
             if where:
-                data = await conn.fetch(f"SELECT * FROM {table} WHERE {where}", *params)
+                rows = await conn.fetch(f"SELECT * FROM {table} WHERE {where}", *params)
             else:
-                data = await conn.fetch(f"SELECT * FROM {table}")
+                rows = await conn.fetch(f"SELECT * FROM {table}")
 
-            for r in data:
+            result = []
+            for r in rows:
                 d = dict(r)
-                for k, v in list(d.items()):
+                for k, v in d.items():
                     if isinstance(v, datetime):
                         d[k] = v.isoformat()
-                rows.append(d)
+                result.append(d)
 
-            payload[table] = rows
+            payload[table] = result
 
-        await fetch_table("users", "guild_id = $1", gid)
-        await fetch_table("hotel_tickets", "guild_id = $1", gid)
-        await fetch_table("hotel_rooms", "guild_id = $1", gid)
-        await fetch_table("subscription_settings", "guild_id = $1", gid)
-        await fetch_table("interview_settings", "guild_id = $1", gid)
-        await fetch_table("hotel_settings", "guild_id = $1", gid)
+        await fetch("users", "guild_id = $1", gid)
+        await fetch("hotel_tickets", "guild_id = $1", gid)
+        await fetch("hotel_rooms", "guild_id = $1", gid)
+        await fetch("subscription_settings", "guild_id = $1", gid)
+        await fetch("interview_settings", "guild_id = $1", gid)
+        await fetch("hotel_settings", "guild_id = $1", gid)
 
-        await fetch_table("settings")
-        await fetch_table("role_salaries")
+        await fetch("settings")
+        await fetch("role_salaries")
 
         return payload
 
     # --------------------------------------------------
-    # 実処理：バックアップ1回分
+    # バックアップ実行（1回）
     # --------------------------------------------------
     async def run_backup_once(self):
         for guild in self.bot.guilds:
             settings = await self.bot.db.get_settings()
-            settings_dict = dict(settings) if settings else {}
-            backup_ch_id = settings_dict.get("log_backup")
+            backup_ch_id = settings["log_backup"]
 
             if not backup_ch_id:
                 continue
@@ -113,7 +109,6 @@ class BackupCog(commands.Cog):
     # --------------------------------------------------
     async def auto_backup_loop(self, minutes: int):
         print(f"[Backup] auto backup started: every {minutes} minutes")
-
         try:
             while True:
                 await self.run_backup_once()
@@ -136,7 +131,7 @@ class BackupCog(commands.Cog):
     ):
         if not await self.is_admin(interaction.user):
             return await interaction.response.send_message(
-                "❌ このコマンドを実行する権限がありません。",
+                "❌ 管理者権限が必要です。",
                 ephemeral=True,
             )
 
@@ -149,54 +144,39 @@ class BackupCog(commands.Cog):
         if self.auto_backup_task and not self.auto_backup_task.done():
             self.auto_backup_task.cancel()
 
-        self.auto_backup_minutes = minutes
         self.auto_backup_task = asyncio.create_task(
             self.auto_backup_loop(minutes)
         )
 
         await interaction.response.send_message(
-            f"✅ 自動バックアップを **{minutes}分間隔** で開始しました。\n"
-            "再度実行すると間隔を上書きします。",
+            f"✅ 自動バックアップを **{minutes}分間隔** で開始しました。",
             ephemeral=True,
         )
 
     # --------------------------------------------------
-    # /backup_now（据え置き）
+    # /backup_now
     # --------------------------------------------------
     @app_commands.command(
         name="backup_now",
-        description="このサーバーのデータをバックアップします（管理者用）",
+        description="このサーバーのデータをバックアップします（管理者）",
     )
     async def backup_now(self, interaction: discord.Interaction):
-        guild = interaction.guild
-        if guild is None:
-            return await interaction.response.send_message(
-                "サーバー内でのみ使用できます。",
-                ephemeral=True,
-            )
-
         if not await self.is_admin(interaction.user):
             return await interaction.response.send_message(
-                "❌ このコマンドを実行する権限がありません。",
+                "❌ 管理者権限が必要です。",
                 ephemeral=True,
             )
+
+        guild = interaction.guild
+        if guild is None:
+            return
 
         settings = await self.bot.db.get_settings()
-        settings_dict = dict(settings) if settings else {}
-        backup_ch_id = settings_dict.get("log_backup")
-
-        if not backup_ch_id:
-            return await interaction.response.send_message(
-                "⚠️ バックアップ送信先チャンネルが設定されていません。",
-                ephemeral=True,
-            )
+        backup_ch_id = settings["log_backup"]
 
         channel = self.bot.get_channel(int(backup_ch_id))
         if not isinstance(channel, discord.TextChannel):
-            return await interaction.response.send_message(
-                "⚠️ バックアップチャンネルが見つかりません。",
-                ephemeral=True,
-            )
+            return
 
         await interaction.response.defer(ephemeral=True)
 
@@ -215,10 +195,8 @@ class BackupCog(commands.Cog):
             file=discord.File(path, filename=filename),
         )
 
-        await interaction.followup.send(
-            f"✅ 手動バックアップを実行しました。\n送信先: {channel.mention}",
-            ephemeral=True,
-        )
+        await interaction.followup.send("✅ 手動バックアップ完了", ephemeral=True)
+
 
 
 # --------------------------
