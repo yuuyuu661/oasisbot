@@ -195,10 +195,6 @@ class SalaryCog(commands.Cog):
 # --------------------------
 # setup（必須）
 # --------------------------
-async def setup(bot):
-    cog = SalaryCog(bot)
-    await bot.add_cog(cog)
+async def setup(bot: commands.Bot):
+    await bot.add_cog(SalaryCog(bot))
 
-    for cmd in cog.get_app_commands():
-        for gid in bot.GUILD_IDS:
-            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
