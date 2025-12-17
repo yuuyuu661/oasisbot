@@ -212,6 +212,39 @@ class Database:
             );
         """)
 
+        # =============================
+        # スロット：セッション管理
+        # =============================
+        await self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS slot_sessions (
+                session_id   TEXT PRIMARY KEY,
+                guild_id     TEXT NOT NULL,
+                channel_id   TEXT NOT NULL,
+                host_id      TEXT NOT NULL,
+
+                rate         INTEGER NOT NULL,
+                fee          INTEGER NOT NULL,
+
+                total_pool   INTEGER NOT NULL DEFAULT 0,
+                turn_index   INTEGER NOT NULL DEFAULT 0,
+                status       TEXT NOT NULL, -- waiting / playing / finished
+                created_at   TIMESTAMP DEFAULT NOW()
+            );
+        """)
+
+        # =============================
+        # スロット：参加者キュー
+        # =============================
+        await self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS slot_players (
+                session_id TEXT,
+                user_id    TEXT,
+                position   INTEGER,
+                joined_at  TIMESTAMP DEFAULT NOW(),
+                PRIMARY KEY (session_id, user_id)
+            );
+        """)
+
         # =====================================================
         # ギャンブル機能のテーブル（ここが重要）
         # =====================================================
@@ -493,6 +526,50 @@ class Database:
         )
 
 
+# =============================
+# スロットDB操作
+# =============================
+
+async def create_slot_session(self, session_id, guild_id, channel_id, host_id, rate, fee):
+    await self.conn.execute("""
+        INSERT INTO slot_sessions
+            (session_id, guild_id, channel_id, host_id, rate, fee, status)
+        VALUES
+            ($1, $2, $3, $4, $5, $6, 'waiting')
+    """, session_id, guild_id, channel_id, host_id, rate, fee)
+
+
+async def add_slot_player(self, session_id, user_id, position):
+    await self.conn.execute("""
+        INSERT INTO slot_players (session_id, user_id, position)
+        VALUES ($1, $2, $3)
+        ON CONFLICT DO NOTHING
+    """, session_id, user_id, position)
+
+
+async def get_slot_players(self, session_id):
+    return await self.conn.fetch("""
+        SELECT user_id FROM slot_players
+        WHERE session_id = $1
+        ORDER BY position
+    """, session_id)
+
+
+async def update_slot_turn(self, session_id, turn_index, total_pool):
+    await self.conn.execute("""
+        UPDATE slot_sessions
+        SET turn_index = $2,
+            total_pool = $3
+        WHERE session_id = $1
+    """, session_id, turn_index, total_pool)
+
+
+async def finish_slot_session(self, session_id):
+    await self.conn.execute("""
+        UPDATE slot_sessions
+        SET status = 'finished'
+        WHERE session_id = $1
+    """, session_id)
 
 
 
