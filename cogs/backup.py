@@ -199,8 +199,16 @@ class BackupCog(commands.Cog):
 
 
 
-# --------------------------
-# setup
-# --------------------------
+# --------------------------------------------------
+# setup（他の Cog と完全に同じ）
+# --------------------------------------------------
 async def setup(bot: commands.Bot):
-    await bot.add_cog(BackupCog(bot))
+    cog = BackupCog(bot)
+    await bot.add_cog(cog)
+
+    for cmd in cog.get_app_commands():
+        for gid in bot.GUILD_IDS:
+            bot.tree.add_command(
+                cmd,
+                guild=discord.Object(id=gid)
+            )
