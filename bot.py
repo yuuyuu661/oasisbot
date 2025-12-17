@@ -39,6 +39,19 @@ async def on_ready():
 
     await load_cogs()
     print("すべてのCogロード完了")
+    
+    # ===============================
+    # 🚨 グローバルコマンド掃除 🚨
+    # ===============================
+    global_commands = await bot.tree.fetch_commands()
+    for cmd in global_commands:
+        if cmd.name == "backup_now":
+            await bot.tree.remove_command(cmd.name)
+            print(f"🗑 グローバルコマンド削除: {cmd.name}")
+
+    # グローバル同期（削除反映）
+    await bot.tree.sync()
+    print("🌍 グローバルコマンド同期完了")
 
     # ---- ✨ ここで初めて同期 ----
     for gid in bot.GUILD_IDS:
@@ -72,6 +85,7 @@ async def load_cogs():
 
 if __name__ == "__main__":
     asyncio.run(bot.start(TOKEN))
+
 
 
 
