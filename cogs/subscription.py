@@ -313,9 +313,6 @@ class UnsubscribeButton(discord.ui.Button):
 # setup
 # ======================================================
 
-async def setup(bot):
-    cog = SubscriptionCog(bot)
-    await bot.add_cog(cog)
-    for cmd in cog.get_app_commands():
-        for gid in bot.GUILD_IDS:
-            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(SubscriptionCog(bot))
+
