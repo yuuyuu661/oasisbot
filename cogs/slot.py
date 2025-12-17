@@ -8,9 +8,9 @@ from discord import app_commands
 # =========================
 # スロット定数
 # =========================
-RESULT_SMALL = "small"   # 小当たり
-RESULT_BIG = "big"       # 大当たり
-RESULT_END = "end"       # 終了（全額支払い）
+RESULT_SMALL = "small"
+RESULT_BIG = "big"
+RESULT_END = "end"
 
 PROB_TABLE = (
     [RESULT_SMALL] * 8 +
@@ -24,7 +24,7 @@ ASSET_END   = "assets/slot/shuryo.png"
 
 
 # =========================
-# スロット管理クラス
+# スロット管理クラス（キャッシュ）
 # =========================
 class SlotGame:
     def __init__(
@@ -32,8 +32,10 @@ class SlotGame:
         host: discord.Member,
         vc: discord.VoiceChannel,
         rate: int,
-        fee: int
+        fee: int,
+        session_id: str
     ):
+        self.session_id = session_id
         self.host_id = host.id
         self.vc_id = vc.id
         self.rate = rate
@@ -42,7 +44,6 @@ class SlotGame:
         self.players: list[int] = []
         self.turn_index = 0
         self.total_pool = 0
-
         self.active = True
 
     def current_player_id(self) -> int:
@@ -82,6 +83,18 @@ class SlotCog(commands.Cog):
             )
 
         vc = member.voice.channel
+        session_id = str(interaction.id)
+
+        # DBにセッション作成（正本）
+        await self.bot.db.create_slot_session(
+            session_id=session_id,
+            guild_id=interaction.guild.id,
+            channel_id=interaction.channel.id,
+            host_id=member.id,
+            rate=rate,
+            fee=fee
+        )
+
         embed = self._build_recruit_embed(rate, fee, [])
 
         view = SlotJoinView(
@@ -89,7 +102,8 @@ class SlotCog(commands.Cog):
             host=member,
             vc=vc,
             rate=rate,
-            fee=fee
+            fee=fee,
+            session_id=session_id
         )
 
         await interaction.response.send_message(
@@ -153,33 +167,28 @@ class SlotCog(commands.Cog):
             game.total_pool += game.rate
             game.next_turn()
 
-            return await interaction.response.edit_message(
-                content=(
-                    f"🟡 小当たり！ +{game.rate} rrc\n"
-                    f"次は <@{game.current_player_id()}> の番！"
-                ),
-                attachments=[file] if file else None,
-                view=SlotNextView(self, game)
-            )
-
-        if result == RESULT_BIG:
+        elif result == RESULT_BIG:
             game.total_pool += game.rate * 10
             game.next_turn()
 
-            return await interaction.response.edit_message(
-                content=(
-                    f"🔵 大当たり！！ +{game.rate * 10} rrc\n"
-                    f"次は <@{game.current_player_id()}> の番！"
-                ),
-                attachments=[file] if file else None,
-                view=SlotNextView(self, game)
-            )
+        else:
+            await self.finish_game(interaction, game, user, file)
+            return
 
-        await self.finish_game(
-            interaction,
-            game,
-            user,
-            file
+        # DBへ反映（正本更新）
+        await self.bot.db.update_slot_turn(
+            game.session_id,
+            game.turn_index,
+            game.total_pool
+        )
+
+        await interaction.response.edit_message(
+            content=(
+                f"{'🟡 小当たり' if result == RESULT_SMALL else '🔵 大当たり'}！\n"
+                f"次は <@{game.current_player_id()}> の番！"
+            ),
+            attachments=[file] if file else None,
+            view=SlotNextView(self, game)
         )
 
     # -------------------------
@@ -201,18 +210,12 @@ class SlotCog(commands.Cog):
         receivers = [uid for uid in players if uid != loser.id]
         share = total // len(receivers)
 
-        await self.bot.db.add_balance(
-            loser.id,
-            guild_id,
-            -total
-        )
+        await self.bot.db.add_balance(loser.id, guild_id, -total)
 
         for uid in receivers:
-            await self.bot.db.add_balance(
-                uid,
-                guild_id,
-                share
-            )
+            await self.bot.db.add_balance(uid, guild_id, share)
+
+        await self.bot.db.finish_slot_session(game.session_id)
 
         embed = discord.Embed(
             title="📊 リザルト",
@@ -234,10 +237,7 @@ class SlotCog(commands.Cog):
     # -------------------------
     # 静的結果画像
     # -------------------------
-    def _static_result_file(
-        self,
-        result: str
-    ) -> discord.File | None:
+    def _static_result_file(self, result: str) -> discord.File | None:
         path = {
             RESULT_SMALL: ASSET_SMALL,
             RESULT_BIG: ASSET_BIG,
@@ -245,37 +245,8 @@ class SlotCog(commands.Cog):
         }.get(result)
 
         if path and os.path.exists(path):
-            return discord.File(
-                path,
-                filename=os.path.basename(path)
-            )
+            return discord.File(path, filename=os.path.basename(path))
         return None
-
-    # -------------------------
-    # /スロットリセット
-    # -------------------------
-    @app_commands.command(
-        name="スロットリセット",
-        description="指定ユーザーを参加キューから解除"
-    )
-    async def slot_reset(
-        self,
-        interaction: discord.Interaction,
-        user: discord.User
-    ):
-        for game in self.games.values():
-            if user.id in game.players:
-                game.players.remove(user.id)
-                game.turn_index = 0
-                return await interaction.response.send_message(
-                    f"✅ {user.mention} を解除しました。",
-                    ephemeral=True
-                )
-
-        await interaction.response.send_message(
-            "❌ 該当する参加キューがありません。",
-            ephemeral=True
-        )
 
 
 # =========================
@@ -288,7 +259,8 @@ class SlotJoinView(discord.ui.View):
         host: discord.Member,
         vc: discord.VoiceChannel,
         rate: int,
-        fee: int
+        fee: int,
+        session_id: str
     ):
         super().__init__(timeout=None)
         self.cog = cog
@@ -296,6 +268,7 @@ class SlotJoinView(discord.ui.View):
         self.vc = vc
         self.rate = rate
         self.fee = fee
+        self.session_id = session_id
         self.players: list[int] = []
 
     @discord.ui.button(label="参加", style=discord.ButtonStyle.success)
@@ -319,21 +292,20 @@ class SlotJoinView(discord.ui.View):
                 ephemeral=True
             )
 
-        bal = (await self.cog.bot.db.get_user(
-            user.id,
-            guild_id
-        ))["balance"]
-
+        bal = (await self.cog.bot.db.get_user(user.id, guild_id))["balance"]
         if bal < self.fee:
             return await interaction.response.send_message(
                 "❌ rrcが不足しています。",
                 ephemeral=True
             )
 
-        await self.cog.bot.db.add_balance(
+        await self.cog.bot.db.add_balance(user.id, guild_id, -self.fee)
+
+        # DB正本に追加
+        await self.cog.bot.db.add_slot_player(
+            self.session_id,
             user.id,
-            guild_id,
-            -self.fee
+            len(self.players)
         )
 
         self.players.append(user.id)
@@ -368,9 +340,13 @@ class SlotJoinView(discord.ui.View):
             self.host,
             self.vc,
             self.rate,
-            self.fee
+            self.fee,
+            self.session_id
         )
-        game.players = self.players[:]
+
+        rows = await self.cog.bot.db.get_slot_players(self.session_id)
+        game.players = [int(r["user_id"]) for r in rows]
+
         random.shuffle(game.players)
 
         self.cog.games[interaction.message.id] = game
@@ -396,11 +372,7 @@ class SlotSpinView(discord.ui.View):
         self.game = game
 
     @discord.ui.button(label="🎰 スピン", style=discord.ButtonStyle.primary)
-    async def spin(
-        self,
-        interaction: discord.Interaction,
-        button: discord.ui.Button
-    ):
+    async def spin(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.cog.spin(interaction, self.game)
 
 
@@ -414,11 +386,7 @@ class SlotNextView(discord.ui.View):
         self.game = game
 
     @discord.ui.button(label="次", style=discord.ButtonStyle.secondary)
-    async def next(
-        self,
-        interaction: discord.Interaction,
-        button: discord.ui.Button
-    ):
+    async def next(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
             content=(
                 "☠️ **DEAD OR ALIVE！**\n"
@@ -439,11 +407,7 @@ class SlotContinueView(discord.ui.View):
         self.votes: set[int] = set()
 
     @discord.ui.button(label="継続", style=discord.ButtonStyle.success)
-    async def cont(
-        self,
-        interaction: discord.Interaction,
-        button: discord.ui.Button
-    ):
+    async def cont(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.votes.add(interaction.user.id)
 
         if set(self.game.players) == self.votes:
@@ -458,11 +422,7 @@ class SlotContinueView(discord.ui.View):
             )
 
     @discord.ui.button(label="終了", style=discord.ButtonStyle.danger)
-    async def end(
-        self,
-        interaction: discord.Interaction,
-        button: discord.ui.Button
-    ):
+    async def end(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.cog.games.pop(interaction.message.id, None)
         await interaction.response.edit_message(
             content="🛑 ゲーム終了",
@@ -479,7 +439,4 @@ async def setup(bot: commands.Bot):
 
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
-            bot.tree.add_command(
-                cmd,
-                guild=discord.Object(id=gid)
-            )
+            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
