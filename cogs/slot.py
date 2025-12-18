@@ -40,9 +40,20 @@ def load_slot_image(kind: str) -> Image.Image:
     path = os.path.join(ASSET_DIR, SLOT_IMAGES[kind])
     img = Image.open(path).convert("RGBA")
     return img.resize((300, 300), Image.LANCZOS)
-
+    
 # =====================================================
-# GIF生成（3レーン・ジャンボ方式）
+# スロット画像キャッシュ（ジャンボ方式）
+# =====================================================
+SLOT_IMAGE_CACHE: dict[str, Image.Image] = {}
+
+def prepare_slot_images():
+    for kind, fname in SLOT_IMAGES.items():
+        path = os.path.join(ASSET_DIR, fname)
+        img = Image.open(path).convert("RGBA")
+        SLOT_IMAGE_CACHE[kind] = img.resize((300, 300), Image.LANCZOS)
+        
+# =====================================================
+# GIF生成（3レーン・ジャンボ方式・高速）
 # =====================================================
 async def generate_slot_gif(kind: str, duration: float = 4.0) -> str:
     """
@@ -54,23 +65,28 @@ async def generate_slot_gif(kind: str, duration: float = 4.0) -> str:
         return cache_path
 
     width, height = 900, 300
-    fps = 15
+    fps = 12                      # ★ 軽量
     frames = int(duration * fps)
+
+    # ★ ここが重要：最初に全部取得
+    imgs = SLOT_IMAGE_CACHE
+    kinds = list(imgs.keys())
 
     gif_frames = []
 
     for i in range(frames):
         frame = Image.new("RGBA", (width, height), (0, 0, 0, 255))
 
+        # 最後だけ確定
+        if i < frames - 4:
+            reel = [random.choice(kinds) for _ in range(3)]
+        else:
+            reel = [kind, kind, kind]
+
         for col in range(3):
-            if i < frames - 5:
-                k = random.choice(list(SLOT_IMAGES.keys()))
-            else:
-                k = kind
+            frame.paste(imgs[reel[col]], (col * 300, 0), imgs[reel[col]])
 
-            img = load_slot_image(k)
-            frame.paste(img, (col * 300, 0), img)
-
+        # 金枠（ジャンボ準拠）
         draw = ImageDraw.Draw(frame)
         draw.rectangle(
             [0, 0, width - 1, height - 1],
@@ -82,6 +98,7 @@ async def generate_slot_gif(kind: str, duration: float = 4.0) -> str:
 
     imageio.mimsave(cache_path, gif_frames, format="GIF", fps=fps)
     return cache_path
+
 
 # =====================================================
 # View
@@ -118,6 +135,7 @@ class SpinView(discord.ui.View):
 class SlotCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        prepare_slot_images() 
 
     # -------------------------------------------------
     # /スロット
@@ -331,4 +349,5 @@ async def setup(bot: commands.Bot):
             except Exception:
                 pass
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
