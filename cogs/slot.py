@@ -266,7 +266,6 @@ class SlotCog(commands.Cog):
             f"🎉 **{interaction.user.display_name} "
             f"{'大当たり' if result == 'BIG' else '小当たり'}！！ +{gain}rrc**\n"
             f"💰 現在総額：{total_pool}rrc（参加費除外）",
-            view=SpinView(self, cid)
         )
 
         s["turn"] = (s["turn"] + 1) % len(s["order"])
@@ -325,3 +324,4 @@ async def setup(bot: commands.Bot):
             except Exception:
                 pass
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
