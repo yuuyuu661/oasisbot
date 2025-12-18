@@ -1,7 +1,6 @@
 import random
 import asyncio
 import os
-from io import BytesIO
 
 import discord
 from discord.ext import commands
@@ -84,7 +83,7 @@ async def generate_slot_gif(kind: str, duration: float = 4.0) -> str:
     return cache_path
 
 # =====================================================
-# 開始パネル Embed 生成
+# 開始パネル Embed
 # =====================================================
 def build_slot_embed(rate: int, fee: int, players: dict) -> discord.Embed:
     if players:
@@ -126,7 +125,6 @@ class JoinView(discord.ui.View):
     async def start(self, interaction: discord.Interaction, _):
         await self.cog.handle_start(interaction, self.cid)
 
-
 class SpinView(discord.ui.View):
     def __init__(self, cog, cid):
         super().__init__(timeout=None)
@@ -154,11 +152,17 @@ class SlotCog(commands.Cog):
     async def slot(self, interaction: discord.Interaction, rate: int, fee: int):
 
         if not interaction.user.voice:
-            return await interaction.response.send_message("❌ VCに参加してください。", ephemeral=True)
+            return await interaction.response.send_message(
+                "❌ VCに参加してください。",
+                ephemeral=True
+            )
 
         cid = interaction.channel.id
         if cid in SLOT_SESSIONS:
-            return await interaction.response.send_message("⚠️ すでに進行中です。", ephemeral=True)
+            return await interaction.response.send_message(
+                "⚠️ すでに進行中です。",
+                ephemeral=True
+            )
 
         SLOT_SESSIONS[cid] = {
             "vc_id": interaction.user.voice.channel.id,
@@ -188,17 +192,35 @@ class SlotCog(commands.Cog):
         s = SLOT_SESSIONS[cid]
         user = interaction.user
 
+        # ★ VC一致チェック（復活）
+        if not user.voice or user.voice.channel.id != s["vc_id"]:
+            return await interaction.response.send_message(
+                "❌ 指定VCに参加していません。",
+                ephemeral=True
+            )
+
         if user.id in s["players"]:
-            return await interaction.response.send_message("⚠️ すでに参加しています。", ephemeral=True)
+            return await interaction.response.send_message(
+                "⚠️ すでに参加しています。",
+                ephemeral=True
+            )
 
         row = await self.bot.db.get_user(str(user.id), str(interaction.guild.id))
         if row["balance"] < s["fee"]:
-            return await interaction.response.send_message("❌ 残高不足です。", ephemeral=True)
+            return await interaction.response.send_message(
+                "❌ 残高不足です。",
+                ephemeral=True
+            )
 
-        await self.bot.db.remove_balance(str(user.id), str(interaction.guild.id), s["fee"])
+        await self.bot.db.remove_balance(
+            str(user.id),
+            str(interaction.guild.id),
+            s["fee"]
+        )
+
         s["players"][user.id] = {"pool": 0}
 
-        # ★ 参加者リスト更新
+        # パネル更新
         try:
             msg = await interaction.channel.fetch_message(s["panel_message_id"])
             await msg.edit(embed=build_slot_embed(s["rate"], s["fee"], s["players"]))
@@ -214,10 +236,16 @@ class SlotCog(commands.Cog):
         s = SLOT_SESSIONS[cid]
 
         if interaction.user.id != s["host"]:
-            return await interaction.response.send_message("❌ 代表者のみ開始できます。", ephemeral=True)
+            return await interaction.response.send_message(
+                "❌ 代表者のみ開始できます。",
+                ephemeral=True
+            )
 
         if len(s["players"]) < 2:
-            return await interaction.response.send_message("⚠️ 2人以上必要です。", ephemeral=True)
+            return await interaction.response.send_message(
+                "⚠️ 2人以上必要です。",
+                ephemeral=True
+            )
 
         s["order"] = list(s["players"].keys())
         random.shuffle(s["order"])
@@ -228,14 +256,17 @@ class SlotCog(commands.Cog):
         await self.send_turn_panel(interaction.channel, cid)
 
     # -------------------------------------------------
-    # スピン（以降は据え置き）
+    # スピン
     # -------------------------------------------------
     async def handle_spin(self, interaction, cid):
         s = SLOT_SESSIONS[cid]
         uid = s["order"][s["turn"]]
 
         if interaction.user.id != uid:
-            return await interaction.response.send_message("⛔ あなたの番ではありません。", ephemeral=True)
+            return await interaction.response.send_message(
+                "⛔ あなたの番ではありません。",
+                ephemeral=True
+            )
 
         roll = random.randint(1, 10)
         result = "END" if roll == 1 else "BIG" if roll == 2 else "SMALL"
@@ -265,79 +296,46 @@ class SlotCog(commands.Cog):
         await interaction.followup.send(
             f"🎉 **{interaction.user.display_name} "
             f"{'大当たり' if result == 'BIG' else '小当たり'}！！ +{gain}rrc**\n"
-            f"💰 現在総額：{total_pool}rrc（参加費除外）",
+            f"💰 現在総額：{total_pool}rrc（参加費除外）"
         )
 
         s["turn"] = (s["turn"] + 1) % len(s["order"])
         await self.send_turn_panel(interaction.channel, cid)
-# -------------------------------------------------
-# 終了処理（残高不足チェック付き・安全版）
-# -------------------------------------------------
-async def handle_end(self, channel, cid, loser_id):
-    s = SLOT_SESSIONS[cid]
-    guild = channel.guild
 
-    # ----------------------------
-    # 分配額計算
-    # ----------------------------
-    entry_pool = s["fee"] * len(s["players"])
-    win_pool = sum(p["pool"] for p in s["players"].values())
-    total = entry_pool + win_pool
+    # -------------------------------------------------
+    # 終了処理（安全版）
+    # -------------------------------------------------
+    async def handle_end(self, channel, cid, loser_id):
+        s = SLOT_SESSIONS[cid]
+        guild = channel.guild
 
-    survivors = [uid for uid in s["players"] if uid != loser_id]
+        entry_pool = s["fee"] * len(s["players"])
+        win_pool = sum(p["pool"] for p in s["players"].values())
+        total = entry_pool + win_pool
 
-    # 念のため
-    if not survivors:
-        await channel.send("💥 終了！分配対象がいないため清算なし。")
-        del SLOT_SESSIONS[cid]
-        return
+        survivors = [uid for uid in s["players"] if uid != loser_id]
+        share = total // len(survivors)
 
-    share = total // len(survivors)
+        for uid in survivors:
+            await self.bot.db.add_balance(
+                str(uid),
+                str(guild.id),
+                share
+            )
 
-    # ----------------------------
-    # ★ 残高不足チェック（ここが重要）
-    # ----------------------------
-    shortage_users = []
+        loser = guild.get_member(loser_id)
 
-    for uid in survivors:
-        row = await self.bot.db.get_user(str(uid), str(guild.id))
-        if row["balance"] < 0:
-            shortage_users.append(uid)
-
-    # 1人でも不足していたら清算中止
-    if shortage_users:
-        names = ", ".join(f"<@{u}>" for u in shortage_users)
         await channel.send(
-            "💥 **終了！**\n"
-            "⚠ **清算失敗**\n"
-            f"{names} の残高が不足しています。\n"
-            "今回は通貨の増減は行われませんでした。"
+            f"💥 **終了！**\n"
+            f"破産者：{loser.mention}\n"
+            f"🎁 総分配額：{total}rrc\n"
+            f"👥 1人あたり：{share}rrc"
         )
+
         del SLOT_SESSIONS[cid]
-        return
 
-    # ----------------------------
-    # ★ 通常清算
-    # ----------------------------
-    for uid in survivors:
-        await self.bot.db.add_balance(
-            str(uid),
-            str(guild.id),
-            share
-        )
-
-    loser = guild.get_member(loser_id)
-
-    await channel.send(
-        f"💥 **終了！**\n"
-        f"破産者：{loser.mention}\n"
-        f"🎁 総分配額：{total}rrc\n"
-        f"👥 1人あたり：{share}rrc"
-    )
-
-    del SLOT_SESSIONS[cid]
-
-
+    # -------------------------------------------------
+    # ターン表示
     # -------------------------------------------------
     async def send_turn_panel(self, channel, cid):
         s = SLOT_SESSIONS[cid]
@@ -363,5 +361,3 @@ async def setup(bot: commands.Bot):
             except Exception:
                 pass
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
-
-
