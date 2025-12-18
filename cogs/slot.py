@@ -270,34 +270,73 @@ class SlotCog(commands.Cog):
 
         s["turn"] = (s["turn"] + 1) % len(s["order"])
         await self.send_turn_panel(interaction.channel, cid)
+# -------------------------------------------------
+# 終了処理（残高不足チェック付き・安全版）
+# -------------------------------------------------
+async def handle_end(self, channel, cid, loser_id):
+    s = SLOT_SESSIONS[cid]
+    guild = channel.guild
 
-    # -------------------------------------------------
-    # 終了処理
-    # -------------------------------------------------
-    async def handle_end(self, channel, cid, loser_id):
-        s = SLOT_SESSIONS[cid]
-        guild = channel.guild
+    # ----------------------------
+    # 分配額計算
+    # ----------------------------
+    entry_pool = s["fee"] * len(s["players"])
+    win_pool = sum(p["pool"] for p in s["players"].values())
+    total = entry_pool + win_pool
 
-        entry_pool = s["fee"] * len(s["players"])
-        win_pool = sum(p["pool"] for p in s["players"].values())
-        total = entry_pool + win_pool
+    survivors = [uid for uid in s["players"] if uid != loser_id]
 
-        survivors = [uid for uid in s["players"] if uid != loser_id]
-        share = total // len(survivors)
+    # 念のため
+    if not survivors:
+        await channel.send("💥 終了！分配対象がいないため清算なし。")
+        del SLOT_SESSIONS[cid]
+        return
 
-        for uid in survivors:
-            await self.bot.db.add_balance(str(uid), str(guild.id), share)
+    share = total // len(survivors)
 
-        loser = guild.get_member(loser_id)
+    # ----------------------------
+    # ★ 残高不足チェック（ここが重要）
+    # ----------------------------
+    shortage_users = []
 
+    for uid in survivors:
+        row = await self.bot.db.get_user(str(uid), str(guild.id))
+        if row["balance"] < 0:
+            shortage_users.append(uid)
+
+    # 1人でも不足していたら清算中止
+    if shortage_users:
+        names = ", ".join(f"<@{u}>" for u in shortage_users)
         await channel.send(
-            f"💥 **終了！**\n"
-            f"破産者：{loser.mention}\n"
-            f"🎁 総分配額：{total}rrc\n"
-            f"👥 1人あたり：{share}rrc"
+            "💥 **終了！**\n"
+            "⚠ **清算失敗**\n"
+            f"{names} の残高が不足しています。\n"
+            "今回は通貨の増減は行われませんでした。"
+        )
+        del SLOT_SESSIONS[cid]
+        return
+
+    # ----------------------------
+    # ★ 通常清算
+    # ----------------------------
+    for uid in survivors:
+        await self.bot.db.add_balance(
+            str(uid),
+            str(guild.id),
+            share
         )
 
-        del SLOT_SESSIONS[cid]
+    loser = guild.get_member(loser_id)
+
+    await channel.send(
+        f"💥 **終了！**\n"
+        f"破産者：{loser.mention}\n"
+        f"🎁 総分配額：{total}rrc\n"
+        f"👥 1人あたり：{share}rrc"
+    )
+
+    del SLOT_SESSIONS[cid]
+
 
     # -------------------------------------------------
     async def send_turn_panel(self, channel, cid):
@@ -324,4 +363,5 @@ async def setup(bot: commands.Bot):
             except Exception:
                 pass
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
