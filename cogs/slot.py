@@ -1,4 +1,3 @@
-# cogs/slot.py
 import random
 import asyncio
 import discord
@@ -7,23 +6,19 @@ from discord import app_commands
 
 # ==========================
 # セッション管理
-# ==========================
 # channel_id -> session
+# ==========================
 SLOT_SESSIONS: dict[int, dict] = {}
 
-# ==========================
-# スロット画像設定
-# ==========================
-SLOT_IMAGES = {
-    "SMALL": "cogs/assets/slot/atari.png",
-    "BIG": "cogs/assets/slot/daatari.png",
-    "END": "cogs/assets/slot/shuryo.png",
-}
-SPIN_ORDER = ["SMALL", "BIG", "END"]
+ASSET_DIR = "cogs/assets/slot"
+GIF_REEL = f"{ASSET_DIR}/reel.gif"
+GIF_SMALL = f"{ASSET_DIR}/small.gif"
+GIF_BIG = f"{ASSET_DIR}/big.gif"
+GIF_END = f"{ASSET_DIR}/end.gif"
 
 
 # ==========================
-# View（UI）
+# View
 # ==========================
 class JoinView(discord.ui.View):
     def __init__(self, cog: "SlotCog", channel_id: int):
@@ -63,7 +58,7 @@ class SlotCog(commands.Cog):
     # --------------------------------------------------
     @app_commands.command(
         name="スロット",
-        description="VC参加型スロットを開始します"
+        description="VC不要の参加型スロットを開始します"
     )
     @app_commands.describe(
         rate="当たりレート",
@@ -76,21 +71,14 @@ class SlotCog(commands.Cog):
                 ephemeral=True
             )
 
-        if not interaction.user.voice:
-            return await interaction.response.send_message(
-                "❌ VCに参加してください。",
-                ephemeral=True
-            )
-
         channel_id = interaction.channel.id
         if channel_id in SLOT_SESSIONS:
             return await interaction.response.send_message(
-                "⚠️ このチャンネルではすでに進行中です。",
+                "⚠️ このチャンネルではすでにスロットが進行中です。",
                 ephemeral=True
             )
 
         SLOT_SESSIONS[channel_id] = {
-            "vc_id": interaction.user.voice.channel.id,
             "host": interaction.user.id,
             "rate": rate,
             "fee": fee,
@@ -103,8 +91,8 @@ class SlotCog(commands.Cog):
         embed = discord.Embed(
             title="🎰 スロット開始！",
             description=(
-                f"レート：{rate}\n"
-                f"参加費：{fee}\n\n"
+                f"**レート**：{rate}\n"
+                f"**参加費**：{fee}\n\n"
                 "👇 参加ボタンを押してください"
             ),
             color=0xF1C40F
@@ -122,23 +110,14 @@ class SlotCog(commands.Cog):
         session = SLOT_SESSIONS.get(channel_id)
         if not session:
             return await interaction.response.send_message(
-                "❌ セッションがありません。",
+                "❌ セッションが存在しません。",
                 ephemeral=True
             )
 
         if interaction.guild is None:
-            return await interaction.response.send_message(
-                "サーバー内でのみ使用できます。",
-                ephemeral=True
-            )
+            return
 
         user = interaction.user
-
-        if not user.voice or user.voice.channel.id != session["vc_id"]:
-            return await interaction.response.send_message(
-                "❌ 指定VCに参加していません。",
-                ephemeral=True
-            )
 
         if user.id in session["players"]:
             return await interaction.response.send_message(
@@ -146,11 +125,7 @@ class SlotCog(commands.Cog):
                 ephemeral=True
             )
 
-        row = await self.bot.db.get_user(
-            str(user.id),
-            str(interaction.guild.id)
-        )
-
+        row = await self.bot.db.get_user(str(user.id), str(interaction.guild.id))
         if row["balance"] < session["fee"]:
             return await interaction.response.send_message(
                 "❌ 残高不足です。",
@@ -164,6 +139,7 @@ class SlotCog(commands.Cog):
         )
 
         session["players"][user.id] = 0
+
         await interaction.response.send_message(
             "✅ 参加しました！",
             ephemeral=True
@@ -200,7 +176,7 @@ class SlotCog(commands.Cog):
         await self.send_turn_panel(interaction.channel, channel_id)
 
     # --------------------------------------------------
-    # スピン処理（演出付き）
+    # スピン処理（GIF演出あり）
     # --------------------------------------------------
     async def handle_spin(self, interaction: discord.Interaction, channel_id: int):
         session = SLOT_SESSIONS.get(channel_id)
@@ -216,56 +192,7 @@ class SlotCog(commands.Cog):
 
         await interaction.response.defer()
 
-        # === スロット演出 ===
-        result = await self.play_slot_animation(interaction.channel)
-
-        rate = session["rate"]
-
-        if result == "END":
-            await self.handle_end(
-                interaction.channel,
-                channel_id,
-                current_id
-            )
-            return
-
-        if result == "BIG":
-            session["players"][current_id] += rate * 10
-            text = f"🎉 **大当たり！ +{rate * 10}**"
-        else:
-            session["players"][current_id] += rate
-            text = f"✨ **小当たり +{rate}**"
-
-        session["turn"] = (session["turn"] + 1) % len(session["order"])
-
-        await interaction.followup.send(
-            f"{interaction.user.mention}\n{text}",
-            view=SpinView(self, channel_id)
-        )
-
-        await self.send_turn_panel(interaction.channel, channel_id)
-
-    # --------------------------------------------------
-    # スロット演出（約2秒）
-    # --------------------------------------------------
-    async def play_slot_animation(self, channel: discord.TextChannel) -> str:
-        msg = await channel.send("🎰 **スロット回転中…**")
-
-        # 疑似回転
-        for _ in range(3):
-            kind = random.choice(SPIN_ORDER)
-            file = discord.File(SLOT_IMAGES[kind], filename="slot.png")
-            embed = discord.Embed()
-            embed.set_image(url="attachment://slot.png")
-
-            await msg.edit(
-                content="🎰 **回転中…**",
-                attachments=[file],
-                embed=embed
-            )
-            await asyncio.sleep(0.4)
-
-        # 本抽選
+        # ===== 結果を先に確定 =====
         roll = random.randint(1, 10)
         if roll == 1:
             result = "END"
@@ -274,60 +201,64 @@ class SlotCog(commands.Cog):
         else:
             result = "SMALL"
 
-        final_file = discord.File(
-            SLOT_IMAGES[result],
-            filename="slot.png"
+        # ===== 回転演出 =====
+        await interaction.followup.send(
+            content="🎰 スロット回転中…",
+            file=discord.File(GIF_REEL)
+        )
+        await asyncio.sleep(2)
+
+        rate = session["rate"]
+
+        # ===== 結果処理 =====
+        if result == "SMALL":
+            session["players"][current_id] += rate
+            text = f"✨ **小当たり！ +{rate}**"
+            gif = GIF_SMALL
+
+        elif result == "BIG":
+            session["players"][current_id] += rate * 10
+            text = f"🎉 **大当たり！！ +{rate * 10}**"
+            gif = GIF_BIG
+
+        else:
+            await interaction.followup.send(
+                file=discord.File(GIF_END)
+            )
+            await self.handle_end(interaction.channel, channel_id, current_id)
+            return
+
+        # 次ターン
+        session["turn"] = (session["turn"] + 1) % len(session["order"])
+
+        await interaction.followup.send(
+            content=f"{interaction.user.mention}\n{text}",
+            file=discord.File(gif),
+            view=SpinView(self, channel_id)
         )
 
-        final_embed = discord.Embed(
-            title="🎰 結果！",
-            color=0xE74C3C if result == "END" else 0xF1C40F
-        )
-        final_embed.set_image(url="attachment://slot.png")
-
-        await msg.edit(
-            content="",
-            attachments=[final_file],
-            embed=final_embed
-        )
-
-        return result
+        await self.send_turn_panel(interaction.channel, channel_id)
 
     # --------------------------------------------------
     # 終了処理
     # --------------------------------------------------
-    async def handle_end(
-        self,
-        channel: discord.TextChannel,
-        channel_id: int,
-        loser_id: int
-    ):
+    async def handle_end(self, channel: discord.TextChannel, channel_id: int, loser_id: int):
         session = SLOT_SESSIONS[channel_id]
         guild = channel.guild
 
         loser_pool = session["players"][loser_id]
         total_loss = session["fee"] + loser_pool
 
-        survivors = [
-            uid for uid in session["players"]
-            if uid != loser_id
-        ]
-
+        survivors = [uid for uid in session["players"] if uid != loser_id]
         if not survivors:
-            await channel.send(
-                "💥 終了！参加者が1人だけなので清算なし。"
-            )
+            await channel.send("💥 終了！（参加者が1人のため清算なし）")
             del SLOT_SESSIONS[channel_id]
             return
 
         share = total_loss // len(survivors)
 
         for uid in survivors:
-            await self.bot.db.add_balance(
-                str(uid),
-                str(guild.id),
-                share
-            )
+            await self.bot.db.add_balance(str(uid), str(guild.id), share)
 
         loser = guild.get_member(loser_id)
 
@@ -343,11 +274,7 @@ class SlotCog(commands.Cog):
     # --------------------------------------------------
     # ターン表示
     # --------------------------------------------------
-    async def send_turn_panel(
-        self,
-        channel: discord.TextChannel,
-        channel_id: int
-    ):
+    async def send_turn_panel(self, channel: discord.TextChannel, channel_id: int):
         session = SLOT_SESSIONS[channel_id]
         uid = session["order"][session["turn"]]
         member = channel.guild.get_member(uid)
@@ -359,7 +286,7 @@ class SlotCog(commands.Cog):
 
 
 # ==========================
-# setup（/bal と同じ方式）
+# setup（安定構成）
 # ==========================
 async def setup(bot: commands.Bot):
     cog = SlotCog(bot)
@@ -368,10 +295,7 @@ async def setup(bot: commands.Bot):
     for cmd in cog.get_app_commands():
         for gid in getattr(bot, "GUILD_IDS", []):
             try:
-                bot.tree.remove_command(
-                    cmd.name,
-                    guild=discord.Object(id=gid)
-                )
+                bot.tree.remove_command(cmd.name, guild=discord.Object(id=gid))
             except Exception:
                 pass
 
