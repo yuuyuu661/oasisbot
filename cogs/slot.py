@@ -109,6 +109,7 @@ class SpinView(discord.ui.View):
 
     @discord.ui.button(label="🎰 スピン", style=discord.ButtonStyle.primary)
     async def spin(self, interaction: discord.Interaction, _):
+        await interaction.response.defer()
         await self.cog.handle_spin(interaction, self.cid)
 
 # =====================================================
@@ -234,8 +235,6 @@ class SlotCog(commands.Cog):
                 ephemeral=True
             )
 
-        await interaction.response.defer()
-
         roll = random.randint(1, 10)
         result = "END" if roll == 1 else "BIG" if roll == 2 else "SMALL"
 
@@ -332,3 +331,4 @@ async def setup(bot: commands.Bot):
             except Exception:
                 pass
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
