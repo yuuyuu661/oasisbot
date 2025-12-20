@@ -561,30 +561,26 @@ class ClearChatButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
-        vc = interaction.channel
+        # ★ 実際にメッセージが流れているチャンネル（スレッド）
+        target_channel = interaction.message.channel
 
-        # VC以外で押された場合
-        if not isinstance(vc, discord.VoiceChannel):
+        # 念のため
+        if not isinstance(
+            target_channel,
+            (discord.TextChannel, discord.Thread)
+        ):
             await interaction.followup.send(
-                "❌ ホテルVC内のテキスト欄でのみ使用できます。",
-                ephemeral=True
-            )
-            return
-
-        text_channel = vc.text_channel
-        if not text_channel:
-            await interaction.followup.send(
-                "❌ このVCにはテキストチャンネルがありません。",
+                "❌ この場所のチャットは削除できません。",
                 ephemeral=True
             )
             return
 
         # --- 履歴全削除 ---
-        await text_channel.purge(limit=None)
+        await target_channel.purge(limit=None)
 
-        # --- ホテル操作パネルを再送 ---
+        # --- 操作パネル再送 ---
         from .room_panel import HotelRoomControlPanel
-        await text_channel.send(
+        await target_channel.send(
             "🏨 **ホテルルーム操作パネル**",
             view=HotelRoomControlPanel()
         )
@@ -593,4 +589,5 @@ class ClearChatButton(discord.ui.Button):
             "🗑️ チャット履歴を削除しました。",
             ephemeral=True
         )
+
 
