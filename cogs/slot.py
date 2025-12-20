@@ -146,10 +146,16 @@ class SlotCog(commands.Cog):
 
     @app_commands.command(name="スロット", description="VC参加型スロットを開始します")
     async def slot(self, interaction: discord.Interaction):
-        if not interaction.user.voice:
-            return await interaction.response.send_message("❌ VCに参加してください。", ephemeral=True)
+        # ★ 先に defer（超重要）
+        await interaction.response.defer(ephemeral=True)
 
-        await interaction.response.send_message(
+        if not interaction.user.voice:
+            return await interaction.followup.send(
+                "❌ VCに参加してください。",
+                ephemeral=True
+            )
+
+        await interaction.followup.send(
             "🎰 レートを選択してください",
             view=RateSelectView(self),
             ephemeral=True
@@ -409,5 +415,6 @@ class SlotCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(SlotCog(bot))
+
 
 
