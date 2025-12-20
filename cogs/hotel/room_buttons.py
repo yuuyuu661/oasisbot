@@ -549,3 +549,42 @@ class RoomCheckTicketsButton(discord.ui.Button):
 
         tickets = await interaction.client.db.get_tickets(user_id, guild_id)
         await interaction.response.send_message(f"🎫 所持チケット → **{tickets}枚**", ephemeral=True)
+
+class ClearChatButton(discord.ui.Button):
+    def __init__(self, bot):
+        super().__init__(
+            label="🗑️ チャット履歴削除",
+            style=discord.ButtonStyle.danger,
+            custom_id="hotel:clear_chat"
+        )
+        self.bot = bot
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
+        channel = interaction.channel
+
+        # テキストチャンネル以外で押された場合の保険
+        if not isinstance(channel, discord.TextChannel):
+            await interaction.followup.send(
+                "❌ このボタンはテキストチャンネルでのみ使用できます。",
+                ephemeral=True
+            )
+            return
+
+        # --- 履歴全削除 ---
+        await channel.purge(limit=None)
+
+        # --- ホテル操作ボタンを再送 ---
+        from room_panel import HotelRoomControlPanel
+        view = HotelRoomControlPanel(self.bot)
+
+        await channel.send(
+            "🏨 **ホテルルーム操作パネル**",
+            view=view
+        )
+
+        await interaction.followup.send(
+            "🗑️ チャット履歴を削除しました。",
+            ephemeral=True
+        )
