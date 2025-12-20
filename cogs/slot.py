@@ -134,7 +134,6 @@ class SpinView(discord.ui.View):
     @discord.ui.button(label="🎰 スピン", style=discord.ButtonStyle.primary)
     async def spin(self, interaction, _):
         await interaction.response.defer()
-        await interaction.message.edit(view=None)
         await self.cog.handle_spin(interaction, self.cid)
 
 # =====================================================
@@ -232,6 +231,12 @@ class SlotCog(commands.Cog):
 
         if s["spinning"]:
             return
+
+            # ★ ここでボタンを消す
+        try:
+            await interaction.message.edit(view=None)
+        except Exception:
+            pass
 
         s["spinning"] = True
         try:
@@ -379,3 +384,4 @@ class SlotCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(SlotCog(bot))
+
