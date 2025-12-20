@@ -164,7 +164,7 @@ class SlotCog(commands.Cog):
     async def create_slot_session(self, interaction, rate, fee):
         cid = interaction.channel.id
         if cid in SLOT_SESSIONS:
-            return
+            SLOT_SESSIONS.pop(cid, None)
 
         SLOT_SESSIONS[cid] = {
             "vc_id": interaction.user.voice.channel.id,
@@ -421,4 +421,5 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
