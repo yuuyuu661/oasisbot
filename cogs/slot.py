@@ -174,7 +174,42 @@ class SlotCog(commands.Cog):
             view=RateSelectView(self),
             ephemeral=True
         )
+    async def _ensure_panel_exists(
+        self,
+        channel: discord.TextChannel,
+        cid: int
+    ) -> bool:
+        """
+        パネルメッセージが存在するか確認する。
+        消えていた場合はセッションを破棄して False を返す。
+        """
 
+        s = SLOT_SESSIONS.get(cid)
+        if not s:
+            return False
+
+        panel_id = s.get("panel_message_id")
+        if not panel_id:
+            SLOT_SESSIONS.pop(cid, None)
+            return False
+
+        try:
+            await channel.fetch_message(panel_id)
+            return True
+
+        except discord.NotFound:
+            # パネルが削除されている
+            SLOT_SESSIONS.pop(cid, None)
+            return False
+
+        except discord.Forbidden:
+            # 参照できない = 異常状態
+            SLOT_SESSIONS.pop(cid, None)
+            return False
+
+        except discord.HTTPException:
+            # 一時的な通信エラーは「存在する扱い」
+            return True
 
     async def create_slot_session(self, interaction, rate, fee):
         cid = interaction.channel.id
@@ -198,7 +233,17 @@ class SlotCog(commands.Cog):
         )
         SLOT_SESSIONS[cid]["panel_message_id"] = msg.id
 
-    async def handle_join(self, interaction, cid):
+    async def handle_join(
+        self,
+        interaction: discord.Interaction,
+        cid: int
+    ):
+        if not await self._ensure_panel_exists(interaction.channel, cid):
+            return await interaction.response.send_message(
+                "⚠️ パネルが削除されていたため、スロットをリセットしました。\n"
+                "もう一度 **/スロット** から作成してください。",
+                ephemeral=True
+            )
         s = SLOT_SESSIONS[cid]
         user = interaction.user
 
@@ -431,6 +476,7 @@ class SlotCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(SlotCog(bot))
+
 
 
 
