@@ -285,17 +285,45 @@ class SlotCog(commands.Cog):
         s = SLOT_SESSIONS[cid]
         guild = channel.guild
 
+        # 参加費合計（すでに徴収済み）
         entry_pool = s["fee"] * len(s["players"])
+
+        # 当たり・大当たりの合計
         win_pool = sum(p["pool"] for p in s["players"].values())
+
+        # 破産者が支払う総額
         total = entry_pool + win_pool
 
+        # 生存者
         survivors = [uid for uid in s["players"] if uid != loser_id]
+
+        if not survivors:
+            SLOT_SESSIONS.pop(cid, None)
+            return
+
         share = total // len(survivors)
 
+        # ================================
+        # ★ 破産者から全額徴収（重要）
+        # ================================
+        await self.bot.db.remove_balance(
+            str(loser_id),
+            str(guild.id),
+            total
+        )
+
+        # ================================
+        # ★ 生存者へ分配
+        # ================================
         for uid in survivors:
-            await self.bot.db.add_balance(str(uid), str(guild.id), share)
+            await self.bot.db.add_balance(
+                str(uid),
+                str(guild.id),
+                share
+            )
 
         loser = guild.get_member(loser_id)
+
         await channel.send(
             f"💥 **終了！**\n"
             f"破産者：{loser.mention}\n"
@@ -421,5 +449,6 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
