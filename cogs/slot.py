@@ -146,7 +146,6 @@ class SlotCog(commands.Cog):
 
     @app_commands.command(name="スロット", description="VC参加型スロットを開始します")
     async def slot(self, interaction: discord.Interaction):
-        # ★ 先に defer（超重要）
         await interaction.response.defer(ephemeral=True)
 
         if not interaction.user.voice:
@@ -155,16 +154,30 @@ class SlotCog(commands.Cog):
                 ephemeral=True
             )
 
-        await interaction.followup.send(
+        cid = interaction.channel.id
+
+        # ▼ ここを追加
+        if cid in SLOT_SESSIONS:
+            s = SLOT_SESSIONS[cid]
+
+            # 参加者ゼロ or JOIN状態なら上書き許可
+            if not s["players"] or s["state"] == "JOIN":
+                SLOT_SESSIONS.pop(cid, None)
+            else:
+                return await interaction.followup.send(
+                    "⚠️ すでに進行中のスロットがあります。",
+                    ephemeral=True
+                )
+
+       await interaction.followup.send(
             "🎰 レートを選択してください",
             view=RateSelectView(self),
             ephemeral=True
         )
 
+
     async def create_slot_session(self, interaction, rate, fee):
         cid = interaction.channel.id
-        if cid in SLOT_SESSIONS:
-            return
 
         SLOT_SESSIONS[cid] = {
             "vc_id": interaction.user.voice.channel.id,
@@ -179,7 +192,10 @@ class SlotCog(commands.Cog):
         }
 
         embed = build_slot_embed(rate, fee, {})
-        msg = await interaction.channel.send(embed=embed, view=JoinView(self, cid))
+        msg = await interaction.channel.send(
+            embed=embed,
+            view=JoinView(self, cid)
+        )
         SLOT_SESSIONS[cid]["panel_message_id"] = msg.id
 
     async def handle_join(self, interaction, cid):
@@ -415,6 +431,7 @@ class SlotCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(SlotCog(bot))
+
 
 
 
