@@ -563,11 +563,6 @@ class ClearChatButton(discord.ui.Button):
 
         channel = interaction.channel
 
-        if not isinstance(channel, discord.TextChannel):
-            await interaction.followup.send(
-                "❌ このボタンはテキストチャンネルでのみ使用できます。",
-                ephemeral=True
-            )
             return
 
         # --- 履歴全削除 ---
@@ -584,4 +579,5 @@ class ClearChatButton(discord.ui.Button):
             "🗑️ チャット履歴を削除しました。",
             ephemeral=True
         )
+
 
