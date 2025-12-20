@@ -34,3 +34,5 @@ class HotelRoomControlPanel(discord.ui.View):
         self.add_item(RoomAddSubRoleButton())
         self.add_item(RoomCheckExpireButton())
         self.add_item(RoomCheckTicketsButton())
+        self.add_item(ClearChatButton(bot))
+
