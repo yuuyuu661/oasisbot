@@ -351,6 +351,31 @@ class SlotCog(commands.Cog):
                 ephemeral=True
             )
 
+        # =====================================
+        # ★ ここからが「修正2」の本体 ★
+        # 参加中 → 全員返金してゲーム終了
+        # =====================================
+        refund = s["fee"]
+
+        for uid in s["players"]:
+            await self.bot.db.add_balance(
+                str(uid),
+                str(interaction.guild.id),
+                refund
+            )
+
+        await interaction.channel.send(
+            "🛑 **スロットがキャンセルされました。**\n"
+            "💸 参加費は全員に返還されました。"
+        )
+
+        SLOT_SESSIONS.pop(cid, None)
+
+        return await interaction.response.send_message(
+            "✅ スロットを終了しました。",
+            ephemeral=True
+        )
+
         # --- players から削除 ---
         del s["players"][target.id]
 
@@ -384,4 +409,5 @@ class SlotCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(SlotCog(bot))
+
 
