@@ -300,8 +300,83 @@ class SlotCog(commands.Cog):
         member = channel.guild.get_member(uid)
         await channel.send(f"👉 **{member.display_name} の番です！**", view=SpinView(self, cid))
 
+# -------------------------------------------------
+# /スロット参加解除
+# -------------------------------------------------
+@app_commands.command(
+    name="スロット参加解除",
+    description="スロット参加を解除します（自分 or 管理者指定）"
+)
+@app_commands.describe(user="解除するユーザー（省略時は自分）")
+async def slot_leave(
+    self,
+    interaction: discord.Interaction,
+    user: discord.Member | None = None
+):
+    cid = interaction.channel.id
+
+    if cid not in SLOT_SESSIONS:
+        return await interaction.response.send_message(
+            "❌ このチャンネルで進行中のスロットはありません。",
+            ephemeral=True
+        )
+
+    s = SLOT_SESSIONS[cid]
+
+    target = user or interaction.user
+
+    # 管理者権限チェック（他人指定時）
+    if user and user.id != interaction.user.id:
+        if not interaction.user.guild_permissions.administrator:
+            return await interaction.response.send_message(
+                "❌ 他ユーザーを解除するには管理者権限が必要です。",
+                ephemeral=True
+            )
+
+    if target.id not in s["players"]:
+        return await interaction.response.send_message(
+            "⚠️ そのユーザーは参加していません。",
+            ephemeral=True
+        )
+
+    # スピン中の本人は解除不可（事故防止）
+    if s.get("spinning") and s["order"] and s["order"][s["turn"]] == target.id:
+        return await interaction.response.send_message(
+            "⏳ 現在スピン処理中のため解除できません。",
+            ephemeral=True
+        )
+
+    # --- players から削除 ---
+    del s["players"][target.id]
+
+    # --- order（ターン順）から削除 ---
+    if target.id in s["order"]:
+        idx = s["order"].index(target.id)
+        s["order"].remove(target.id)
+
+        # ターン補正
+        if idx < s["turn"]:
+            s["turn"] -= 1
+        if s["turn"] >= len(s["order"]):
+            s["turn"] = 0
+
+    # --- パネル更新 ---
+    try:
+        msg = await interaction.channel.fetch_message(s["panel_message_id"])
+        await msg.edit(
+            embed=build_slot_embed(s["rate"], s["fee"], s["players"])
+        )
+    except Exception:
+        pass
+
+    await interaction.response.send_message(
+        f"✅ **{target.display_name}** をスロット参加から解除しました。",
+        ephemeral=True
+    )
+
 # =====================================================
 # setup
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(SlotCog(bot))
+
