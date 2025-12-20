@@ -3,41 +3,71 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import asyncio                    # 追加
-from datetime import datetime     # 追加
+import asyncio
+from datetime import datetime
+from typing import Optional
 
 from .checkin import CheckinButton
 from .ticket_dropdown import TicketBuyDropdown, TicketBuyExecuteButton
 from .room_panel import HotelRoomControlPanel
 
+
 class HotelCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+        self._hotel_db_lock = asyncio.Lock()
+
         # ★ 自動削除監視タスクを起動
         self.bot.loop.create_task(self._hotel_expire_task())
+
+        # ★ 永続View登録タスクを起動（ホテルパネル用）
+        self.bot.loop.create_task(self._register_persistent_hotel_panels())
+
+        # 追加：VC存在チェックによるDBクリーンアップ
+        self.bot.loop.create_task(self._hotel_orphan_cleanup_task())
+
+    # --------------------------------------------------
+    # DBが使えるまで待つ（共通）
+    # --------------------------------------------------
+    async def _wait_db_ready(self):
+        await self.bot.wait_until_ready()
+
+        while True:
+            try:
+                if getattr(self.bot, "db", None) is None:
+                    await asyncio.sleep(1)
+                    continue
+
+                await self.bot.db.connect()
+
+                if self.bot.db.conn is None:
+                    await asyncio.sleep(1)
+                    continue
+
+                break
+            except Exception as e:
+                print("[Hotel] waiting db error:", e)
+                await asyncio.sleep(2)
 
     # ================================
     # 🔥 ホテル自動削除タスク
     # ================================
     async def _hotel_expire_task(self):
-        # Bot起動完了を待つ
-        await self.bot.wait_until_ready()
+        await self._wait_db_ready()
 
         while not self.bot.is_closed():
             try:
                 now = datetime.utcnow()
 
-                # hotel_rooms から全ルーム取得
-                rows = await self.bot.db.conn.fetch(
-                    "SELECT channel_id, guild_id, expire_at FROM hotel_rooms"
-                )
+                async with self._hotel_db_lock:
+                    rows = await self.bot.db.conn.fetch(
+                        "SELECT channel_id, guild_id, expire_at FROM hotel_rooms"
+                    )
 
                 for row in rows:
                     expire_at = row["expire_at"]
-                    if expire_at is None:
-                        continue
-
-                    if now >= expire_at:
+                    if expire_at and now >= expire_at:
                         guild_id = int(row["guild_id"])
                         channel_id = int(row["channel_id"])
 
@@ -50,15 +80,52 @@ class HotelCog(commands.Cog):
                                 except Exception as e:
                                     print("Hotel auto delete VC error:", e)
 
-                        # DB側も削除
-                        await self.bot.db.delete_room(str(channel_id))
-                        print(f"[Hotel] Auto delete → VC {channel_id}")
+                        async with self._hotel_db_lock:
+                            await self.bot.db.delete_room(str(channel_id))
 
             except Exception as e:
                 print("Hotel expire task error:", e)
 
-            # 30秒ごとにチェック（調整可）
             await asyncio.sleep(30)
+
+
+    # ================================
+    # ✅ 永続View登録（ホテルパネル）
+    # ================================
+    async def _register_persistent_hotel_panels(self):
+        await self._wait_db_ready()
+
+        try:
+            rows = await self.bot.db.conn.fetch("SELECT * FROM hotel_settings")
+        except Exception as e:
+            print("[Hotel] load hotel_settings failed:", repr(e))
+            return
+
+        for cfg in rows:
+            try:
+                guild_id = str(cfg["guild_id"])
+
+                cfg_dict = dict(cfg)
+
+                view = discord.ui.View(timeout=None)
+
+                # ホテルパネル（チェックイン＋購入）
+                view.add_item(CheckinButton(cfg, guild_id))
+
+                selector = TicketBuyDropdown(cfg, guild_id)
+                view.add_item(selector)
+                view.add_item(TicketBuyExecuteButton(selector, cfg, guild_id))
+
+                self.bot.add_view(view)
+                print(f"[Hotel] persistent hotel panel view registered: guild={guild_id}")
+
+            except Exception as e:
+                print("[Hotel] persistent view register error:", repr(e))
+
+        # ルーム操作パネル（インチャット用）はギルド共通で1回だけ登録
+        self.bot.add_view(HotelRoomControlPanel())
+        print("[Hotel] persistent room control panel registered")
+
 
     # ================================
     # VC削除 → DBクリーンアップ
@@ -73,8 +140,22 @@ class HotelCog(commands.Cog):
 
     # ======================================================
     # /ホテル初期設定
+    # 既存カテゴリを複数登録（空きがあるカテゴリを自動選択）
     # ======================================================
     @app_commands.command(name="ホテル初期設定", description="ホテル機能の初期設定を行います（管理者）")
+    @app_commands.describe(
+        manager_role="ホテル管理ロール",
+        log_channel="ホテルログ送信先",
+        sub_role="サブ垢ロール",
+        price_1="チケット1枚の価格",
+        price_10="チケット10枚の価格",
+        price_30="チケット30枚の価格",
+        category1="ホテルVCを作成するカテゴリ（優先1）",
+        category2="ホテルVCを作成するカテゴリ（優先2）",
+        category3="ホテルVCを作成するカテゴリ（優先3）",
+        category4="ホテルVCを作成するカテゴリ（優先4）",
+        category5="ホテルVCを作成するカテゴリ（優先5）",
+    )
     async def hotel_setup(
         self,
         interaction: discord.Interaction,
@@ -83,7 +164,12 @@ class HotelCog(commands.Cog):
         sub_role: discord.Role,
         price_1: int,
         price_10: int,
-        price_30: int
+        price_30: int,
+        category1: discord.CategoryChannel,
+        category2: Optional[discord.CategoryChannel] = None,
+        category3: Optional[discord.CategoryChannel] = None,
+        category4: Optional[discord.CategoryChannel] = None,
+        category5: Optional[discord.CategoryChannel] = None,
     ):
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
@@ -93,13 +179,17 @@ class HotelCog(commands.Cog):
 
         guild_id = str(interaction.guild.id)
 
+        cats = [category1, category2, category3, category4, category5]
+        category_ids = [str(c.id) for c in cats if c is not None]
+
         await self.bot.db.conn.execute(
             """
             INSERT INTO hotel_settings (
                 guild_id, manager_role, log_channel, sub_role,
-                ticket_price_1, ticket_price_10, ticket_price_30
+                ticket_price_1, ticket_price_10, ticket_price_30,
+                category_ids
             )
-            VALUES ($1,$2,$3,$4,$5,$6,$7)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
             ON CONFLICT (guild_id)
             DO UPDATE SET
                 manager_role=$2,
@@ -107,7 +197,8 @@ class HotelCog(commands.Cog):
                 sub_role=$4,
                 ticket_price_1=$5,
                 ticket_price_10=$6,
-                ticket_price_30=$7;
+                ticket_price_30=$7,
+                category_ids=$8;
             """,
             guild_id,
             str(manager_role.id),
@@ -115,17 +206,33 @@ class HotelCog(commands.Cog):
             str(sub_role.id),
             price_1,
             price_10,
-            price_30
+            price_30,
+            category_ids
         )
 
-        await interaction.response.send_message("🏨 ホテル初期設定を更新しました！", ephemeral=True)
+        text = "🏨 ホテル初期設定を更新しました！\n"
+        text += "作成カテゴリ: " + ", ".join([f"<#{cid}>" for cid in category_ids])
+        await interaction.response.send_message(text, ephemeral=True)
+
+        # 任意：設定変更直後に永続Viewを再登録したい場合（重複登録しても害は小さい）
+        # 必要なら有効化してください
+        # try:
+        #     cfg = await self.bot.db.conn.fetchrow("SELECT * FROM hotel_settings WHERE guild_id=$1", guild_id)
+        #     if cfg:
+        #         view = discord.ui.View(timeout=None)
+        #         view.add_item(CheckinButton(cfg, guild_id))
+        #         selector = TicketBuyDropdown(cfg, guild_id)
+        #         view.add_item(selector)
+        #         view.add_item(TicketBuyExecuteButton(selector, cfg, guild_id))
+        #         self.bot.add_view(view)
+        # except Exception as e:
+        #     print("[Hotel] re-register persistent view after setup failed:", repr(e))
 
     # ======================================================
     # /ホテルパネル生成
     # ======================================================
     @app_commands.command(name="ホテルパネル生成", description="ホテルのチェックインパネルを生成します（管理者）")
     async def hotel_panel(self, interaction: discord.Interaction, title: str, description: str):
-
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
 
@@ -145,21 +252,16 @@ class HotelCog(commands.Cog):
             )
 
         embed = discord.Embed(title=title, description=description, color=0xF4D03F)
-
-        # ================================
-        # 新しい 完成版パネル
-        # ================================
+        
+        fg_dict = dict(hotel_config)
+        
+        # 永続Viewとして成立する構成（custom_id付き）
         view = discord.ui.View(timeout=None)
+        view.add_item(CheckinButton(hotel_config, guild_id))
 
-        # チェックイン
-        view.add_item(CheckinButton(hotel_config))
-
-        # プルダウン（選択）
-        selector = TicketBuyDropdown(hotel_config)
+        selector = TicketBuyDropdown(hotel_config, guild_id)
         view.add_item(selector)
-
-        # 購入実行ボタン（プルダウン値を読む）
-        view.add_item(TicketBuyExecuteButton(selector, hotel_config))
+        view.add_item(TicketBuyExecuteButton(selector, hotel_config, guild_id))
 
         await interaction.response.send_message(embed=embed, view=view)
 
@@ -177,16 +279,14 @@ class HotelCog(commands.Cog):
             ephemeral=True
         )
 
-
     # ================================
-    # /ホテルボタン再送
+    # /ホテルボタン再送（ルーム内パネル用）
     # ================================
     @app_commands.command(
         name="ホテルボタン再送",
         description="ホテルルームの操作パネルを再送します（Bot再起動で動かない場合用）"
     )
     async def hotel_resend_panel(self, interaction: discord.Interaction):
-
         vc = interaction.channel
         if not isinstance(vc, discord.VoiceChannel):
             return await interaction.response.send_message(
@@ -197,7 +297,6 @@ class HotelCog(commands.Cog):
         guild = interaction.guild
         guild_id = str(guild.id)
 
-        # 🔍 1) VC がホテルルームか確認
         room = await interaction.client.db.get_room(str(vc.id))
         if not room:
             return await interaction.response.send_message(
@@ -207,12 +306,10 @@ class HotelCog(commands.Cog):
 
         owner_id = room["owner_id"]
 
-        # 🔍 2) ホテル設定（manager / sub_role）を取得
         hotel_config = await interaction.client.db.conn.fetchrow(
             "SELECT * FROM hotel_settings WHERE guild_id=$1",
             guild_id
         )
-
         if not hotel_config:
             return await interaction.response.send_message(
                 "❌ ホテル初期設定がまだ行われていません。",
@@ -222,25 +319,16 @@ class HotelCog(commands.Cog):
         manager_role_id = int(hotel_config["manager_role"])
         sub_role_id = int(hotel_config["sub_role"])
 
-        # 🔍 3) bot全体の初期設定から admin_role を取得
         settings = await self.bot.db.get_settings()
-        admin_roles = settings["admin_roles"] or []     # ← list of role IDs (文字列)
-        
-        # ==========================================================
-        # 🔑 権限チェック（owner / manager / admin）
-        # ==========================================================
+        admin_roles = settings["admin_roles"] or []
+
         user = interaction.user
         ok = False
 
-        # ホテル作成者
         if str(user.id) == owner_id:
             ok = True
-
-        # ホテル管理者 manager_role
         elif any(r.id == manager_role_id for r in user.roles):
             ok = True
-
-        # bot全体 admin_role
         elif any(str(r.id) in admin_roles for r in user.roles):
             ok = True
 
@@ -250,23 +338,10 @@ class HotelCog(commands.Cog):
                 ephemeral=True
             )
 
-        # ==========================================================
-        # 🔄 パネル再送
-        # ==========================================================
-        panel = HotelRoomControlPanel(
-            owner_id=owner_id,
-            manager_role_id=manager_role_id,
-            sub_role_id=sub_role_id,
-            config=hotel_config
-        )
-
+        panel = HotelRoomControlPanel()
         await vc.send("🔄 **操作パネルを再送しました！**", view=panel)
 
-        await interaction.response.send_message(
-            "🔄 パネルを再送しました！",
-            ephemeral=True
-        )
-
+        await interaction.response.send_message("🔄 パネルを再送しました！", ephemeral=True)
 
     # ======================================================
     # /ホテルリセット
@@ -276,8 +351,6 @@ class HotelCog(commands.Cog):
         description="指定ユーザーのホテルルーム情報をリセットします（管理者）"
     )
     async def hotel_reset(self, interaction: discord.Interaction, target: discord.Member):
-
-        # 管理者ロール判定
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
 
@@ -291,7 +364,6 @@ class HotelCog(commands.Cog):
         guild_id = str(guild.id)
         user_id = str(target.id)
 
-        # DBに登録されているルームを検索
         room = await self.bot.db.conn.fetchrow(
             "SELECT channel_id FROM hotel_rooms WHERE owner_id=$1 AND guild_id=$2",
             user_id, guild_id
@@ -306,19 +378,16 @@ class HotelCog(commands.Cog):
         channel_id = room["channel_id"]
         channel = guild.get_channel(int(channel_id))
 
-        # ボイスチャンネルが残っている場合 → 削除
         if channel:
             try:
                 await channel.delete(reason="ホテルリセットによるVC削除")
             except Exception:
                 pass
 
-        # DBのレコード削除
         await self.bot.db.delete_room(str(channel_id))
 
         await interaction.response.send_message(
-            f"🧹 {target.mention} のホテルデータをリセットしました！\n"
-            f"再度チェックイン可能になっています。",
+            f"🧹 {target.mention} のホテルデータをリセットしました！\n再度チェックイン可能になっています。",
             ephemeral=True
         )
 
@@ -332,7 +401,7 @@ class HotelCog(commands.Cog):
     @app_commands.describe(
         member="対象ユーザー",
         mode="add=付与, remove=減算, set=指定枚数に上書き",
-        amount="枚数（1以上）"
+        amount="枚数（0以上）"
     )
     @app_commands.choices(
         mode=[
@@ -348,7 +417,6 @@ class HotelCog(commands.Cog):
         mode: app_commands.Choice[str],
         amount: int,
     ):
-        # サーバー内のみ
         guild = interaction.guild
         if guild is None:
             return await interaction.response.send_message(
@@ -356,14 +424,11 @@ class HotelCog(commands.Cog):
                 ephemeral=True
             )
 
-        # --- 権限チェック（通貨管理ロール or ホテル管理ロール） ---
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
 
-        # 通貨管理ロールを持っているか
         is_admin_role = any(str(r.id) in admin_roles for r in interaction.user.roles)
 
-        # ホテル設定から manager_role を取得
         guild_id = str(guild.id)
         hotel_config = await self.bot.db.conn.fetchrow(
             "SELECT * FROM hotel_settings WHERE guild_id=$1",
@@ -381,28 +446,18 @@ class HotelCog(commands.Cog):
                 ephemeral=True
             )
 
-        # --- 入力チェック ---
         if amount < 0:
-            return await interaction.response.send_message(
-                "枚数は 0 以上を指定してください。",
-                ephemeral=True
-            )
+            return await interaction.response.send_message("枚数は 0 以上を指定してください。", ephemeral=True)
 
         user_id = str(member.id)
 
-        # --- 実際の処理 ---
         if mode.value == "add":
-            # 付与
             new_amount = await self.bot.db.add_tickets(user_id, guild_id, amount)
             op_text = f"+{amount}枚（付与）"
-
         elif mode.value == "remove":
-            # 減算（マイナスにはならない）
             new_amount = await self.bot.db.remove_tickets(user_id, guild_id, amount)
             op_text = f"-{amount}枚（減算）"
-
-        else:  # "set"
-            # 上書き
+        else:
             await self.bot.db.conn.execute(
                 """
                 INSERT INTO hotel_tickets (user_id, guild_id, tickets)
@@ -415,64 +470,53 @@ class HotelCog(commands.Cog):
             new_amount = amount
             op_text = f"={amount}枚（上書き）"
 
-        # --- 応答 ---
         await interaction.response.send_message(
-            f"🎫 {member.mention} の高級ホテルチケットを {op_text} しました。\n"
-            f"現在の所持枚数: **{new_amount}枚**",
+            f"🎫 {member.mention} の高級ホテルチケットを {op_text} しました。\n現在の所持枚数: **{new_amount}枚**",
             ephemeral=True
         )
 
-        # --- ログ送信（ホテルログチャンネルが設定されていれば） ---
         if hotel_config and hotel_config.get("log_channel"):
             log_ch = guild.get_channel(int(hotel_config["log_channel"]))
             if log_ch:
-                embed = discord.Embed(
-                    title="🎫 ホテルチケット調整ログ",
-                    color=0xF4D03F
-                )
-                embed.add_field(
-                    name="対象ユーザー",
-                    value=f"{member.mention} (`{member.id}`)",
-                    inline=False
-                )
-                embed.add_field(
-                    name="操作",
-                    value=op_text,
-                    inline=True
-                )
-                embed.add_field(
-                    name="結果枚数",
-                    value=f"{new_amount}枚",
-                    inline=True
-                )
-                embed.add_field(
-                    name="実行者",
-                    value=f"{interaction.user.mention} (`{interaction.user.id}`)",
-                    inline=False
-                )
+                embed = discord.Embed(title="🎫 ホテルチケット調整ログ", color=0xF4D03F)
+                embed.add_field(name="対象ユーザー", value=f"{member.mention} (`{member.id}`)", inline=False)
+                embed.add_field(name="操作", value=op_text, inline=True)
+                embed.add_field(name="結果枚数", value=f"{new_amount}枚", inline=True)
+                embed.add_field(name="実行者", value=f"{interaction.user.mention} (`{interaction.user.id}`)", inline=False)
                 await log_ch.send(embed=embed)
 
+    # ================================
+    # 🧹 孤児ルーム（VCが無いのにDBに残る）を定期削除
+    # ================================
+    async def _hotel_orphan_cleanup_task(self):
+        await self._wait_db_ready()
 
-# ======================================================
-# 旧UI互換：HotelPanelView
-# ======================================================
-class HotelPanelView(discord.ui.View):
-    def __init__(self, config):
-        super().__init__(timeout=None)
+        while not self.bot.is_closed():
+            try:
+                async with self._hotel_db_lock:
+                    rows = await self.bot.db.conn.fetch(
+                        "SELECT channel_id, guild_id FROM hotel_rooms"
+                    )
 
-        selector = TicketBuyDropdown(config)
+                for row in rows:
+                    channel_id = int(row["channel_id"])
+                    guild_id = int(row["guild_id"])
 
-        self.add_item(CheckinButton(config))
-        self.add_item(selector)
-        self.add_item(TicketBuyExecuteButton(selector, config))
+                    guild = self.bot.get_guild(guild_id)
+                    if guild is None:
+                        continue
 
+                    ch = guild.get_channel(channel_id)
+                    if ch is None or not isinstance(ch, discord.VoiceChannel):
+                        async with self._hotel_db_lock:
+                            await self.bot.db.delete_room(str(channel_id))
+                        print(f"[Hotel] Orphan cleanup → deleted DB room {channel_id}")
 
+            except Exception as e:
+                print("[Hotel] Orphan cleanup task error:", e)
 
+            await asyncio.sleep(300)
 
-
-# ======================================================
-# setup（必須）
-# ======================================================
 async def setup(bot):
     await bot.add_cog(HotelCog(bot))
 
@@ -486,5 +530,3 @@ async def setup(bot):
                 print(f"[Hotel] Sync failed for {gid}: {e}")
 
     print("🏨 Hotel module loaded successfully!")
-
-

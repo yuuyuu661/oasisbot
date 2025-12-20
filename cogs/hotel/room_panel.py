@@ -16,46 +16,21 @@ from .room_buttons import (
 
 
 class HotelRoomControlPanel(discord.ui.View):
-    def __init__(self, owner_id, manager_role_id, sub_role_id, config):
+    """
+    永続化対応：状態を保持しない View
+    - owner_id / role_id は保持しない
+    - 各ボタンが押された瞬間に DB から room/config を取得して処理
+    """
+    def __init__(self):
         super().__init__(timeout=None)
-        self.owner_id = str(owner_id)
-        self.manager_role_id = int(manager_role_id)
-        self.sub_role_id = int(sub_role_id)
-        self.config = config
 
-        # ▼ ここが重要：すべてのボタンに「self」を渡す！
-        self.add_item(RoomAddMemberLimitButton(self))
-        self.add_item(RoomRenameButton(self))
-        self.add_item(RoomAllowMemberButton())  # ← parent 無しのクラスは今のままでOK
-        self.add_item(RoomDenyMemberButton(self))
+        self.add_item(RoomAddMemberLimitButton())
+        self.add_item(RoomRenameButton())
+        self.add_item(RoomAllowMemberButton())
+        self.add_item(RoomDenyMemberButton())
         self.add_item(RoomAdd1DayButton())
         self.add_item(RoomAdd3DayButton())
         self.add_item(RoomAdd10DayButton())
-        self.add_item(RoomAddSubRoleButton(self))
-        self.add_item(RoomCheckExpireButton(self))
-        self.add_item(RoomCheckTicketsButton(self))
-
-    # --------------------------------------------------
-    # 共通の権限チェック
-    # --------------------------------------------------
-    async def interaction_check(self, interaction: discord.Interaction):
-
-        user = interaction.user
-        guild = interaction.guild
-
-        # ① チェックインした本人
-        if str(user.id) == self.owner_id:
-            return True
-
-        # ② ホテル管理人ロール
-        manager_role = guild.get_role(self.manager_role_id)
-        if manager_role and manager_role in user.roles:
-            return True
-
-        # どちらでもない場合
-        await interaction.response.send_message(
-            "❌ このパネルを操作できるのは「チェックインした本人」と「ホテル管理人ロール」のみです。",
-            ephemeral=True
-        )
-        return False
-
+        self.add_item(RoomAddSubRoleButton())
+        self.add_item(RoomCheckExpireButton())
+        self.add_item(RoomCheckTicketsButton())

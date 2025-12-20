@@ -3,7 +3,7 @@ from discord.ext import commands
 
 
 # ======================================================
-# 購入確定ボタン（edit_message で安定動作）
+# 購入確定ボタン（ephemeral上で生成されるので永続化不要）
 # ======================================================
 class TicketConfirmButton(discord.ui.Button):
     def __init__(self, amount, price, config):
@@ -56,11 +56,15 @@ class TicketConfirmButton(discord.ui.Button):
 
 
 # ======================================================
-# 購入ボタン（プルダウン選択後）
+# 購入ボタン（永続化するため custom_id を固定）
 # ======================================================
 class TicketBuyExecuteButton(discord.ui.Button):
-    def __init__(self, selector, config):
-        super().__init__(label="🎫 購入する", style=discord.ButtonStyle.success)
+    def __init__(self, selector, config, guild_id: str):
+        super().__init__(
+            label="🎫 購入する",
+            style=discord.ButtonStyle.success,
+            custom_id=f"hotel_ticket_buy_{guild_id}",
+        )
         self.selector = selector
         self.config = config
 
@@ -81,7 +85,6 @@ class TicketBuyExecuteButton(discord.ui.Button):
             30: self.config["ticket_price_30"],
         }[amount]
 
-        # 購入確認ボタン付き UI を出す（← ここ重要：edit_message を使う）
         confirm_view = discord.ui.View(timeout=20)
         confirm_view.add_item(TicketConfirmButton(amount, price, self.config))
 
@@ -93,10 +96,10 @@ class TicketBuyExecuteButton(discord.ui.Button):
 
 
 # ======================================================
-# プルダウン
+# プルダウン（永続化するため custom_id を固定）
 # ======================================================
 class TicketBuyDropdown(discord.ui.Select):
-    def __init__(self, config):
+    def __init__(self, config, guild_id: str):
         self.config = config
 
         options = [
@@ -109,28 +112,26 @@ class TicketBuyDropdown(discord.ui.Select):
             placeholder="チケット枚数を選択…",
             min_values=1,
             max_values=1,
-            options=options
+            options=options,
+            custom_id=f"hotel_ticket_select_{guild_id}",
         )
 
     async def callback(self, interaction: discord.Interaction):
-        # 選択しただけでボタンが動けばいいので応答は軽くてOK
-        await interaction.response.defer()  # ← これだけでエラーが消える
-
+        await interaction.response.defer()
 
 
 # ======================================================
-# View（パネル構成）
+# View（永続：timeout=None ＋ custom_id付き部品）
 # ======================================================
 class TicketDropdownView(discord.ui.View):
-    def __init__(self, config):
+    def __init__(self, config, guild_id: str):
         super().__init__(timeout=None)
-        selector = TicketBuyDropdown(config)
+        selector = TicketBuyDropdown(config, guild_id)
         self.add_item(selector)
-        self.add_item(TicketBuyExecuteButton(selector, config))
+        self.add_item(TicketBuyExecuteButton(selector, config, guild_id))
 
 
-# Cog
+# Cog（現状未使用でも残してOK）
 class TicketButtonsCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
