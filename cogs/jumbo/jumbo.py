@@ -210,28 +210,25 @@ class JumboCog(commands.Cog):
         description="当選番号を元に年末ジャンボの当選者を発表します（管理者専用）"
     )
     async def jumbo_announce(self, interaction: discord.Interaction):
-        # ★ 最初に defer（超重要）
         await interaction.response.defer(ephemeral=True)
 
-        # 管理者チェック
         if not await self.is_admin(interaction):
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 "❌ 管理者ロールが必要です。",
                 ephemeral=True
             )
 
         guild_id = str(interaction.guild.id)
 
-        # 開催設定取得
         config = await self.jumbo_db.get_config(guild_id)
         if not config:
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 "❌ 年末ジャンボが開催されていません。",
                 ephemeral=True
             )
 
         if not config["winning_number"]:
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 "❌ 当選番号がまだ設定されていません。",
                 ephemeral=True
             )
@@ -321,7 +318,7 @@ class JumboCog(commands.Cog):
                 inline=False
             )
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
 
     # ------------------------------------------------------
@@ -424,7 +421,9 @@ class JumboCog(commands.Cog):
         embed.add_field(name="第4等", value=f"{prize_4:,} rrc")
         embed.add_field(name="第5等", value=f"{prize_5:,} rrc")
 
-        await interaction.response.send_message(embed=embed)
+        await self.jumbo_db.set_prize_config(...)
+
+        await interaction.followup.send(embed=embed)
 
 
     # ------------------------------------------------------
@@ -569,6 +568,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
