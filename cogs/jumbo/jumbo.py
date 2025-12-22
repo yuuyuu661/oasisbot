@@ -156,6 +156,81 @@ class JumboCog(commands.Cog):
         )
 
 
+
+    # ------------------------------------------------------
+    # /年末ジャンボ設定
+    # ------------------------------------------------------
+    @app_commands.command(
+        name="年末ジャンボ設定",
+        description="当選番号と各等賞の賞金を設定します（管理者専用）"
+    )
+    @app_commands.describe(
+        winning_number="当選番号（6桁）",
+        prize_1="1等の賞金",
+        prize_2="2等の賞金",
+        prize_3="3等の賞金",
+        prize_4="4等の賞金",
+        prize_5="5等の賞金",
+    )
+    async def jumbo_set_prize(
+        self,
+        interaction: discord.Interaction,
+        winning_number: str,
+        prize_1: int,
+        prize_2: int,
+        prize_3: int,
+        prize_4: int,
+        prize_5: int,
+    ):
+        # 管理者チェック
+        if not await self.is_admin(interaction):
+            return await interaction.response.send_message(
+                "❌ 管理者ロールが必要です。",
+                ephemeral=True
+            )
+
+        guild_id = str(interaction.guild.id)
+
+        # 開催チェック
+        config = await self.jumbo_db.get_config(guild_id)
+        if not config:
+            return await interaction.response.send_message(
+                "❌ 年末ジャンボが開催されていません。",
+                ephemeral=True
+            )
+
+        # 当選番号チェック
+        if not (winning_number.isdigit() and len(winning_number) == 6):
+            return await interaction.response.send_message(
+                "❌ 当選番号は6桁の数字で入力してください。",
+                ephemeral=True
+            )
+
+        # 保存
+        await self.jumbo_db.set_prize_config(
+            guild_id,
+            winning_number,
+            prize_1,
+            prize_2,
+            prize_3,
+            prize_4,
+            prize_5
+        )
+
+        # 確認用Embed
+        embed = discord.Embed(
+            title="🎯 年末ジャンボ 当選番号・賞金設定完了",
+            color=0xF1C40F
+        )
+        embed.add_field(name="当選番号", value=f"**{winning_number}**", inline=False)
+        embed.add_field(name="第1等", value=f"{prize_1:,} rrc")
+        embed.add_field(name="第2等", value=f"{prize_2:,} rrc")
+        embed.add_field(name="第3等", value=f"{prize_3:,} rrc")
+        embed.add_field(name="第4等", value=f"{prize_4:,} rrc")
+        embed.add_field(name="第5等", value=f"{prize_5:,} rrc")
+
+        await interaction.response.send_message(embed=embed)
+
 # ------------------------------------------------------
 # setup（GuildCommand 登録）
 # ------------------------------------------------------
@@ -163,6 +238,7 @@ async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
 
     print("🎫 Jumbo module loaded.")
+
 
 
 
