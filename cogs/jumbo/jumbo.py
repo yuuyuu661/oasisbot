@@ -148,8 +148,6 @@ class JumboCog(commands.Cog):
         prize_4: int,
         prize_5: int,
     ):
-        # ★ 超重要
-        await interaction.response.defer(ephemeral=True)
 
         if not await self.is_admin(interaction):
             return await interaction.followup.send("❌ 管理者専用", ephemeral=True)
@@ -329,4 +327,5 @@ async def setup(bot: commands.Bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
