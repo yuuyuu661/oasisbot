@@ -562,12 +562,12 @@ class ClearChatButton(discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
 
         user = interaction.user
-        channel = interaction.message.channel
+        target = interaction.message.channel
 
         # =========================
         # ホテル情報取得
         # =========================
-        hotel = await interaction.client.db.get_hotel_by_channel(channel.id)
+        hotel = await interaction.client.db.get_hotel_by_channel(target.id)
         if not hotel:
             await interaction.followup.send(
                 "❌ ホテル情報が取得できません。",
@@ -576,19 +576,27 @@ class ClearChatButton(discord.ui.Button):
             return
 
         # =========================
-        # 権限チェック
+        # 権限チェック（最小・確実）
         # =========================
-        is_owner = user.id == hotel["owner_id"]
-
+        owner_id = hotel.get("owner_id")
         manager_role_id = hotel.get("manager_role_id")
-        has_manager_role = False
 
-        if manager_role_id is not None:
-            manager_role_id = int(manager_role_id)  # ← ここが重要
-            has_manager_role = any(
-                role.id == manager_role_id
-                for role in user.roles
-            )
+        # 型をそろえる（超重要）
+        try:
+            owner_id = int(owner_id)
+        except (TypeError, ValueError):
+            owner_id = None
+
+        try:
+            manager_role_id = int(manager_role_id)
+        except (TypeError, ValueError):
+            manager_role_id = None
+
+        is_owner = (owner_id is not None and user.id == owner_id)
+        has_manager_role = (
+            manager_role_id is not None and
+            any(role.id == manager_role_id for role in user.roles)
+        )
 
         if not (is_owner or has_manager_role):
             await interaction.followup.send(
@@ -600,17 +608,21 @@ class ClearChatButton(discord.ui.Button):
         # =========================
         # チャット削除処理
         # =========================
-        if not hasattr(channel, "purge"):
+        if not hasattr(target, "purge"):
             await interaction.followup.send(
                 "❌ この場所のチャットは削除できません。",
                 ephemeral=True
             )
             return
 
-        await channel.purge(limit=None)
+        # ※ 以前と同じ挙動を優先
+        await target.purge(limit=None)
 
+        # =========================
+        # 操作パネル再送
+        # =========================
         from .room_panel import HotelRoomControlPanel
-        await channel.send(
+        await target.send(
             "🏨 **ホテルルーム操作パネル**",
             view=HotelRoomControlPanel()
         )
@@ -619,8 +631,4 @@ class ClearChatButton(discord.ui.Button):
             "🗑️ チャット履歴を削除しました。",
             ephemeral=True
         )
-
-
-
-
 
