@@ -151,30 +151,124 @@ class JumboCog(commands.Cog):
         await interaction.followup.send(embed=embed, view=view)
 
     # ------------------------------------------------------
-    # /年末ジャンボ当選者発表
+    # /年末ジャンボ当選者発表（新仕様）
     # ------------------------------------------------------
     @app_commands.command(
         name="年末ジャンボ当選者発表",
-        description="年末ジャンボの当選抽選を開始します（管理者専用）"
+        description="当選番号を元に年末ジャンボの当選者を発表します（管理者専用）"
     )
-    async def jumbo_draw(self, interaction: discord.Interaction):
+    async def jumbo_announce(self, interaction: discord.Interaction):
 
+        # 管理者チェック
         if not await self.is_admin(interaction):
-            return await interaction.response.send_message("❌ 管理者ロールが必要。", ephemeral=True)
-
-        guild_id = str(interaction.guild.id)
-
-        config = await self.jumbo_db.get_config(guild_id)
-        if not config or not config["is_open"]:
             return await interaction.response.send_message(
-                "❌ 年末ジャンボは開催されていません。",
+                "❌ 管理者ロールが必要です。",
                 ephemeral=True
             )
 
-        handler = JumboDrawHandler(self.bot, self.jumbo_db)
+        guild_id = str(interaction.guild.id)
 
-        # 抽選開始
-        await handler.start(interaction)
+        # 開催設定取得
+        config = await self.jumbo_db.get_config(guild_id)
+        if not config:
+            return await interaction.response.send_message(
+                "❌ 年末ジャンボが開催されていません。",
+                ephemeral=True
+            )
+
+        if not config["winning_number"]:
+            return await interaction.response.send_message(
+                "❌ 当選番号がまだ設定されていません。",
+                ephemeral=True
+            )
+
+        winning_number = config["winning_number"]
+
+        # 全購入番号取得
+        entries = await self.jumbo_db.get_all_entries(guild_id)
+        if not entries:
+            return await interaction.response.send_message(
+                "⚠ 購入者がいません。",
+                ephemeral=True
+            )
+
+        # 念のため当選履歴をクリア
+        await self.jumbo_db.clear_winners(guild_id)
+
+        # 等賞ごとにまとめる
+        results: dict[int, list[dict]] = {
+            1: [],
+            2: [],
+            3: [],
+            4: [],
+            5: [],
+        }
+
+        # 判定処理
+        for entry in entries:
+            number = entry["number"]
+            user_id = entry["user_id"]
+
+            result = judge_number(config, winning_number, number)
+            if not result:
+                continue
+
+            rank = result["rank"]
+            match_count = result["match_count"]
+            prize = result["prize"]
+
+            # DB保存
+            await self.jumbo_db.set_winner(
+                guild_id=guild_id,
+                rank=rank,
+                number=number,
+                user_id=user_id,
+                match_count=match_count,
+                prize=prize
+            )
+
+            results[rank].append({
+                "user_id": user_id,
+                "number": number
+            })
+
+        # ===========================
+        # 発表Embed生成
+        # ===========================
+
+        embed = discord.Embed(
+            title="🎉 当選番号発表！",
+            color=0xF1C40F
+        )
+
+        embed.add_field(
+            name="当選番号",
+            value=f"**{winning_number}**",
+            inline=False
+        )
+
+        for rank in [1, 2, 3, 4, 5]:
+
+            prize = get_prize_by_rank(config, rank)
+            winners = results[rank]
+
+            if not winners:
+                value = "いませんでした。"
+            else:
+                lines = [
+                    f"<@{w['user_id']}>　当選番号:`{w['number']}`"
+                    for w in winners
+                ]
+                value = "\n".join(lines)
+
+            embed.add_field(
+                name=f"第{rank}等　{prize:,} rrc",
+                value=value,
+                inline=False
+            )
+
+        await interaction.response.send_message(embed=embed)
+
 
     # ------------------------------------------------------
     # /ジャンボ履歴リセット
@@ -285,6 +379,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
