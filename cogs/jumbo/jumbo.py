@@ -148,13 +148,17 @@ class JumboCog(commands.Cog):
         prize_4: int,
         prize_5: int,
     ):
+        # ★ 超重要
+        await interaction.response.defer(ephemeral=True)
+
         if not await self.is_admin(interaction):
-            return await interaction.response.send_message("❌ 管理者専用", ephemeral=True)
+            return await interaction.followup.send("❌ 管理者専用", ephemeral=True)
 
         if not (winning_number.isdigit() and len(winning_number) == 6):
-            return await interaction.response.send_message("❌ 当選番号は6桁", ephemeral=True)
+            return await interaction.followup.send("❌ 当選番号は6桁です", ephemeral=True)
 
         guild_id = str(interaction.guild.id)
+
         await self.jumbo_db.set_prize_config(
             guild_id,
             winning_number,
@@ -165,22 +169,32 @@ class JumboCog(commands.Cog):
             prize_5,
         )
 
-        await interaction.response.send_message("🎯 設定完了", ephemeral=True)
+        await interaction.followup.send("🎯 年末ジャンボ設定完了！", ephemeral=True)
 
     # -------------------------------------------------
     # /年末ジャンボ当選者発表
     # -------------------------------------------------
     @app_commands.command(name="年末ジャンボ当選者発表")
     async def jumbo_announce(self, interaction: discord.Interaction):
+        # ★ 超重要
+        await interaction.response.defer()
+
         if not await self.is_admin(interaction):
-            return await interaction.response.send_message("❌ 管理者専用", ephemeral=True)
+            return await interaction.followup.send("❌ 管理者専用")
 
         guild_id = str(interaction.guild.id)
         config = await self.jumbo_db.get_config(guild_id)
+
+        if not config or not config["winning_number"]:
+            return await interaction.followup.send("❌ 当選番号が未設定です")
+
         entries = await self.jumbo_db.get_all_entries(guild_id)
+        if not entries:
+            return await interaction.followup.send("⚠ 購入者がいません")
+
+        await self.jumbo_db.clear_winners(guild_id)
 
         results = {i: [] for i in range(1, 6)}
-        await self.jumbo_db.clear_winners(guild_id)
 
         for e in entries:
             match = count_continuous_match(config["winning_number"], e["number"])
@@ -218,25 +232,31 @@ class JumboCog(commands.Cog):
                 inline=False
             )
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
+
 
     # -------------------------------------------------
     # /年末ジャンボ当選者賞金付与
     # -------------------------------------------------
     @app_commands.command(name="年末ジャンボ当選者賞金付与")
     async def jumbo_pay_prizes(self, interaction: discord.Interaction):
+        # ★ 超重要
+        await interaction.response.defer(ephemeral=True)
+
         if not await self.is_admin(interaction):
-            return await interaction.response.send_message("❌ 管理者専用", ephemeral=True)
+            return await interaction.followup.send("❌ 管理者専用", ephemeral=True)
 
         guild_id = str(interaction.guild.id)
         config = await self.jumbo_db.get_config(guild_id)
 
         if config["prize_paid"]:
-            return await interaction.response.send_message("⚠️ すでに付与済み", ephemeral=True)
+            return await interaction.followup.send("⚠️ すでに付与済み", ephemeral=True)
 
         winners = await self.jumbo_db.get_all_winners(guild_id)
-        payout: dict[str, int] = {}
+        if not winners:
+            return await interaction.followup.send("⚠️ 当選者なし", ephemeral=True)
 
+        payout: dict[str, int] = {}
         for w in winners:
             payout[w["user_id"]] = payout.get(w["user_id"], 0) + w["prize"]
 
@@ -247,9 +267,14 @@ class JumboCog(commands.Cog):
 
         embed = discord.Embed(title="💰 賞金付与完了", color=0x2ECC71)
         for uid, total in payout.items():
-            embed.add_field(name=f"<@{uid}>", value=f"{total:,} rrc", inline=False)
+            embed.add_field(
+                name=f"<@{uid}>",
+                value=f"{total:,} rrc",
+                inline=False
+            )
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
 
     # -------------------------------------------------
     # /所持宝くじ番号確認
@@ -304,3 +329,4 @@ async def setup(bot: commands.Bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
