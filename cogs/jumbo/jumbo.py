@@ -8,6 +8,52 @@ from datetime import datetime, timezone
 from .jumbo_db import JumboDB
 from .jumbo_purchase import JumboBuyView
 
+
+def count_match_digits(winning: str, target: str) -> int:
+    return sum(1 for w, t in zip(winning, target) if w == t)
+
+
+def match_to_rank(match_count: int) -> int | None:
+    if match_count == 6:
+        return 1
+    if match_count == 5:
+        return 2
+    if match_count == 4:
+        return 3
+    if match_count == 3:
+        return 4
+    if match_count == 2:
+        return 5
+    return None
+
+
+def get_prize_by_rank(config, rank: int) -> int:
+    return {
+        1: config["prize_1"],
+        2: config["prize_2"],
+        3: config["prize_3"],
+        4: config["prize_4"],
+        5: config["prize_5"],
+    }.get(rank, 0)
+
+
+def judge_number(config, winning_number: str, target_number: str):
+    match_count = count_match_digits(winning_number, target_number)
+    rank = match_to_rank(match_count)
+
+    if not rank:
+        return None
+
+    prize = get_prize_by_rank(config, rank)
+
+    return {
+        "rank": rank,
+        "match_count": match_count,
+        "prize": prize
+    }
+
+
+
 class JumboCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -239,6 +285,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
