@@ -150,10 +150,16 @@ class JumboCog(commands.Cog):
     ):
 
         if not await self.is_admin(interaction):
-            return await interaction.followup.send("❌ 管理者専用", ephemeral=True)
+            return await interaction.response.send_message(
+                "❌ 管理者専用",
+                ephemeral=True
+            )
 
         if not (winning_number.isdigit() and len(winning_number) == 6):
-            return await interaction.followup.send("❌ 当選番号は6桁です", ephemeral=True)
+            return await interaction.response.send_message(
+                "❌ 当選番号は6桁です",
+                ephemeral=True
+            )
 
         guild_id = str(interaction.guild.id)
 
@@ -167,7 +173,10 @@ class JumboCog(commands.Cog):
             prize_5,
         )
 
-        await interaction.followup.send("🎯 年末ジャンボ設定完了！", ephemeral=True)
+        await interaction.response.send_message(
+            "🎯 年末ジャンボ設定完了！",
+            ephemeral=True
+        )
 
     # -------------------------------------------------
     # /年末ジャンボ当選者発表
@@ -327,5 +336,6 @@ async def setup(bot: commands.Bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
