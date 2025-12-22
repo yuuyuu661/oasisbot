@@ -581,10 +581,14 @@ class ClearChatButton(discord.ui.Button):
         is_owner = user.id == hotel["owner_id"]
 
         manager_role_id = hotel.get("manager_role_id")
-        has_manager_role = (
-            manager_role_id is not None and
-            any(role.id == manager_role_id for role in user.roles)
-        )
+        has_manager_role = False
+
+        if manager_role_id is not None:
+            manager_role_id = int(manager_role_id)  # ← ここが重要
+            has_manager_role = any(
+                role.id == manager_role_id
+                for role in user.roles
+            )
 
         if not (is_owner or has_manager_role):
             await interaction.followup.send(
@@ -615,6 +619,7 @@ class ClearChatButton(discord.ui.Button):
             "🗑️ チャット履歴を削除しました。",
             ephemeral=True
         )
+
 
 
 
