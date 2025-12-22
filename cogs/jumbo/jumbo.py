@@ -372,6 +372,9 @@ class JumboCog(commands.Cog):
         prize_4: int,
         prize_5: int,
     ):
+
+        # ★ 最初に defer（超重要）
+        await interaction.response.defer(ephemeral=True)
         # 管理者チェック
         if not await self.is_admin(interaction):
             return await interaction.response.send_message(
@@ -564,6 +567,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
