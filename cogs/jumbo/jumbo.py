@@ -1,5 +1,6 @@
 # cogs/jumbo/jumbo.py
 from __future__ import annotations
+from typing import Any
 
 import discord
 from discord.ext import commands
@@ -203,28 +204,41 @@ class JumboCog(commands.Cog):
 
         await interaction.followup.send(embed=embed, view=view)
 
+from typing import Any
+
 @app_commands.command(
     name="年末ジャンボ当選者発表",
     description="当選番号を元に年末ジャンボの当選者を発表します（管理者専用）"
 )
-async def jumbo_announce(self, interaction):
-
+async def jumbo_announce(
+    self,
+    interaction: Any   # ← ★ これが最終解
+):
     await interaction.response.defer(ephemeral=True)
 
     if not await self.is_admin(interaction):
-        return await interaction.followup.send("❌ 管理者ロールが必要です。", ephemeral=True)
+        return await interaction.followup.send(
+            "❌ 管理者ロールが必要です。",
+            ephemeral=True
+        )
 
     guild_id = str(interaction.guild.id)
 
     config = await self.jumbo_db.get_config(guild_id)
     if not config or not config["winning_number"]:
-        return await interaction.followup.send("❌ 当選番号が設定されていません。", ephemeral=True)
+        return await interaction.followup.send(
+            "❌ 当選番号が設定されていません。",
+            ephemeral=True
+        )
 
     winning_number = config["winning_number"]
-    entries = await self.jumbo_db.get_all_entries(guild_id)
 
+    entries = await self.jumbo_db.get_all_entries(guild_id)
     if not entries:
-        return await interaction.followup.send("⚠ 購入者がいません。", ephemeral=True)
+        return await interaction.followup.send(
+            "⚠ 購入者がいません。",
+            ephemeral=True
+        )
 
     await self.jumbo_db.clear_winners(guild_id)
 
@@ -253,19 +267,23 @@ async def jumbo_announce(self, interaction):
         prize = get_prize_by_rank(config, rank)
         winners = results[rank]
 
-        text = (
+        value = (
             "いませんでした。"
-            if not winners else
-            "\n".join(f"<@{w['user_id']}>　当選番号:`{w['number']}`" for w in winners)
+            if not winners
+            else "\n".join(
+                f"<@{w['user_id']}>　当選番号:`{w['number']}`"
+                for w in winners
+            )
         )
 
         embed.add_field(
             name=f"第{rank}等　{prize:,} rrc",
-            value=text,
+            value=value,
             inline=False
         )
 
     await interaction.followup.send(embed=embed)
+
 
 
 
@@ -315,7 +333,7 @@ async def jumbo_announce(self, interaction):
 )
 async def jumbo_set_prize(
     self,
-    interaction: app_commands.Interaction,  # ★ ここが決定打
+    interaction: Any,
     winning_number: str,
     prize_1: int,
     prize_2: int,
@@ -513,6 +531,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
