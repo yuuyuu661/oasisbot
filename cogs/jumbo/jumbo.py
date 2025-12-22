@@ -369,6 +369,83 @@ class JumboCog(commands.Cog):
 
         await interaction.response.send_message(embed=embed)
 
+
+    # ------------------------------------------------------
+    # /年末ジャンボ当選者賞金付与
+    # ------------------------------------------------------
+    @app_commands.command(
+        name="年末ジャンボ当選者賞金付与",
+        description="年末ジャンボの当選者へ賞金を付与します（管理者専用・一度のみ）"
+    )
+    async def jumbo_pay_prizes(self, interaction: discord.Interaction):
+
+        # 管理者チェック
+        if not await self.is_admin(interaction):
+            return await interaction.response.send_message(
+                "❌ 管理者ロールが必要です。",
+                ephemeral=True
+            )
+
+        guild_id = str(interaction.guild.id)
+
+        # 設定取得
+        config = await self.jumbo_db.get_config(guild_id)
+        if not config:
+            return await interaction.response.send_message(
+                "❌ 年末ジャンボが開催されていません。",
+                ephemeral=True
+            )
+
+        if config["prize_paid"]:
+            return await interaction.response.send_message(
+                "⚠️ すでに賞金は付与されています。",
+                ephemeral=True
+            )
+
+        # 当選結果取得
+        winners = await self.jumbo_db.get_all_winners(guild_id)
+        if not winners:
+            return await interaction.response.send_message(
+                "⚠️ 当選者が存在しません。",
+                ephemeral=True
+            )
+
+        # ユーザーごとに合算
+        payout_map: dict[str, int] = {}
+
+        for w in winners:
+            user_id = w["user_id"]
+            prize = w["prize"] or 0
+
+            payout_map[user_id] = payout_map.get(user_id, 0) + prize
+
+        # 実際に付与
+        for user_id, total in payout_map.items():
+            if total > 0:
+                await self.bot.db.add_balance(user_id, guild_id, total)
+
+        # 付与済みフラグON
+        await self.jumbo_db.db.conn.execute("""
+            UPDATE jumbo_config
+            SET prize_paid = TRUE
+            WHERE guild_id = $1
+        """, guild_id)
+
+        # 結果表示
+        embed = discord.Embed(
+            title="💰 年末ジャンボ 賞金付与完了",
+            color=0x2ECC71
+        )
+
+        for user_id, total in payout_map.items():
+            embed.add_field(
+                name=f"<@{user_id}>",
+                value=f"{total:,} rrc",
+                inline=False
+            )
+
+        await interaction.response.send_message(embed=embed)
+
 # ======================================================
 # setup
 # ======================================================
@@ -379,6 +456,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
