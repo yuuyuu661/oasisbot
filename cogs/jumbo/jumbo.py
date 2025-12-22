@@ -9,6 +9,58 @@ from .jumbo_db import JumboDB
 from .jumbo_purchase import JumboBuyView
 
 
+class NumberListView(discord.ui.View):
+    def __init__(self, user: discord.User, numbers: list[str], per_page: int = 20):
+        super().__init__(timeout=180)
+        self.user = user
+        self.numbers = numbers
+        self.per_page = per_page
+        self.page = 0
+
+    def get_embed(self):
+        start = self.page * self.per_page
+        end = start + self.per_page
+        page_numbers = self.numbers[start:end]
+
+        embed = discord.Embed(
+            title="🎟 所持宝くじ番号一覧",
+            color=0x3498DB
+        )
+
+        if page_numbers:
+            embed.description = "\n".join(f"`{n}`" for n in page_numbers)
+        else:
+            embed.description = "該当する番号はありません。"
+
+        total_pages = (len(self.numbers) - 1) // self.per_page + 1
+        embed.set_footer(text=f"{self.page + 1} / {total_pages} ページ")
+
+        return embed
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user.id:
+            await interaction.response.send_message(
+                "❌ この操作はコマンド実行者のみ可能です。",
+                ephemeral=True
+            )
+            return False
+        return True
+
+    @discord.ui.button(label="⬅ 前へ", style=discord.ButtonStyle.gray)
+    async def prev_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page > 0:
+            self.page -= 1
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label="次へ ➡", style=discord.ButtonStyle.gray)
+    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        max_page = (len(self.numbers) - 1) // self.per_page
+        if self.page < max_page:
+            self.page += 1
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+
+
 def count_match_digits(winning: str, target: str) -> int:
     return sum(1 for w, t in zip(winning, target) if w == t)
 
@@ -456,6 +508,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
