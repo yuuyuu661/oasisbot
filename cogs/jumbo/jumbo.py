@@ -14,6 +14,7 @@ class JumboCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.jumbo_db = JumboDB(bot)
+        bot.loop.create_task(self.jumbo_db.init_tables())
 
     # ------------------------------------------------------
     # 内部：管理者ロール判定（AdminCog と統一）
@@ -238,6 +239,7 @@ async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
 
     print("🎫 Jumbo module loaded.")
+
 
 
 
