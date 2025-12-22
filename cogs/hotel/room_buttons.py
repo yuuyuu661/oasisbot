@@ -561,23 +561,52 @@ class ClearChatButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
-        # 実際にメッセージが流れている場所
-        target = interaction.message.channel
+        user = interaction.user
+        channel = interaction.message.channel
 
-        # purge が使えない場合のみ弾く
-        if not hasattr(target, "purge"):
+        # =========================
+        # ホテル情報取得
+        # =========================
+        hotel = await interaction.client.db.get_hotel_by_channel(channel.id)
+        if not hotel:
+            await interaction.followup.send(
+                "❌ ホテル情報が取得できません。",
+                ephemeral=True
+            )
+            return
+
+        # =========================
+        # 権限チェック
+        # =========================
+        is_owner = user.id == hotel["owner_id"]
+
+        manager_role_id = hotel.get("manager_role_id")
+        has_manager_role = (
+            manager_role_id is not None and
+            any(role.id == manager_role_id for role in user.roles)
+        )
+
+        if not (is_owner or has_manager_role):
+            await interaction.followup.send(
+                "❌ この操作はホテルオーナーまたはホテル管理人のみ実行できます。",
+                ephemeral=True
+            )
+            return
+
+        # =========================
+        # チャット削除処理
+        # =========================
+        if not hasattr(channel, "purge"):
             await interaction.followup.send(
                 "❌ この場所のチャットは削除できません。",
                 ephemeral=True
             )
             return
 
-        # --- 履歴全削除 ---
-        await target.purge(limit=None)
+        await channel.purge(limit=None)
 
-        # --- 操作パネル再送 ---
         from .room_panel import HotelRoomControlPanel
-        await target.send(
+        await channel.send(
             "🏨 **ホテルルーム操作パネル**",
             view=HotelRoomControlPanel()
         )
@@ -586,6 +615,7 @@ class ClearChatButton(discord.ui.Button):
             "🗑️ チャット履歴を削除しました。",
             ephemeral=True
         )
+
 
 
 
