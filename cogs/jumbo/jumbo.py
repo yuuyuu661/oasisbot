@@ -498,6 +498,62 @@ class JumboCog(commands.Cog):
 
         await interaction.response.send_message(embed=embed)
 
+
+    # ------------------------------------------------------
+    # /所持宝くじ番号確認
+    # ------------------------------------------------------
+    @app_commands.command(
+        name="所持宝くじ番号確認",
+        description="自分が所持している宝くじ番号を確認します"
+    )
+    @app_commands.describe(
+        search="検索したい数字（1〜6桁・前方/後方一致）"
+    )
+    async def jumbo_my_numbers(
+        self,
+        interaction: discord.Interaction,
+        search: str | None = None
+    ):
+        guild_id = str(interaction.guild.id)
+        user_id = str(interaction.user.id)
+
+        rows = await self.jumbo_db.get_user_numbers(guild_id, user_id)
+        numbers = [r["number"] for r in rows]
+
+        if not numbers:
+            return await interaction.response.send_message(
+                "🎟 まだ宝くじ番号を持っていません。",
+                ephemeral=True
+            )
+
+        # 検索フィルタ
+        if search:
+            if not search.isdigit() or not (1 <= len(search) <= 6):
+                return await interaction.response.send_message(
+                    "❌ 検索は1〜6桁の数字で入力してください。",
+                    ephemeral=True
+                )
+
+            numbers = [
+                n for n in numbers
+                if n.startswith(search) or n.endswith(search)
+            ]
+
+        if not numbers:
+            return await interaction.response.send_message(
+                "🔍 該当する番号は見つかりませんでした。",
+                ephemeral=True
+            )
+
+        view = NumberListView(interaction.user, numbers)
+
+        await interaction.response.send_message(
+            embed=view.get_embed(),
+            view=view,
+            ephemeral=True
+        )
+
+
 # ======================================================
 # setup
 # ======================================================
@@ -508,6 +564,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
