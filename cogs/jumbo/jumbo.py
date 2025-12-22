@@ -212,9 +212,8 @@ class JumboCog(commands.Cog):
 )
 async def jumbo_announce(
     self,
-    interaction: "discord.Interaction"   # ★ 文字列型注釈
+    interaction: app_commands.Interaction   # ★ ここが決定打
 ):
-
     await interaction.response.defer(ephemeral=True)
 
     if not await self.is_admin(interaction):
@@ -259,19 +258,16 @@ async def jumbo_announce(
         if not result:
             continue
 
-        rank = result["rank"]
-        prize = result["prize"]
-
         await self.jumbo_db.set_winner(
             guild_id=guild_id,
-            rank=rank,
+            rank=result["rank"],
             number=number,
             user_id=user_id,
             match_count=result["match_count"],
-            prize=prize
+            prize=result["prize"]
         )
 
-        results[rank].append({
+        results[result["rank"]].append({
             "user_id": user_id,
             "number": number
         })
@@ -306,6 +302,7 @@ async def jumbo_announce(
         )
 
     await interaction.followup.send(embed=embed)
+
 
 
 
@@ -353,7 +350,7 @@ async def jumbo_announce(
 )
 async def jumbo_set_prize(
     self,
-    interaction: "discord.Interaction",   # ★ 文字列型注釈
+    interaction: app_commands.Interaction,  # ★ ここが決定打
     winning_number: str,
     prize_1: int,
     prize_2: int,
@@ -551,6 +548,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
