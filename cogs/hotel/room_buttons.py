@@ -559,55 +559,18 @@ class ClearChatButton(discord.ui.Button):
         )
 
     async def callback(self, interaction: discord.Interaction):
+        # ===== ここが超重要 =====
+        room, config = await _require_room_permission(interaction)
+        if room is None:
+            return
+        # =======================
+
         await interaction.response.defer(ephemeral=True)
 
-        user = interaction.user
+        # 実際にメッセージが流れている場所
         target = interaction.message.channel
 
-        # =========================
-        # ホテル情報取得
-        # =========================
-        hotel = await interaction.client.db.get_hotel_by_channel(target.id)
-        if not hotel:
-            await interaction.followup.send(
-                "❌ ホテル情報が取得できません。",
-                ephemeral=True
-            )
-            return
-
-        # =========================
-        # 権限チェック（最小・確実）
-        # =========================
-        owner_id = hotel.get("owner_id")
-        manager_role_id = hotel.get("manager_role_id")
-
-        # 型をそろえる（超重要）
-        try:
-            owner_id = int(owner_id)
-        except (TypeError, ValueError):
-            owner_id = None
-
-        try:
-            manager_role_id = int(manager_role_id)
-        except (TypeError, ValueError):
-            manager_role_id = None
-
-        is_owner = (owner_id is not None and user.id == owner_id)
-        has_manager_role = (
-            manager_role_id is not None and
-            any(role.id == manager_role_id for role in user.roles)
-        )
-
-        if not (is_owner or has_manager_role):
-            await interaction.followup.send(
-                "❌ この操作はホテルオーナーまたはホテル管理人のみ実行できます。",
-                ephemeral=True
-            )
-            return
-
-        # =========================
-        # チャット削除処理
-        # =========================
+        # purge が使えない場合のみ弾く
         if not hasattr(target, "purge"):
             await interaction.followup.send(
                 "❌ この場所のチャットは削除できません。",
@@ -615,12 +578,10 @@ class ClearChatButton(discord.ui.Button):
             )
             return
 
-        # ※ 以前と同じ挙動を優先
+        # --- 履歴全削除（以前と同じ挙動） ---
         await target.purge(limit=None)
 
-        # =========================
-        # 操作パネル再送
-        # =========================
+        # --- 操作パネル再送 ---
         from .room_panel import HotelRoomControlPanel
         await target.send(
             "🏨 **ホテルルーム操作パネル**",
