@@ -7,8 +7,6 @@ from datetime import datetime, timezone
 
 from .jumbo_db import JumboDB
 from .jumbo_purchase import JumboBuyView
-from .jumbo_draw import JumboDrawHandler
-
 
 class JumboCog(commands.Cog):
     def __init__(self, bot):
@@ -238,6 +236,7 @@ async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
 
     print("🎫 Jumbo module loaded.")
+
 
 
 
