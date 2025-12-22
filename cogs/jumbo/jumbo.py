@@ -91,8 +91,7 @@ class JumboCog(commands.Cog):
             description=(
                 f"{description}\n\n"
                 f"**購入期限：{deadline_str}**\n"
-                f"1口 = 10,000 rrc\n"
-                f"1人最大10口まで\n"
+                f"1口 = 1,000 rrc\n"
             ),
             color=0xF1C40F
         )
@@ -239,6 +238,7 @@ async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
 
     print("🎫 Jumbo module loaded.")
+
 
 
 
