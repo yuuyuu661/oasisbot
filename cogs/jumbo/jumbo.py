@@ -210,6 +210,8 @@ class JumboCog(commands.Cog):
         description="当選番号を元に年末ジャンボの当選者を発表します（管理者専用）"
     )
     async def jumbo_announce(self, interaction: discord.Interaction):
+        # ★ 最初に defer（超重要）
+        await interaction.response.defer(ephemeral=True)
 
         # 管理者チェック
         if not await self.is_admin(interaction):
@@ -567,6 +569,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
