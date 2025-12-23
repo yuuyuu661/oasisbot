@@ -216,8 +216,12 @@ class JumboDB:
             winning_number
         )
 
+        # まだ開催されていない場合
         if result == "UPDATE 0":
-            raise RuntimeError("jumbo_config が未作成です（先に /年末ジャンボ開催 を実行してください）")
+            raise RuntimeError(
+                "ジャンボが未開催です。先に /年末ジャンボ開催 を実行してください。"
+            )
+
 
 
 
