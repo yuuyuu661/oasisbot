@@ -371,45 +371,11 @@ class JankenCardCog(commands.Cog):
     async def _get_balance(self, user_id: int, guild_id: int) -> int:
         row = await self.bot.db.get_user(str(user_id), str(guild_id))
         return int(row["balance"])
-        """
-        既存の残高システムに合わせてここだけ調整すればOK。
-        1) bot.db に get_balance がある
-        2) BalanceCog 的なのがある
-        どちらも無い場合は例外にする
-        """
-        # パターンA: bot.db.get_balance(user_id)
-        if hasattr(self.bot, "db") and hasattr(self.bot.db, "get_balance"):
-            try:
-                v = await self.bot.db.get_balance(user_id)
-                return int(v)
-            except TypeError:
-                # get_balance(user_id, guild_id) 形式ならこっち
-                if guild_id is not None:
-                    v = await self.bot.db.get_balance(user_id, guild_id)
-                    return int(v)
 
-        # パターンB: 既存balance cogが提供する関数
-        bal_cog = self.bot.get_cog("BalanceCog")
-        if bal_cog and hasattr(bal_cog, "get_balance"):
-            v = await bal_cog.get_balance(user_id)
-            return int(v)
-
-        raise RuntimeError("残高取得APIが見つかりません。_get_balance() をあなたのBotに合わせて調整してください。")
 
     async def _add_balance(self, user_id: int, amount: int, guild_id: int):
         await self.bot.db.add_balance(str(user_id), str(guild_id), amount)
-        if hasattr(self.bot, "db") and hasattr(self.bot.db, "add_balance"):
-            try:
-                return await self.bot.db.add_balance(user_id, amount)
-            except TypeError:
-                if guild_id is not None:
-                    return await self.bot.db.add_balance(user_id, amount, guild_id)
 
-        bal_cog = self.bot.get_cog("BalanceCog")
-        if bal_cog and hasattr(bal_cog, "add_balance"):
-            return await bal_cog.add_balance(user_id, amount)
-
-        raise RuntimeError("残高加算APIが見つかりません。_add_balance() をあなたのBotに合わせて調整してください。")
 
     async def _sub_balance(self, user_id: int, amount: int, guild_id: int) -> bool:
         row = await self.bot.db.get_user(str(user_id), str(guild_id))
@@ -417,18 +383,6 @@ class JankenCardCog(commands.Cog):
             return False
         await self.bot.db.remove_balance(str(user_id), str(guild_id), amount)
         return True
-        if hasattr(self.bot, "db") and hasattr(self.bot.db, "subtract_balance"):
-            try:
-                return bool(await self.bot.db.subtract_balance(user_id, amount))
-            except TypeError:
-                if guild_id is not None:
-                    return bool(await self.bot.db.subtract_balance(user_id, amount, guild_id))
-
-        bal_cog = self.bot.get_cog("BalanceCog")
-        if bal_cog and hasattr(bal_cog, "subtract_balance"):
-            return bool(await bal_cog.subtract_balance(user_id, amount))
-
-        raise RuntimeError("残高減算APIが見つかりません。_sub_balance() をあなたのBotに合わせて調整してください。")
 
     # -----------------------------
     # /じゃんけんカード
@@ -780,4 +734,5 @@ class JankenCardCog(commands.Cog):
 async def setup(bot: commands.Bot):
 
     await bot.add_cog(JankenCardCog(bot))
+
 
