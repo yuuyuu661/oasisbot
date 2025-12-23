@@ -204,18 +204,21 @@ class JumboDB:
     # ============================================================
 
     async def set_winning_number(self, guild_id: str, winning_number: str):
-        await self.db.conn.execute(
+        result = await self.db.conn.execute(
             """
-            INSERT INTO jumbo_config (guild_id, winning_number, prize_paid)
-            VALUES ($1, $2, FALSE)
-            ON CONFLICT (guild_id)
-            DO UPDATE SET
-                winning_number = EXCLUDED.winning_number,
+            UPDATE jumbo_config
+            SET
+                winning_number = $2,
                 prize_paid = FALSE
+            WHERE guild_id = $1
             """,
             guild_id,
             winning_number
         )
+
+        if result == "UPDATE 0":
+            raise RuntimeError("jumbo_config が未作成です（先に /年末ジャンボ開催 を実行してください）")
+
 
 
 
