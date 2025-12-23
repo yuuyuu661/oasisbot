@@ -11,45 +11,31 @@ load_dotenv()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-# intents（ホテル機能対応版）
+# intents
 intents = discord.Intents.default()
 intents.guilds = True
 intents.members = True
 intents.voice_states = True
 
-# Bot インスタンス作成
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# GUILD_IDS
 bot.GUILD_IDS = [
     1444580349773348951,
     1420918259187712093
 ]
 
-# DB
 bot.db = Database()
 
 
 @bot.event
 async def on_ready():
     print(f"ログイン完了：{bot.user}")
+    print("✔ Bot Ready 完了")
 
 
-    print("データベース準備完了")
-
-    await load_cogs()
-    print("すべてのCogロード完了")
-    
-
-    # ---- ✨ ここで初めて同期 ----
-    for gid in bot.GUILD_IDS:
-        guild_obj = discord.Object(id=gid)
-        synced = await bot.tree.sync(guild=guild_obj)
-        print(f"Slash Command 同期完了（{len(synced)}個） for {gid}")
-
-    print("✔ コマンド完全同期済み！")
-
-
+# ------------------------------
+# Cog ロード
+# ------------------------------
 async def load_cogs():
     extensions = [
         "cogs.balance",
@@ -59,11 +45,12 @@ async def load_cogs():
         "cogs.interview",
         "cogs.subscription",
         "cogs.hotel.setup",
-        "cogs.gamble", 
-        "cogs.jumbo.jumbo", 
-        "cogs.backup", 
+        "cogs.gamble",
+        "cogs.jumbo.jumbo",
+        "cogs.backup",
         "cogs.slot",
     ]
+
     for ext in extensions:
         try:
             await bot.load_extension(ext)
@@ -72,20 +59,39 @@ async def load_cogs():
             print(f"Cog 読み込み失敗: {ext} - {e}")
 
 
+# ------------------------------
+# Slash 同期（ギルド専用）
+# ------------------------------
+async def sync_slash_commands():
+    print("🧹 Slash Command 同期開始")
+
+    # グローバルは完全削除（亡霊対策）
+    bot.tree.clear_commands(guild=None)
+    await bot.tree.sync()
+
+    for gid in bot.GUILD_IDS:
+        guild = discord.Object(id=gid)
+        bot.tree.clear_commands(guild=guild)
+        synced = await bot.tree.sync(guild=guild)
+        print(f"Slash 同期完了（{len(synced)}個） for {gid}")
+
+    print("✔ Slash Command 完全同期完了")
+
+
+# ------------------------------
+# メイン起動
+# ------------------------------
+async def main():
+    await bot.db.connect()
+    print("データベース準備完了")
+
+    await load_cogs()
+    print("すべての Cog ロード完了")
+
+    await sync_slash_commands()
+
+    await bot.start(TOKEN)
+
+
 if __name__ == "__main__":
-    asyncio.run(bot.start(TOKEN))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    asyncio.run(main())
