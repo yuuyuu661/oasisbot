@@ -541,7 +541,7 @@ class JankenCardCog(commands.Cog):
         await self._send_hand_dm(game, p2, first=True)
 
         # ラウンド開始
-        await self._begin_round(interaction, game)
+        await self._begin_round(game)
 
     async def _send_hand_dm(self, game: JankenGame, player_id: int, first: bool = False):
         user = self.bot.get_user(player_id) or await self.bot.fetch_user(player_id)
@@ -582,7 +582,7 @@ class JankenCardCog(commands.Cog):
         game.turn_timer_task = asyncio.create_task(_timeout())
     
 
-    async def _begin_round(self, interaction: discord.Interaction, game: JankenGame):
+    async def _begin_round(self, game: JankenGame):
         if game.resolving:
             return
         game.round_no += 1
@@ -599,11 +599,12 @@ class JankenCardCog(commands.Cog):
         ch = game.channel or self.bot.get_channel(game.channel_id)
         if not isinstance(ch, discord.TextChannel):
             return
-            await ch.send(
-                f"🟦 **第{game.round_no}回戦** 開始！\n"
-                f"先に{WIN_TARGET}勝で勝利（最大{MAX_ROUNDS}回戦）。\n"
-                f"現在：<@{p1}> {game.wins[p1]}勝 / <@{p2}> {game.wins[p2]}勝"
-            )
+
+        await ch.send(
+            f"🟦 **第{game.round_no}回戦** 開始！\n"
+            f"先に{WIN_TARGET}勝で勝利（最大{MAX_ROUNDS}回戦）。\n"
+            f"現在：<@{p1}> {game.wins[p1]}勝 / <@{p2}> {game.wins[p2]}勝"
+        )
 
         # 60秒後に未確定を自動選択して、揃ったら解決へ
         # ★ ターン開始時に必ずタイマーをリセットして開始
@@ -641,14 +642,14 @@ class JankenCardCog(commands.Cog):
             asyncio.create_task(self._try_resolve_round(game))
         return True
 
-    async def _try_resolve_round(self, interaction: discord.Interaction, game: JankenGame):
+    async def _try_resolve_round(self, game: JankenGame):
         if game.resolving:
             return
         if any(game.selected.get(pid) is None for pid in game.players):
             return
-        await self._resolve_round(interaction, game)
+        await self._resolve_round(game)
 
-    async def _resolve_round(self, interaction: discord.Interaction, game: JankenGame):
+    async def _resolve_round(self, game: JankenGame):
         game.resolving = True
         ch = game.channel or self.bot.get_channel(game.channel_id)
         if not isinstance(ch, discord.TextChannel):
@@ -718,7 +719,7 @@ class JankenCardCog(commands.Cog):
 
             # 次ラウンド開始
             game.resolving = False
-            await self._begin_round(interaction, game)
+            await self._begin_round(game)
             return
 
         # 決着（5回戦終了 or 手札切れでも判定）
@@ -788,6 +789,7 @@ class JankenCardCog(commands.Cog):
 async def setup(bot: commands.Bot):
 
     await bot.add_cog(JankenCardCog(bot))
+
 
 
 
