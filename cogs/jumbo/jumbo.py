@@ -211,7 +211,7 @@ class JumboCog(commands.Cog):
                     results[rank].append({
                         "user_id": e["user_id"],
                         "number": number,
-                    })})
+                    })
 
         # ==========================
         # パネル生成
@@ -301,6 +301,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
