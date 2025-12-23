@@ -600,7 +600,8 @@ class JankenCardCog(commands.Cog):
 
         # ラウンド開始告知
         ch = game.channel or self.bot.get_channel(game.channel_id)
-        if ch:
+        if not isinstance(ch, discord.TextChannel):
+            return
             await ch.send(
                 f"🟦 **第{game.round_no}回戦** 開始！\n"
                 f"先に{WIN_TARGET}勝で勝利（最大{MAX_ROUNDS}回戦）。\n"
@@ -782,6 +783,7 @@ class JankenCardCog(commands.Cog):
 async def setup(bot: commands.Bot):
 
     await bot.add_cog(JankenCardCog(bot))
+
 
 
 
