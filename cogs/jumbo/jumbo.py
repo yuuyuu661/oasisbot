@@ -281,12 +281,41 @@ class JumboCog(commands.Cog):
 
         await interaction.response.send_message("🧹 リセット完了", ephemeral=True)
 
+    # -------------------------------------------------
+    # /所持宝くじ番号確認
+    # -------------------------------------------------
+    @app_commands.command(name="所持宝くじ番号確認")
+    async def jumbo_my_numbers(
+        self,
+        interaction: discord.Interaction,
+        search: str | None = None,
+    ):
+        guild_id = str(interaction.guild.id)
+        user_id = str(interaction.user.id)
+
+        rows = await self.jumbo_db.get_user_numbers(guild_id, user_id)
+        numbers = [r["number"] for r in rows]
+
+        if search:
+            numbers = [n for n in numbers if n.startswith(search) or n.endswith(search)]
+
+        if not numbers:
+            return await interaction.response.send_message("該当なし", ephemeral=True)
+
+        view = NumberListView(interaction.user, numbers)
+        await interaction.response.send_message(
+            embed=view.make_embed(),
+            view=view,
+            ephemeral=True
+        )
+
 
 # =====================================================
 # setup（bal と完全一致）
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
