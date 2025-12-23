@@ -96,6 +96,16 @@ class JumboDB:
                 PRIMARY KEY (guild_id, rank, number)
             );
         """)
+        # ★ 既存DB救済用
+        await self.db.conn.execute("""
+            ALTER TABLE jumbo_winners
+            ADD COLUMN IF NOT EXISTS match_count INT;
+        """)
+
+        await self.db.conn.execute("""
+            ALTER TABLE jumbo_winners
+            ADD COLUMN IF NOT EXISTS prize BIGINT DEFAULT 0;
+        """)
 
     # ============================================================
     # 開催設定
@@ -243,6 +253,7 @@ class JumboDB:
             raise RuntimeError(
                 "ジャンボが未開催です。先に /年末ジャンボ開催 を実行してください。"
             )
+
 
 
 
