@@ -172,38 +172,46 @@ class JumboCog(commands.Cog):
     # -------------------------------------------------
     @app_commands.command(name="年末ジャンボ当選者発表")
     async def jumbo_announce(self, interaction: discord.Interaction):
-        print("[JUMBO] announce start")
-
         await interaction.response.defer()
-        print("[JUMBO] defer OK")
 
         if not await self.is_admin(interaction):
-            print("[JUMBO] admin check NG")
             return await interaction.followup.send("❌ 管理者専用")
 
-        print("[JUMBO] admin check OK")
-
         guild_id = str(interaction.guild.id)
-        print("[JUMBO] guild_id =", guild_id)
-
         config = await self.jumbo_db.get_config(guild_id)
-        print("[JUMBO] config fetched:", dict(config) if config else None)
 
         if not config or not config["winning_number"]:
-            print("[JUMBO] winning_number missing")
             return await interaction.followup.send("❌ 当選番号が未設定です")
 
-        print("[JUMBO] winning_number =", config["winning_number"])
+        winning = config["winning_number"]
 
         entries = await self.jumbo_db.get_all_entries(guild_id)
-        print("[JUMBO] entries count =", len(entries))
+        numbers = [e["number"] for e in entries]
 
-        if not entries:
-            print("[JUMBO] no entries")
-            return await interaction.followup.send("⚠ 購入者がいません")
+        results = {i: [] for i in range(1, 6)}
+        used_numbers = set()
 
-        await self.jumbo_db.clear_winners(guild_id)
-        print("[JUMBO] winners cleared")
+        for rank in range(1, 6):
+            digit = 7 - rank
+            suffix = winning[-digit:]
+
+            for e in entries:
+                num = e["number"]
+                if num in used_numbers:
+                    continue
+                if num.endswith(suffix):
+                    results[rank].append(e)
+                    used_numbers.add(num)
+
+        embed = discord.Embed(
+            title="🎉 年末ジャンボ 当選者発表",
+            color=0xF1C40F
+        )
+        embed.add_field(
+            name="🎯 当選番号",
+            value=f"**{winning}**",
+            inline=False
+        )
 
         PRIZES = {
             1: 10_000_000,
@@ -213,40 +221,22 @@ class JumboCog(commands.Cog):
             5: 100_000,
         }
 
-        results = {i: [] for i in range(1, 6)}
+        for rank in range(1, 6):
+            prize = PRIZES[rank]
+            winners = results[rank]
 
-        for e in entries:
-            try:
-                print("[JUMBO] check number:", e["number"])
+            text = "いませんでした。" if not winners else "\n".join(
+                f"<@{w['user_id']}> `{w['number']}`"
+                for w in winners
+            )
 
-                match = count_continuous_match(
-                    str(config["winning_number"]),
-                    str(e["number"])
-                )
-                print("[JUMBO] match count =", match)
+            embed.add_field(
+                name=f"第{rank}等（{prize:,} rrc）",
+                value=text,
+                inline=False
+            )
 
-                rank = match_to_rank(match)
-                print("[JUMBO] rank =", rank)
-
-                if not rank:
-                    continue
-
-                prize = PRIZES[rank]
-
-                await self.jumbo_db.set_winner(
-                    guild_id,
-                    rank,
-                    e["number"],
-                    e["user_id"],
-                    match,
-                    prize
-                )
-
-                print("[JUMBO] winner saved:", e["number"], "rank", rank)
-                results[rank].append(e)
-
-            except Exception as ex:
-                print("[JUMBO] ERROR in loop:", repr(ex), "data:", dict(e))
+        await interaction.followup.send(embed=embed)
 
     # -------------------------------------------------
     # /所持宝くじ番号確認
@@ -299,6 +289,7 @@ class JumboCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
