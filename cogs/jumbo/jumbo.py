@@ -138,45 +138,22 @@ class JumboCog(commands.Cog):
     # /年末ジャンボ設定
     # -------------------------------------------------
     @app_commands.command(name="年末ジャンボ設定")
-    async def jumbo_set_prize(
-        self,
-        interaction: discord.Interaction,
-        winning_number: str,
-        prize_1: int,
-        prize_2: int,
-        prize_3: int,
-        prize_4: int,
-        prize_5: int,
-    ):
+    async def jumbo_set_prize(self, interaction: discord.Interaction, winning_number: str):
+
+        await interaction.response.defer(ephemeral=True)  # ← 必須
 
         if not await self.is_admin(interaction):
-            return await interaction.response.send_message(
-                "❌ 管理者専用",
-                ephemeral=True
-            )
+            return await interaction.followup.send("❌ 管理者専用")
 
-        if not (winning_number.isdigit() and len(winning_number) == 6):
-            return await interaction.response.send_message(
-                "❌ 当選番号は6桁です",
-                ephemeral=True
-            )
+        if not winning_number.isdigit() or len(winning_number) != 6:
+            return await interaction.followup.send("❌ 当選番号は6桁です")
 
-        guild_id = str(interaction.guild.id)
-
-        await self.jumbo_db.set_prize_config(
-            guild_id,
-            winning_number,
-            prize_1,
-            prize_2,
-            prize_3,
-            prize_4,
-            prize_5,
+        await self.jumbo_db.set_winning_number(
+            str(interaction.guild.id),
+            winning_number
         )
 
-        await interaction.response.send_message(
-            "🎯 年末ジャンボ設定完了！",
-            ephemeral=True
-        )
+        await interaction.followup.send("🎯 当選番号を設定しました！")
 
     # -------------------------------------------------
     # /年末ジャンボ当選者発表
@@ -336,6 +313,7 @@ async def setup(bot: commands.Bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
