@@ -44,6 +44,17 @@ class JumboDB:
             );
         """)
 
+        await self.db.conn.execute("""
+            CREATE TABLE IF NOT EXISTS jumbo_winners (
+                guild_id    TEXT NOT NULL,
+                rank        INT NOT NULL,
+                number      VARCHAR(6) NOT NULL,
+                user_id     TEXT NOT NULL,
+                match_count INT,
+                prize       BIGINT DEFAULT 0,
+                PRIMARY KEY (guild_id, rank, number)
+            );
+        """)
         # ★★★ ここから追加（最重要）★★★
         await self.db.conn.execute("""
             ALTER TABLE jumbo_config
@@ -232,6 +243,7 @@ class JumboDB:
             raise RuntimeError(
                 "ジャンボが未開催です。先に /年末ジャンボ開催 を実行してください。"
             )
+
 
 
 
