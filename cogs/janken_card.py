@@ -146,6 +146,14 @@ async def create_hand_image(hand: List[JCard]) -> discord.File:
     buf.seek(0)
     return discord.File(fp=buf, filename="hand.png")
 
+async def create_card_image(card: JCard) -> discord.File:
+    """1枚カード画像をそのまま送信用discord.Fileにする"""
+    img = _load_card_image(card)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return discord.File(fp=buf, filename=f"{card.kind}{card.star}.png")
+
 
 # =========================================================
 # ゲーム状態
@@ -264,7 +272,7 @@ class JankenPanelView(discord.ui.View):
 
 class JankenHandView(discord.ui.View):
     def __init__(self, cog: "JankenCardCog", game: JankenGame, player_id: int):
-        super().__init__(timeout=TURN_TIMEOUT)
+        super().__init__(timeout=None)
         self.cog = cog
         self.game = game
         self.player_id = player_id
@@ -656,6 +664,16 @@ class JankenCardCog(commands.Cog):
 
         await interaction.channel.send(content=f"**{m1.display_name if m1 else f'<@{p1}>'}**", file=file1)
         await interaction.channel.send(content=f"**{m2.display_name if m2 else f'<@{p2}>'}**", file=file2)
+        # ★ 勝敗に応じて勝利数を加算＆結果表示
+        if result == "A":
+            game.wins[p1] += 1
+            await interaction.channel.send(f"✅ 勝者：<@{p1}>")
+        elif result == "B":
+            game.wins[p2] += 1
+            await interaction.channel.send(f"✅ 勝者：<@{p2}>")
+        else:
+            await interaction.channel.send("🤝 引き分け（勝敗なし）")
+        
 
         # 使用カードを除外（引き分けでも両者消費）
         # 高いindexからpopして安全に
@@ -751,6 +769,7 @@ class JankenCardCog(commands.Cog):
 async def setup(bot: commands.Bot):
 
     await bot.add_cog(JankenCardCog(bot))
+
 
 
 
