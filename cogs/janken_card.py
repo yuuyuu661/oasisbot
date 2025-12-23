@@ -172,6 +172,7 @@ class JankenGame:
 
         # タイムアウト管理（ラウンド単位でトークンを更新）
         self.round_token: int = 0
+        self.turn_timer_task: Optional[asyncio.Task] = None
 
     def is_full(self) -> bool:
         return len(self.players) >= MAX_PLAYERS
@@ -346,7 +347,7 @@ class JankenSelectView(discord.ui.View):
             await interaction.response.send_message("❌ 先にプルダウンで選んでね。")
             return
 
-        ok = await self.cog._confirm_choice(self.game, self.player_id, self.choice_index)
+        ok = await self.cog._confirm_choice(interaction, self.game, self.player_id, self.choice_index)
         if ok:
             # このViewは終了
             for child in self.children:
@@ -541,6 +542,31 @@ class JankenCardCog(commands.Cog):
             ch = self.bot.get_channel(game.channel_id)
             if ch:
                 await ch.send(f"⚠️ <@{player_id}> にDMを送れません。ゲームを中止してください。")
+    def _cancel_turn_timer(self, game: JankenGame):
+        """現在動いているターンタイマーを停止する"""
+        task = game.turn_timer_task
+        if task and not task.done():
+            task.cancel()
+        game.turn_timer_task = None
+
+
+    def _start_turn_timer(self, interaction: discord.Interaction, game: JankenGame):
+        """60秒タイマーを開始（時間切れで自動選択→勝負解決）"""
+        async def _timeout():
+            try:
+                await asyncio.sleep(TURN_TIMEOUT)
+            except asyncio.CancelledError:
+                return  # 確定などで停止された場合
+
+            # 未確定を自動選択
+            for pid in game.players:
+                await self._auto_pick_if_needed(game, pid)
+
+            # 両者揃っていれば解決
+            await self._try_resolve_round(interaction, game)
+
+        game.turn_timer_task = asyncio.create_task(_timeout())
+    
 
     async def _begin_round(self, interaction: discord.Interaction, game: JankenGame):
         if game.resolving:
@@ -562,18 +588,9 @@ class JankenCardCog(commands.Cog):
         )
 
         # 60秒後に未確定を自動選択して、揃ったら解決へ
-        async def _timeout_task():
-            await asyncio.sleep(TURN_TIMEOUT)
-            # トークンが変わってたら古いラウンドなので無視
-            if game.round_token != token:
-                return
-            # 未確定を埋める
-            for pid in game.players:
-                await self._auto_pick_if_needed(game, pid)
-            # 両者揃っていれば解決
-            await self._try_resolve_round(interaction, game)
-
-        asyncio.create_task(_timeout_task())
+        # ★ ターン開始時に必ずタイマーをリセットして開始
+        self._cancel_turn_timer(game)
+        self._start_turn_timer(interaction, game)
 
     async def _auto_pick_if_needed(self, game: JankenGame, player_id: int):
         if game.selected.get(player_id) is not None:
@@ -591,7 +608,7 @@ class JankenCardCog(commands.Cog):
             except Exception:
                 pass
 
-    async def _confirm_choice(self, game: JankenGame, player_id: int, index: int) -> bool:
+    async def _confirm_choice(self, interaction: discord.Interaction, game: JankenGame, player_id: int, index: int) -> bool:
         if game.resolving:
             return False
         if game.selected.get(player_id) is not None:
@@ -600,6 +617,10 @@ class JankenCardCog(commands.Cog):
         if not (0 <= index < len(hand)):
             return False
         game.selected[player_id] = index
+        # ★ 両者の選択が揃ったら即進行（タイムラグ解消）
+        if all(game.selected.get(pid) is not None for pid in game.players):
+            self._cancel_turn_timer(game)
+            await self._try_resolve_round(interaction, game)
         return True
 
     async def _try_resolve_round(self, interaction: discord.Interaction, game: JankenGame):
@@ -626,21 +647,15 @@ class JankenCardCog(commands.Cog):
         result = judge(c1, c2)
 
         # 公開（星は公開OKの仕様だったので表示）
-        line = (
-            f"🂡 <@{p1}>：**{c1.label_jp}⭐{c1.star}**\n"
-            f"🂡 <@{p2}>：**{c2.label_jp}⭐{c2.star}**\n"
-        )
+        guild = interaction.guild
+        m1 = guild.get_member(p1) if guild else None
+        m2 = guild.get_member(p2) if guild else None
 
-        if result == "A":
-            game.wins[p1] += 1
-            line += f"✅ 勝者：<@{p1}>"
-        elif result == "B":
-            game.wins[p2] += 1
-            line += f"✅ 勝者：<@{p2}>"
-        else:
-            line += "🤝 引き分け（勝敗なし）"
+        file1 = await create_card_image(c1)
+        file2 = await create_card_image(c2)
 
-        await interaction.channel.send(line)
+        await interaction.channel.send(content=f"**{m1.display_name if m1 else f'<@{p1}>'}**", file=file1)
+        await interaction.channel.send(content=f"**{m2.display_name if m2 else f'<@{p2}>'}**", file=file2)
 
         # 使用カードを除外（引き分けでも両者消費）
         # 高いindexからpopして安全に
@@ -736,6 +751,7 @@ class JankenCardCog(commands.Cog):
 async def setup(bot: commands.Bot):
 
     await bot.add_cog(JankenCardCog(bot))
+
 
 
 
