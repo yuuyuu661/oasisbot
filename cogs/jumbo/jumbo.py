@@ -252,40 +252,7 @@ class JumboCog(commands.Cog):
         await interaction.followup.send(embed=embed)
         print("[JUMBO] announce done")
 
-            # =========================
-            # 結果パネル生成
-            # =========================
-            embed = discord.Embed(
-                title="🎉 年末ジャンボ 当選者発表",
-                color=0xF1C40F
-            )
 
-            embed.add_field(
-                name="🎯 当選番号",
-                value=f"**{winning}**",
-                inline=False
-            )
-
-            for rank in range(1, 6):
-                    prize = PRIZES[rank]
-                    winners = results[rank]
-
-                    if not winners:
-                        text = "いませんでした。"
-                    else:
-                        text = "\n".join(
-                            f"<@{w['user_id']}> `{w['number']}`"
-                            for w in winners
-                        )
-
-                    embed.add_field(
-                        name=f"第{rank}等（{prize:,} rrc）",
-                        value=text,
-                        inline=False
-                    )
-
-            await interaction.followup.send(embed=embed)
-            print("[JUMBO] announce done")
 
     # -------------------------------------------------
     # /所持宝くじ番号確認
@@ -338,6 +305,7 @@ class JumboCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
