@@ -48,6 +48,20 @@ class NumberListView(discord.ui.View):
         self.page = min(max_page, self.page + 1)
         await interaction.response.edit_message(embed=self.make_embed(), view=self)
 
+# =====================================================
+# 判定ロジック（スライド一致・検索型）
+# =====================================================
+def is_hit(winning: str, number: str, match_len: int) -> bool:
+    """
+    winning: 当選番号（6桁）
+    number : 購入番号（6桁）
+    match_len: 一致させたい桁数（6〜2）
+    """
+    for i in range(0, 6 - match_len + 1):
+        if winning[i:i + match_len] == number[i:i + match_len]:
+            return True
+    return False
+
 
 # =====================================================
 # Jumbo Cog
@@ -140,7 +154,7 @@ class JumboCog(commands.Cog):
         # 念のため当選結果リセット
         await self.jumbo_db.clear_winners(guild_id)
 
-        # 等級定義
+        # 等級ルール
         RANK_RULES = {
             1: 6,
             2: 5,
@@ -160,34 +174,37 @@ class JumboCog(commands.Cog):
         results = {r: [] for r in range(1, 6)}
         used_numbers = set()  # 同じ番号の重複当選防止
 
-        for rank, length in RANK_RULES.items():
-            patterns = [
-                winning[i:i+length]
-                for i in range(0, len(winning) - length + 1)
-            ]
-
-            print(f"[JUMBO] rank {rank} patterns:", patterns)
-
+        # ===== 判定処理 =====
+        for rank, match_len in RANK_RULES.items():
             for e in entries:
                 number = e["number"]
 
                 if number in used_numbers:
                     continue
 
-                if any(p in number for p in patterns):
+                if is_hit(winning, number, match_len):
                     used_numbers.add(number)
 
-                    await self.jumbo_db.set_winner(
-                        guild_id,
-                        rank,
-                        number,
-                        e["user_id"],
-                        length,
-                        PRIZES[rank]
-                    )
+                    results[rank].append({
+                        "user_id": e["user_id"],
+                        "number": number,
+                        "match_len": match_len,
+                        "prize": PRIZES[rank],
+                    })
 
-                    results[rank].append(e)
                     print("[JUMBO] HIT", number, "rank", rank)
+
+        # ===== DB保存（最後にまとめて）=====
+        for rank, winners in results.items():
+            for w in winners:
+                await self.jumbo_db.set_winner(
+                    guild_id,
+                    rank,
+                    w["number"],
+                    w["user_id"],
+                    w["match_len"],
+                    w["prize"]
+                )
 
         # ===== パネル生成 =====
         embed = discord.Embed(
@@ -272,6 +289,7 @@ class JumboCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
