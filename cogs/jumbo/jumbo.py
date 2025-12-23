@@ -53,14 +53,21 @@ class NumberListView(discord.ui.View):
 # =====================================================
 # 判定ロジック（スライド一致）
 # =====================================================
-def make_patterns(winning: str, length: int) -> list[str]:
+def is_hit(winning: str, number: str, match_len: int) -> bool:
     """
-    当選番号からスライド一致用のパターンを生成
+    winning / number : 6桁
+    match_len        : 6〜2
+    条件：同じ位置で連続 match_len 桁が一致
     """
-    return [
-        winning[i:i + length]
-        for i in range(0, len(winning) - length + 1)
-    ]
+    for start in range(0, 6 - match_len + 1):
+        ok = True
+        for offset in range(match_len):
+            if winning[start + offset] != number[start + offset]:
+                ok = False
+                break
+        if ok:
+            return True
+    return False
 
 
 # =====================================================
@@ -282,4 +289,5 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
