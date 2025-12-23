@@ -163,6 +163,7 @@ class JankenGame:
     def __init__(self, guild_id: int, channel_id: int, owner_id: int, rate: int):
         self.guild_id = guild_id
         self.channel_id = channel_id
+        self.channel: Optional[discord.TextChannel] = None
         self.owner_id = owner_id
         self.rate = rate
 
@@ -514,6 +515,14 @@ class JankenCardCog(commands.Cog):
     async def _start_game(self, interaction: discord.Interaction, game: JankenGame):
         # デッキ生成
         deck = build_deck()
+        # ★ 進行は必ずこのチャンネルに流す（DM interaction を使わない）
+        if isinstance(interaction.channel, discord.TextChannel):
+            game.channel = interaction.channel
+        else:
+            # ここに来るのはほぼ無い想定だけど保険
+            ch = self.bot.get_channel(game.channel_id)
+            game.channel = ch if isinstance(ch, discord.TextChannel) else None
+        
         random.shuffle(deck)
         game.deck = deck
 
@@ -588,12 +597,13 @@ class JankenCardCog(commands.Cog):
             game.selected[pid] = None
 
         # ラウンド開始告知
-        p1, p2 = game.players
-        await interaction.channel.send(
-            f"🟦 **第{game.round_no}回戦** 開始！\n"
-            f"先に{WIN_TARGET}勝で勝利（最大{MAX_ROUNDS}回戦）。\n"
-            f"現在：<@{p1}> {game.wins[p1]}勝 / <@{p2}> {game.wins[p2]}勝"
-        )
+        ch = game.channel or self.bot.get_channel(game.channel_id)
+        if ch:
+            await ch.send(
+                f"🟦 **第{game.round_no}回戦** 開始！\n"
+                f"先に{WIN_TARGET}勝で勝利（最大{MAX_ROUNDS}回戦）。\n"
+                f"現在：<@{p1}> {game.wins[p1]}勝 / <@{p2}> {game.wins[p2]}勝"
+            )
 
         # 60秒後に未確定を自動選択して、揃ったら解決へ
         # ★ ターン開始時に必ずタイマーをリセットして開始
@@ -628,7 +638,7 @@ class JankenCardCog(commands.Cog):
         # ★ 両者の選択が揃ったら即進行（タイムラグ解消）
         if all(game.selected.get(pid) is not None for pid in game.players):
             self._cancel_turn_timer(game)
-            await self._try_resolve_round(interaction, game)
+            asyncio.create_task(self._try_resolve_round(interaction, game))
         return True
 
     async def _try_resolve_round(self, interaction: discord.Interaction, game: JankenGame):
@@ -655,24 +665,25 @@ class JankenCardCog(commands.Cog):
         result = judge(c1, c2)
 
         # 公開（星は公開OKの仕様だったので表示）
-        guild = interaction.guild
+        ch = game.channel or self.bot.get_channel(game.channel_id)
+        guild = self.bot.get_guild(game.guild_id)
         m1 = guild.get_member(p1) if guild else None
         m2 = guild.get_member(p2) if guild else None
 
         file1 = await create_card_image(c1)
         file2 = await create_card_image(c2)
 
-        await interaction.channel.send(content=f"**{m1.display_name if m1 else f'<@{p1}>'}**", file=file1)
-        await interaction.channel.send(content=f"**{m2.display_name if m2 else f'<@{p2}>'}**", file=file2)
+        await ch.send(content=f"**{m1.display_name if m1 else f'<@{p1}>'}**", file=file1)
+        await ch.send(content=f"**{m2.display_name if m2 else f'<@{p2}>'}**", file=file2)
         # ★ 勝敗に応じて勝利数を加算＆結果表示
         if result == "A":
             game.wins[p1] += 1
-            await interaction.channel.send(f"✅ 勝者：<@{p1}>")
+            if ch: await ch.send(f"✅ 勝者：<@{p1}>")
         elif result == "B":
             game.wins[p2] += 1
-            await interaction.channel.send(f"✅ 勝者：<@{p2}>")
+            if ch: await ch.send(f"✅ 勝者：<@{p2}>")
         else:
-            await interaction.channel.send("🤝 引き分け（勝敗なし）")
+            if ch: await ch.send("🤝 引き分け（勝敗なし）")
         
 
         # 使用カードを除外（引き分けでも両者消費）
@@ -711,7 +722,7 @@ class JankenCardCog(commands.Cog):
                 winner_id, loser_id = p2, p1
             else:
                 # 引き分け
-                await interaction.channel.send(
+                if ch: await ch.send(
                     f"🏁 終了！ **引き分け**\n"
                     f"<@{p1}> {game.wins[p1]}勝 / <@{p2}> {game.wins[p2]}勝\n"
                     f"（レート移動なし）"
@@ -723,7 +734,7 @@ class JankenCardCog(commands.Cog):
         guild_id = game.guild_id
         bal_loser = await self._get_balance(loser_id, guild_id)
         if bal_loser < game.rate:
-            await interaction.channel.send(
+            await if ch: await ch.send(
                 f"⚠️ 結果確定時点で敗者の残高が不足していました。（必要:{game.rate} / 現在:{bal_loser}）\n"
                 f"今回は **移動なし** で終了します。"
             )
@@ -732,13 +743,13 @@ class JankenCardCog(commands.Cog):
 
         ok = await self._sub_balance(loser_id, game.rate, guild_id)
         if not ok:
-            await interaction.channel.send("⚠️ 減算に失敗しました。今回は移動なしで終了します。")
+            await if ch: await ch.send("⚠️ 減算に失敗しました。今回は移動なしで終了します。")
             self._cleanup_game(game)
             return
 
         await self._add_balance(winner_id, game.rate, guild_id)
 
-        await interaction.channel.send(
+        await if ch: await ch.send(
             f"🏆 **勝者：<@{winner_id}>**\n"
             f"💸 <@{loser_id}> から **{game.rate}** を回収 → <@{winner_id}> に付与しました。\n"
             f"最終：<@{p1}> {game.wins[p1]}勝 / <@{p2}> {game.wins[p2]}勝"
@@ -769,6 +780,7 @@ class JankenCardCog(commands.Cog):
 async def setup(bot: commands.Bot):
 
     await bot.add_cog(JankenCardCog(bot))
+
 
 
 
