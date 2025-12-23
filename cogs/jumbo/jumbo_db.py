@@ -203,35 +203,20 @@ class JumboDB:
     # 当選番号・賞金設定
     # ============================================================
 
-    async def set_prize_config(
-        self,
-        guild_id: str,
-        winning_number: str,
-        prize_1: int,
-        prize_2: int,
-        prize_3: int,
-        prize_4: int,
-        prize_5: int,
-    ):
-        await self.db.conn.execute("""
-            UPDATE jumbo_config
-            SET
-                winning_number = $2,
-                prize_1 = $3,
-                prize_2 = $4,
-                prize_3 = $5,
-                prize_4 = $6,
-                prize_5 = $7,
-                prize_paid = FALSE
-            WHERE guild_id = $1
+    async def set_winning_number(self, guild_id: str, winning_number: str):
+    await self.db.conn.execute(
+        """
+        INSERT INTO jumbo_config (guild_id, winning_number, prize_paid)
+        VALUES ($1, $2, FALSE)
+        ON CONFLICT (guild_id)
+        DO UPDATE SET
+            winning_number = EXCLUDED.winning_number,
+            prize_paid = FALSE
         """,
-            guild_id,
-            winning_number,
-            prize_1,
-            prize_2,
-            prize_3,
-            prize_4,
-            prize_5
-        )
+        guild_id,
+        winning_number
+    )
+
+
 
 
