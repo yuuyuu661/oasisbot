@@ -204,18 +204,19 @@ class JumboDB:
     # ============================================================
 
     async def set_winning_number(self, guild_id: str, winning_number: str):
-    await self.db.conn.execute(
-        """
-        INSERT INTO jumbo_config (guild_id, winning_number, prize_paid)
-        VALUES ($1, $2, FALSE)
-        ON CONFLICT (guild_id)
-        DO UPDATE SET
-            winning_number = EXCLUDED.winning_number,
-            prize_paid = FALSE
-        """,
-        guild_id,
-        winning_number
-    )
+        await self.db.conn.execute(
+            """
+            INSERT INTO jumbo_config (guild_id, winning_number, prize_paid)
+            VALUES ($1, $2, FALSE)
+            ON CONFLICT (guild_id)
+            DO UPDATE SET
+                winning_number = EXCLUDED.winning_number,
+                prize_paid = FALSE
+            """,
+            guild_id,
+            winning_number
+        )
+
 
 
 
