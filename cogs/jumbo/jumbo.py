@@ -9,39 +9,6 @@ from datetime import datetime, timezone
 from .jumbo_db import JumboDB
 from .jumbo_purchase import JumboBuyView
 
-
-# =====================================================
-# 判定ロジック（スライド一致）
-# =====================================================
-def max_contiguous_match_len(winning: str, target: str) -> int:
-    """
-    winning: 当選番号（6桁）
-    target : 購入番号（6桁）
-    戻り値 : 最大一致桁数（6〜0）
-    """
-    max_len = 0
-    n = len(winning)
-
-    for size in range(2, n + 1):  # 2桁〜6桁
-        for i in range(n - size + 1):
-            w_part = winning[i:i + size]
-            t_part = target[i:i + size]
-            if w_part == t_part:
-                max_len = max(max_len, size)
-
-    return max_len
-
-
-def match_len_to_rank(match_len: int) -> int | None:
-    return {
-        6: 1,  # 1等
-        5: 2,  # 2等
-        4: 3,  # 3等
-        3: 4,  # 4等
-        2: 5,  # 5等
-    }.get(match_len)
-
-
 # =====================================================
 # 所持番号一覧 View
 # =====================================================
@@ -305,6 +272,7 @@ class JumboCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
