@@ -368,7 +368,9 @@ class JankenCardCog(commands.Cog):
     # -----------------------------
     # 通貨（既存Botに合わせて吸収）
     # -----------------------------
-    async def _get_balance(self, user_id: int, guild_id: Optional[int]) -> int:
+    async def _get_balance(self, user_id: int, guild_id: int) -> int:
+        row = await self.bot.db.get_user(str(user_id), str(guild_id))
+        return int(row["balance"])
         """
         既存の残高システムに合わせてここだけ調整すればOK。
         1) bot.db に get_balance がある
@@ -394,7 +396,8 @@ class JankenCardCog(commands.Cog):
 
         raise RuntimeError("残高取得APIが見つかりません。_get_balance() をあなたのBotに合わせて調整してください。")
 
-    async def _add_balance(self, user_id: int, amount: int, guild_id: Optional[int]):
+    async def _add_balance(self, user_id: int, amount: int, guild_id: int):
+        await self.bot.db.add_balance(str(user_id), str(guild_id), amount)
         if hasattr(self.bot, "db") and hasattr(self.bot.db, "add_balance"):
             try:
                 return await self.bot.db.add_balance(user_id, amount)
@@ -408,7 +411,12 @@ class JankenCardCog(commands.Cog):
 
         raise RuntimeError("残高加算APIが見つかりません。_add_balance() をあなたのBotに合わせて調整してください。")
 
-    async def _sub_balance(self, user_id: int, amount: int, guild_id: Optional[int]) -> bool:
+    async def _sub_balance(self, user_id: int, amount: int, guild_id: int) -> bool:
+        row = await self.bot.db.get_user(str(user_id), str(guild_id))
+        if row["balance"] < amount:
+            return False
+        await self.bot.db.remove_balance(str(user_id), str(guild_id), amount)
+        return True
         if hasattr(self.bot, "db") and hasattr(self.bot.db, "subtract_balance"):
             try:
                 return bool(await self.bot.db.subtract_balance(user_id, amount))
@@ -772,3 +780,4 @@ class JankenCardCog(commands.Cog):
 async def setup(bot: commands.Bot):
 
     await bot.add_cog(JankenCardCog(bot))
+
