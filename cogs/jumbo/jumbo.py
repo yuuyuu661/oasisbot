@@ -188,20 +188,28 @@ class JumboCog(commands.Cog):
         entries = await self.jumbo_db.get_all_entries(guild_id)
         numbers = [e["number"] for e in entries]
 
-        results = {i: [] for i in range(1, 6)}
         used_numbers = set()
+        results = {i: [] for i in range(1, 6)}
+
+        winning = config["winning_number"]
 
         for rank in range(1, 6):
-            digit = 7 - rank
-            suffix = winning[-digit:]
+            digit = 7 - rank            # 1等=6桁, 5等=2桁
+            suffix = winning[-digit:]  # 下n桁
 
             for e in entries:
                 num = e["number"]
+
+                # すでに他等級で当選した番号は除外
                 if num in used_numbers:
                     continue
+
                 if num.endswith(suffix):
                     results[rank].append(e)
-                    used_numbers.add(num)
+
+            # ★ この等級で当選した番号だけを、ここで確定除外
+            for w in results[rank]:
+                used_numbers.add(w["number"])
 
         embed = discord.Embed(
             title="🎉 年末ジャンボ 当選者発表",
@@ -289,6 +297,7 @@ class JumboCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
