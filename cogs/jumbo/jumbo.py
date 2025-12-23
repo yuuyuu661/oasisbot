@@ -267,21 +267,6 @@ class JumboCog(commands.Cog):
         print("[JUMBO] announce done")
 
     # -------------------------------------------------
-    # /ジャンボ履歴リセット
-    # -------------------------------------------------
-    @app_commands.command(name="ジャンボ履歴リセット")
-    async def jumbo_reset(self, interaction: discord.Interaction):
-        if not await self.is_admin(interaction):
-            return await interaction.response.send_message("❌ 管理者専用", ephemeral=True)
-
-        guild_id = str(interaction.guild.id)
-        await self.jumbo_db.clear_entries(guild_id)
-        await self.jumbo_db.clear_winners(guild_id)
-        await self.jumbo_db.reset_config(guild_id)
-
-        await interaction.response.send_message("🧹 リセット完了", ephemeral=True)
-
-    # -------------------------------------------------
     # /所持宝くじ番号確認
     # -------------------------------------------------
     @app_commands.command(name="所持宝くじ番号確認")
@@ -308,6 +293,23 @@ class JumboCog(commands.Cog):
             view=view,
             ephemeral=True
         )
+        
+    # -------------------------------------------------
+    # /ジャンボ履歴リセット
+    # -------------------------------------------------
+    @app_commands.command(name="ジャンボ履歴リセット")
+    async def jumbo_reset(self, interaction: discord.Interaction):
+        if not await self.is_admin(interaction):
+            return await interaction.response.send_message("❌ 管理者専用", ephemeral=True)
+
+        guild_id = str(interaction.guild.id)
+        await self.jumbo_db.clear_entries(guild_id)
+        await self.jumbo_db.clear_winners(guild_id)
+        await self.jumbo_db.reset_config(guild_id)
+
+        await interaction.response.send_message("🧹 リセット完了", ephemeral=True)
+
+
 
 
 # =====================================================
@@ -315,6 +317,7 @@ class JumboCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
