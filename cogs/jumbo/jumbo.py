@@ -296,8 +296,8 @@ class JumboCog(commands.Cog):
                     inline=False
                 )
 
-            await interaction.followup.send(embed=embed)
-            print("[JUMBO] announce done")
+        await interaction.followup.send(embed=embed)
+        print("[JUMBO] announce done")
 
     # -------------------------------------------------
     # /所持宝くじ番号確認
@@ -350,6 +350,7 @@ class JumboCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
