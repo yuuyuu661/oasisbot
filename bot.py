@@ -34,18 +34,7 @@ bot.db = Database()
 async def on_ready():
     print(f"ログイン完了：{bot.user}")
 
-    # ===== グローバルコマンド全削除 =====
-    bot.tree.clear_commands(guild=None)
-    await bot.tree.sync()
-    print("🧹 グローバルコマンド全削除完了")
 
-    # ===== ギルドコマンド再登録 =====
-    for gid in bot.GUILD_IDS:
-        guild = discord.Object(id=gid)
-        bot.tree.clear_commands(guild=guild)
-        await bot.tree.sync(guild=guild)
-        print(f"🔁 ギルドコマンド再同期完了: {gid}")
-    await bot.db.init_db()
     print("データベース準備完了")
 
     await load_cogs()
@@ -85,6 +74,7 @@ async def load_cogs():
 
 if __name__ == "__main__":
     asyncio.run(bot.start(TOKEN))
+
 
 
 
