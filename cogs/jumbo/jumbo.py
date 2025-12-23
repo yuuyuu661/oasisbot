@@ -234,22 +234,47 @@ class JumboCog(commands.Cog):
             5: 100_000,
         }
 
-        for rank in range(1, 6):
+        # 既に当選扱いにした「番号」を記録（ユーザーではなく番号で排除）
+        used_numbers: set[str] = set()
+
+        # 結果格納（rank => entries）
+        results = {i: [] for i in range(1, 6)}
+
+        # 桁数→等級
+        LEN_TO_RANK = {6: 1, 5: 2, 4: 3, 3: 4, 2: 5}
+
+        # 大きい等級から順に判定（同じ番号が複数等級に当たらないように）
+        for L in [6, 5, 4, 3, 2]:
+            rank = LEN_TO_RANK[L]
             prize = PRIZES[rank]
-            winners = results[rank]
 
-            text = "いませんでした。" if not winners else "\n".join(
-                f"<@{w['user_id']}> `{w['number']}`"
-                for w in winners
-            )
+            # winning の部分文字列（位置つき）
+            for i in range(0, 6 - L + 1):
+                w_part = win[i:i+L]
 
-            embed.add_field(
-                name=f"第{rank}等（{prize:,} rrc）",
-                value=text,
-                inline=False
-            )
+                for e in entries:
+                    num = e["number"]
 
-        await interaction.followup.send(embed=embed)
+                    # 番号単位で「一度当たったら除外」
+                    if num in used_numbers:
+                        continue
+
+                    # 同じ位置の部分文字列が一致したら当選
+                    t_part = num[i:i+L]
+                    if t_part == w_part:
+                        print(f"[JUMBO] HIT rank={rank} L={L} pos={i} win={w_part} num={num} uid={e['user_id']}")
+                        used_numbers.add(num)
+                        results[rank].append(e)
+
+                        # DB保存するならここ（match_count は L）
+                        await self.jumbo_db.set_winner(
+                            guild_id,
+                            rank,
+                            num,
+                            e["user_id"],
+                            L,      # match_count
+                            prize
+                        )
 
     # -------------------------------------------------
     # /所持宝くじ番号確認
@@ -302,6 +327,7 @@ class JumboCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
