@@ -734,7 +734,7 @@ class JankenCardCog(commands.Cog):
         guild_id = game.guild_id
         bal_loser = await self._get_balance(loser_id, guild_id)
         if bal_loser < game.rate:
-            await if ch: await ch.send(
+            if ch: await ch.send(
                 f"⚠️ 結果確定時点で敗者の残高が不足していました。（必要:{game.rate} / 現在:{bal_loser}）\n"
                 f"今回は **移動なし** で終了します。"
             )
@@ -780,6 +780,7 @@ class JankenCardCog(commands.Cog):
 async def setup(bot: commands.Bot):
 
     await bot.add_cog(JankenCardCog(bot))
+
 
 
 
