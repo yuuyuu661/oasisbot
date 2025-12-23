@@ -80,6 +80,7 @@ async def load_cogs():
         "cogs.jumbo.jumbo", 
         "cogs.backup", 
         "cogs.slot",
+        "cogs.janken_card",
     ]
     for ext in extensions:
         try:
@@ -91,6 +92,7 @@ async def load_cogs():
 
 if __name__ == "__main__":
     asyncio.run(bot.start(TOKEN))
+
 
 
 
