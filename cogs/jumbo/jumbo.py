@@ -164,80 +164,80 @@ class JumboCog(commands.Cog):
                 ephemeral=True
             )
 
-# -------------------------------------------------
-# /年末ジャンボ当選者発表
-# -------------------------------------------------
-@app_commands.command(name="年末ジャンボ当選者発表")
-async def jumbo_announce(self, interaction: discord.Interaction):
-    await interaction.response.defer()
+    # -------------------------------------------------
+    # /年末ジャンボ当選者発表
+    # -------------------------------------------------
+    @app_commands.command(name="年末ジャンボ当選者発表")
+    async def jumbo_announce(self, interaction: discord.Interaction):
+        await interaction.response.defer()
 
-    if not await self.is_admin(interaction):
-        return await interaction.followup.send("❌ 管理者専用")
+        if not await self.is_admin(interaction):
+            return await interaction.followup.send("❌ 管理者専用")
 
-    guild_id = str(interaction.guild.id)
-    config = await self.jumbo_db.get_config(guild_id)
+        guild_id = str(interaction.guild.id)
+        config = await self.jumbo_db.get_config(guild_id)
 
-    if not config or not config["winning_number"]:
-        return await interaction.followup.send("❌ 当選番号が未設定です")
+        if not config or not config["winning_number"]:
+            return await interaction.followup.send("❌ 当選番号が未設定です")
 
-    entries = await self.jumbo_db.get_all_entries(guild_id)
-    if not entries:
-        return await interaction.followup.send("⚠ 購入者がいません")
+        entries = await self.jumbo_db.get_all_entries(guild_id)
+        if not entries:
+            return await interaction.followup.send("⚠ 購入者がいません")
 
-    # ★ 固定賞金テーブル
-    PRIZES = {
-        1: 10_000_000,
-        2: 5_000_000,
-        3: 1_000_000,
-        4: 500_000,
-        5: 100_000,
-    }
+        # ★ 固定賞金テーブル
+        PRIZES = {
+            1: 10_000_000,
+            2: 5_000_000,
+            3: 1_000_000,
+            4: 500_000,
+            5: 100_000,
+        }
 
-    await self.jumbo_db.clear_winners(guild_id)
+        await self.jumbo_db.clear_winners(guild_id)
 
-    results = {i: [] for i in range(1, 6)}
+        results = {i: [] for i in range(1, 6)}
 
-    for e in entries:
-        match = count_continuous_match(config["winning_number"], e["number"])
-        rank = match_to_rank(match)
-        if not rank:
-            continue
+        for e in entries:
+            match = count_continuous_match(config["winning_number"], e["number"])
+            rank = match_to_rank(match)
+            if not rank:
+                continue
 
-        prize = PRIZES[rank]
+            prize = PRIZES[rank]
 
-        await self.jumbo_db.set_winner(
-            guild_id,
-            rank,
-            e["number"],
-            e["user_id"],
-            match,
-            prize
-        )
-        results[rank].append(e)
+            await self.jumbo_db.set_winner(
+                guild_id,
+                rank,
+                e["number"],
+                e["user_id"],
+                match,
+                prize
+            )
+            results[rank].append(e)
 
-    embed = discord.Embed(title="🎉 年末ジャンボ 当選者発表", color=0xF1C40F)
-    embed.add_field(
-        name="🎯 当選番号",
-        value=f"**{config['winning_number']}**",
-        inline=False
-    )
-
-    for rank in range(1, 6):
-        prize = PRIZES[rank]
-        winners = results[rank]
-
-        text = "いませんでした。" if not winners else "\n".join(
-            f"<@{w['user_id']}> `{w['number']}`"
-            for w in winners
-        )
-
+        embed = discord.Embed(title="🎉 年末ジャンボ 当選者発表", color=0xF1C40F)
         embed.add_field(
-            name=f"第{rank}等（{prize:,} rrc）",
-            value=text,
+            name="🎯 当選番号",
+            value=f"**{config['winning_number']}**",
             inline=False
         )
 
-    await interaction.followup.send(embed=embed)
+        for rank in range(1, 6):
+            prize = PRIZES[rank]
+            winners = results[rank]
+
+            text = "いませんでした。" if not winners else "\n".join(
+                f"<@{w['user_id']}> `{w['number']}`"
+                for w in winners
+            )
+
+            embed.add_field(
+                name=f"第{rank}等（{prize:,} rrc）",
+                value=text,
+                inline=False
+            )
+
+        await interaction.followup.send(embed=embed)
 
 
     # -------------------------------------------------
@@ -330,6 +330,7 @@ async def jumbo_announce(self, interaction: discord.Interaction):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
