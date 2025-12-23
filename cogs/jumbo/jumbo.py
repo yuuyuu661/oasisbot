@@ -241,47 +241,6 @@ class JumboCog(commands.Cog):
 
 
     # -------------------------------------------------
-    # /年末ジャンボ当選者賞金付与
-    # -------------------------------------------------
-    @app_commands.command(name="年末ジャンボ当選者賞金付与")
-    async def jumbo_pay_prizes(self, interaction: discord.Interaction):
-        # ★ 超重要
-        await interaction.response.defer(ephemeral=True)
-
-        if not await self.is_admin(interaction):
-            return await interaction.followup.send("❌ 管理者専用", ephemeral=True)
-
-        guild_id = str(interaction.guild.id)
-        config = await self.jumbo_db.get_config(guild_id)
-
-        if config["prize_paid"]:
-            return await interaction.followup.send("⚠️ すでに付与済み", ephemeral=True)
-
-        winners = await self.jumbo_db.get_all_winners(guild_id)
-        if not winners:
-            return await interaction.followup.send("⚠️ 当選者なし", ephemeral=True)
-
-        payout: dict[str, int] = {}
-        for w in winners:
-            payout[w["user_id"]] = payout.get(w["user_id"], 0) + w["prize"]
-
-        for uid, total in payout.items():
-            await self.bot.db.add_balance(uid, guild_id, total)
-
-        await self.jumbo_db.mark_prize_paid(guild_id)
-
-        embed = discord.Embed(title="💰 賞金付与完了", color=0x2ECC71)
-        for uid, total in payout.items():
-            embed.add_field(
-                name=f"<@{uid}>",
-                value=f"{total:,} rrc",
-                inline=False
-            )
-
-        await interaction.followup.send(embed=embed, ephemeral=True)
-
-
-    # -------------------------------------------------
     # /所持宝くじ番号確認
     # -------------------------------------------------
     @app_commands.command(name="所持宝くじ番号確認")
@@ -330,6 +289,7 @@ class JumboCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
