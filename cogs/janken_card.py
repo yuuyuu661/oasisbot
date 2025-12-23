@@ -596,6 +596,8 @@ class JankenCardCog(commands.Cog):
         for pid in game.players:
             game.selected[pid] = None
 
+        p1, p2 = game.players
+
         # ラウンド開始告知
         ch = game.channel or self.bot.get_channel(game.channel_id)
         if ch:
@@ -780,6 +782,7 @@ class JankenCardCog(commands.Cog):
 async def setup(bot: commands.Bot):
 
     await bot.add_cog(JankenCardCog(bot))
+
 
 
 
