@@ -85,6 +85,9 @@ class JumboCog(commands.Cog):
         self.bot = bot
         self.jumbo_db = JumboDB(bot)
 
+        # ★ 追加：DBマイグレーションを自動実行
+        bot.loop.create_task(self.jumbo_db.init_tables())
+
 
     # -------------------------------------------------
     # 管理者判定
@@ -296,6 +299,7 @@ class JumboCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
