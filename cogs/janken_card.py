@@ -567,20 +567,17 @@ class JankenCardCog(commands.Cog):
         game.turn_timer_task = None
 
 
-    def _start_turn_timer(self, interaction: discord.Interaction, game: JankenGame):
-        """60秒タイマーを開始（時間切れで自動選択→勝負解決）"""
+    def _start_turn_timer(self, game: JankenGame):
         async def _timeout():
             try:
                 await asyncio.sleep(TURN_TIMEOUT)
             except asyncio.CancelledError:
-                return  # 確定などで停止された場合
+                return
 
-            # 未確定を自動選択
             for pid in game.players:
                 await self._auto_pick_if_needed(game, pid)
 
-            # 両者揃っていれば解決
-            await self._try_resolve_round(interaction, game)
+            await self._try_resolve_round(game)
 
         game.turn_timer_task = asyncio.create_task(_timeout())
     
@@ -611,7 +608,7 @@ class JankenCardCog(commands.Cog):
         # 60秒後に未確定を自動選択して、揃ったら解決へ
         # ★ ターン開始時に必ずタイマーをリセットして開始
         self._cancel_turn_timer(game)
-        self._start_turn_timer(interaction, game)
+        self._start_turn_timer(game)
 
     async def _auto_pick_if_needed(self, game: JankenGame, player_id: int):
         if game.selected.get(player_id) is not None:
@@ -641,18 +638,26 @@ class JankenCardCog(commands.Cog):
         # ★ 両者の選択が揃ったら即進行（タイムラグ解消）
         if all(game.selected.get(pid) is not None for pid in game.players):
             self._cancel_turn_timer(game)
-            asyncio.create_task(self._try_resolve_round(interaction, game))
+            asyncio.create_task(self._try_resolve_round(game))
         return True
 
-    async def _try_resolve_round(self, interaction: discord.Interaction, game: JankenGame):
+    async def _try_resolve_round(self, game: JankenGame):
         if game.resolving:
             return
         if any(game.selected.get(pid) is None for pid in game.players):
             return
-        await self._resolve_round(interaction, game)
+        await self._resolve_round(game)
 
     async def _resolve_round(self, interaction: discord.Interaction, game: JankenGame):
         game.resolving = True
+        ch = game.channel or self.bot.get_channel(game.channel_id)
+        if not isinstance(ch, discord.TextChannel):
+            game.resolving = False
+            return
+
+        guild = self.bot.get_guild(game.guild_id)
+
+        
 
         p1, p2 = game.players
         i1 = game.selected[p1]
@@ -783,6 +788,7 @@ class JankenCardCog(commands.Cog):
 async def setup(bot: commands.Bot):
 
     await bot.add_cog(JankenCardCog(bot))
+
 
 
 
