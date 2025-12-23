@@ -4,10 +4,11 @@ from __future__ import annotations
 import discord
 from discord.ext import commands
 from discord import app_commands
-from datetime import datetime, timezone
+from datetime import datetime
 
 from .jumbo_db import JumboDB
 from .jumbo_purchase import JumboBuyView
+
 
 # =====================================================
 # 所持番号一覧 View
@@ -48,8 +49,9 @@ class NumberListView(discord.ui.View):
         self.page = min(max_page, self.page + 1)
         await interaction.response.edit_message(embed=self.make_embed(), view=self)
 
+
 # =====================================================
-# 判定ロジック（スライド一致・検索型）
+# 判定ロジック（スライド一致）
 # =====================================================
 def is_hit(winning: str, number: str, match_len: int) -> bool:
     for i in range(0, 6 - match_len + 1):
@@ -66,9 +68,11 @@ class JumboCog(commands.Cog):
         self.bot = bot
         self.jumbo_db = JumboDB(bot)
 
-        # ★ 追加：DBマイグレーションを自動実行
-        bot.loop.create_task(self.jumbo_db.init_tables())
-
+    # ★ ここが超重要（DB初期化）
+    @commands.Cog.listener()
+    async def on_ready(self):
+        await self.jumbo_db.init_tables()
+        print("[JUMBO] DB tables ready")
 
     # -------------------------------------------------
     # 管理者判定
@@ -87,7 +91,7 @@ class JumboCog(commands.Cog):
         interaction: discord.Interaction,
         title: str,
         description: str,
-        deadline: str,  # MM-DD
+        deadline: str,
     ):
         if not await self.is_admin(interaction):
             return await interaction.response.send_message("❌ 管理者専用", ephemeral=True)
@@ -124,6 +128,7 @@ class JumboCog(commands.Cog):
     # -------------------------------------------------
     @app_commands.command(name="年末ジャンボ当選者発表")
     async def jumbo_announce(self, interaction: discord.Interaction):
+        print("[JUMBO] announce start")
         await interaction.response.defer()
 
         if not await self.is_admin(interaction):
@@ -136,7 +141,10 @@ class JumboCog(commands.Cog):
             return await interaction.followup.send("❌ 当選番号が未設定です")
 
         winning = config["winning_number"]
+        print("[JUMBO] winning =", winning)
+
         entries = await self.jumbo_db.get_all_entries(guild_id)
+        print("[JUMBO] entries =", len(entries))
 
         if not entries:
             return await interaction.followup.send("⚠ 購入者がいません")
@@ -158,16 +166,12 @@ class JumboCog(commands.Cog):
         for rank, match_len in RANK_RULES.items():
             for e in entries:
                 number = e["number"]
-
                 if number in used_numbers:
                     continue
 
                 if is_hit(winning, number, match_len):
                     used_numbers.add(number)
-                    results[rank].append({
-                        "user_id": e["user_id"],
-                        "number": number,
-                    })
+                    results[rank].append(e)
 
         embed = discord.Embed(
             title="🎉 年末ジャンボ 当選者発表",
@@ -188,47 +192,29 @@ class JumboCog(commands.Cog):
             )
 
         await interaction.followup.send(embed=embed)
+        print("[JUMBO] announce done")
 
     # -------------------------------------------------
     # /年末ジャンボ設定
     # -------------------------------------------------
-        
     @app_commands.command(name="年末ジャンボ設定")
     async def jumbo_set_prize(self, interaction: discord.Interaction, winning_number: str):
-
         await interaction.response.defer(ephemeral=True)
 
-        try:
-            if not await self.is_admin(interaction):
-                return await interaction.followup.send("❌ 管理者専用")
+        if not await self.is_admin(interaction):
+            return await interaction.followup.send("❌ 管理者専用")
 
-            if not winning_number.isdigit() or len(winning_number) != 6:
-                return await interaction.followup.send("❌ 当選番号は6桁です")
+        if not winning_number.isdigit() or len(winning_number) != 6:
+            return await interaction.followup.send("❌ 当選番号は6桁です")
 
-            await self.jumbo_db.set_winning_number(
-                str(interaction.guild.id),
-                winning_number
-            )
-
-            await interaction.followup.send("🎯 当選番号を設定しました！")
-
-        except Exception as e:
-            print("jumbo_set_prize error:", repr(e))
-            await interaction.followup.send(
-                "❌ 内部エラーが発生しました（DB）",
-                ephemeral=True
-            )
-
+        await self.jumbo_db.set_winning_number(str(interaction.guild.id), winning_number)
+        await interaction.followup.send("🎯 当選番号を設定しました！")
 
     # -------------------------------------------------
-    # /所持宝くじ番号確認
+    # /所持宝くじ番号を確認
     # -------------------------------------------------
     @app_commands.command(name="所持宝くじ番号を確認")
-    async def jumbo_my_numbers(
-        self,
-        interaction: discord.Interaction,
-        search: str | None = None,
-    ):
+    async def jumbo_my_numbers(self, interaction: discord.Interaction, search: str | None = None):
         guild_id = str(interaction.guild.id)
         user_id = str(interaction.user.id)
 
@@ -236,18 +222,14 @@ class JumboCog(commands.Cog):
         numbers = [r["number"] for r in rows]
 
         if search:
-            numbers = [n for n in numbers if n.startswith(search) or n.endswith(search)]
+            numbers = [n for n in numbers if search in n]
 
         if not numbers:
             return await interaction.response.send_message("該当なし", ephemeral=True)
 
         view = NumberListView(interaction.user, numbers)
-        await interaction.response.send_message(
-            embed=view.make_embed(),
-            view=view,
-            ephemeral=True
-        )
-        
+        await interaction.response.send_message(embed=view.make_embed(), view=view, ephemeral=True)
+
     # -------------------------------------------------
     # /ジャンボ履歴リセット
     # -------------------------------------------------
@@ -264,41 +246,5 @@ class JumboCog(commands.Cog):
         await interaction.response.send_message("🧹 リセット完了", ephemeral=True)
 
 
-
-
-# =====================================================
-# setup（bal と完全一致）
-# =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
