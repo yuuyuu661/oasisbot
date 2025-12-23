@@ -144,41 +144,11 @@ class JumboCog(commands.Cog):
         await interaction.followup.send(embed=embed, view=view)
 
     # -------------------------------------------------
-    # /年末ジャンボ設定
-    # -------------------------------------------------
-    @app_commands.command(name="年末ジャンボ設定")
-    async def jumbo_set_prize(self, interaction: discord.Interaction, winning_number: str):
-
-        await interaction.response.defer(ephemeral=True)
-
-        try:
-            if not await self.is_admin(interaction):
-                return await interaction.followup.send("❌ 管理者専用")
-
-            if not winning_number.isdigit() or len(winning_number) != 6:
-                return await interaction.followup.send("❌ 当選番号は6桁です")
-
-            await self.jumbo_db.set_winning_number(
-                str(interaction.guild.id),
-                winning_number
-            )
-
-            await interaction.followup.send("🎯 当選番号を設定しました！")
-
-        except Exception as e:
-            print("jumbo_set_prize error:", repr(e))
-            await interaction.followup.send(
-                "❌ 内部エラーが発生しました（DB）",
-                ephemeral=True
-            )
-
-    # -------------------------------------------------
     # /年末ジャンボ当選者発表
     # -------------------------------------------------
     @app_commands.command(name="年末ジャンボ当選者発表")
     async def jumbo_announce(self, interaction: discord.Interaction):
         print("[JUMBO] announce start")
-
         await interaction.response.defer()
         print("[JUMBO] defer OK")
 
@@ -186,8 +156,8 @@ class JumboCog(commands.Cog):
             return await interaction.followup.send("❌ 管理者専用")
 
         guild_id = str(interaction.guild.id)
-        config = await self.jumbo_db.get_config(guild_id)
 
+        config = await self.jumbo_db.get_config(guild_id)
         if not config or not config["winning_number"]:
             return await interaction.followup.send("❌ 当選番号が未設定です")
 
@@ -200,11 +170,18 @@ class JumboCog(commands.Cog):
         if not entries:
             return await interaction.followup.send("⚠ 購入者がいません")
 
-        # 既存当選結果をクリア
+        # 念のため当選結果リセット
         await self.jumbo_db.clear_winners(guild_id)
-        print("[JUMBO] winners cleared")
 
-        # 賞金
+        # 等級定義
+        RANK_RULES = {
+            1: 6,
+            2: 5,
+            3: 4,
+            4: 3,
+            5: 2,
+        }
+
         PRIZES = {
             1: 10_000_000,
             2: 5_000_000,
@@ -213,60 +190,39 @@ class JumboCog(commands.Cog):
             5: 100_000,
         }
 
-        # 結果格納
-        results: dict[int, list[dict]] = {i: [] for i in range(1, 6)}
+        results = {r: [] for r in range(1, 6)}
+        used_numbers = set()  # 同じ番号の重複当選防止
 
-        # 「番号」単位で当選済み管理（ユーザーではない）
-        used_numbers: set[str] = set()
+        for rank, length in RANK_RULES.items():
+            patterns = [
+                winning[i:i+length]
+                for i in range(0, len(winning) - length + 1)
+            ]
 
-        # 桁数 → 等級
-        LEN_TO_RANK = {
-            6: 1,
-            5: 2,
-            4: 3,
-            3: 4,
-            2: 5,
-        }
+            print(f"[JUMBO] rank {rank} patterns:", patterns)
 
-        # 大きい等級から順に判定
-        for L in [6, 5, 4, 3, 2]:
-            rank = LEN_TO_RANK[L]
-            prize = PRIZES[rank]
+            for e in entries:
+                number = e["number"]
 
-            # 当選番号の部分文字列（位置つき）
-            for i in range(0, 6 - L + 1):
-                win_part = winning[i:i + L]
+                if number in used_numbers:
+                    continue
 
-                for e in entries:
-                    num = e["number"]
+                if any(p in number for p in patterns):
+                    used_numbers.add(number)
 
-                    # 同じ番号が複数等級に当たらないようにする
-                    if num in used_numbers:
-                        continue
+                    await self.jumbo_db.set_winner(
+                        guild_id,
+                        rank,
+                        number,
+                        e["user_id"],
+                        length,
+                        PRIZES[rank]
+                    )
 
-                    # 同じ位置の部分一致のみ有効
-                    if num[i:i + L] == win_part:
-                        print(
-                            f"[JUMBO] HIT rank={rank} L={L} pos={i} "
-                            f"win={win_part} num={num} uid={e['user_id']}"
-                        )
+                    results[rank].append(e)
+                    print("[JUMBO] HIT", number, "rank", rank)
 
-                        used_numbers.add(num)
-                        results[rank].append(e)
-
-                        # DB保存
-                        await self.jumbo_db.set_winner(
-                            guild_id,
-                            rank,
-                            num,
-                            e["user_id"],
-                            L,          # match_count
-                            prize
-                        )
-
-        # =========================
-        # 結果パネル生成
-        # =========================
+        # ===== パネル生成 =====
         embed = discord.Embed(
             title="🎉 年末ジャンボ 当選者発表",
             color=0xF1C40F
@@ -279,25 +235,57 @@ class JumboCog(commands.Cog):
         )
 
         for rank in range(1, 6):
-                prize = PRIZES[rank]
-                winners = results[rank]
+            prize = PRIZES[rank]
+            winners = results[rank]
 
-                if not winners:
-                    text = "いませんでした。"
-                else:
-                    text = "\n".join(
-                        f"<@{w['user_id']}> `{w['number']}`"
-                        for w in winners
-                    )
+            text = "いませんでした。" if not winners else "\n".join(
+                f"<@{w['user_id']}> `{w['number']}`"
+                for w in winners
+            )
 
-                embed.add_field(
-                    name=f"第{rank}等（{prize:,} rrc）",
-                    value=text,
-                    inline=False
-                )
+            embed.add_field(
+                name=f"第{rank}等（{prize:,} rrc）",
+                value=text,
+                inline=False
+            )
 
         await interaction.followup.send(embed=embed)
         print("[JUMBO] announce done")
+
+            # =========================
+            # 結果パネル生成
+            # =========================
+            embed = discord.Embed(
+                title="🎉 年末ジャンボ 当選者発表",
+                color=0xF1C40F
+            )
+
+            embed.add_field(
+                name="🎯 当選番号",
+                value=f"**{winning}**",
+                inline=False
+            )
+
+            for rank in range(1, 6):
+                    prize = PRIZES[rank]
+                    winners = results[rank]
+
+                    if not winners:
+                        text = "いませんでした。"
+                    else:
+                        text = "\n".join(
+                            f"<@{w['user_id']}> `{w['number']}`"
+                            for w in winners
+                        )
+
+                    embed.add_field(
+                        name=f"第{rank}等（{prize:,} rrc）",
+                        value=text,
+                        inline=False
+                    )
+
+            await interaction.followup.send(embed=embed)
+            print("[JUMBO] announce done")
 
     # -------------------------------------------------
     # /所持宝くじ番号確認
@@ -350,6 +338,7 @@ class JumboCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
