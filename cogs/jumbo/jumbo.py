@@ -308,11 +308,7 @@ class JumboCog(commands.Cog):
 # setup（bal と完全一致）
 # =====================================================
 async def setup(bot: commands.Bot):
-    cog = JumboCog(bot)
-    await bot.add_cog(cog)
-    for cmd in cog.get_app_commands():
-        for gid in bot.GUILD_IDS:
-            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+    await bot.add_cog(JumboCog(bot))
 
 
 
