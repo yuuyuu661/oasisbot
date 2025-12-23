@@ -44,6 +44,17 @@ class JumboDB:
             );
         """)
 
+        # ★★★ ここから追加（最重要）★★★
+        await self.db.conn.execute("""
+            ALTER TABLE jumbo_config
+            ADD COLUMN IF NOT EXISTS winning_number VARCHAR(6);
+        """)
+
+        await self.db.conn.execute("""
+            ALTER TABLE jumbo_config
+            ADD COLUMN IF NOT EXISTS prize_paid BOOLEAN DEFAULT FALSE;
+        """)
+
         # ------------------------------
         # 購入番号
         # ------------------------------
@@ -221,6 +232,7 @@ class JumboDB:
             raise RuntimeError(
                 "ジャンボが未開催です。先に /年末ジャンボ開催 を実行してください。"
             )
+
 
 
 
