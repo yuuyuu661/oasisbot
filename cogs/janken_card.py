@@ -393,16 +393,16 @@ class JankenCardCog(commands.Cog):
         await interaction.response.defer()
         
         if rate <= 0:
-            await interaction.response.send_message("❌ rate は1以上で指定してください。", ephemeral=True)
+            await interaction.followup.send("❌ rate は1以上で指定してください。", ephemeral=True)
             return
 
         if interaction.guild_id is None:
-            await interaction.response.send_message("❌ サーバー内で実行してください。", ephemeral=True)
+            await interaction.followup.send("❌ サーバー内で実行してください。", ephemeral=True)
             return
 
         key = (interaction.guild_id, interaction.channel_id)
         if key in self.games and self.games[key].started:
-            await interaction.response.send_message("❌ このチャンネルではすでにゲームが進行中です。", ephemeral=True)
+            await interaction.followup.send("❌ このチャンネルではすでにゲームが進行中です。", ephemeral=True)
             return
 
         # 既存があって未開始なら上書き再募集
@@ -412,7 +412,7 @@ class JankenCardCog(commands.Cog):
         # 主催者は自動参加（※仕様に合わせて外してもOK）
         bal = await self._get_balance(interaction.user.id, interaction.guild_id)
         if bal < rate:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"❌ 主催者の残高が不足しています。（必要: {rate} / 現在: {bal}）",
                 ephemeral=True
             )
@@ -426,7 +426,7 @@ class JankenCardCog(commands.Cog):
         embed = self._build_panel_embed(interaction.guild, game)
         view = JankenPanelView(self, game)
 
-        await interaction.response.send_message(embed=embed, view=view)
+        await interaction.followup.send(embed=embed, view=view)
         try:
             msg = await interaction.original_response()
             self.panel_message_ids[key] = msg.id
@@ -734,5 +734,6 @@ class JankenCardCog(commands.Cog):
 async def setup(bot: commands.Bot):
 
     await bot.add_cog(JankenCardCog(bot))
+
 
 
