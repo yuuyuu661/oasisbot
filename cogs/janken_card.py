@@ -751,13 +751,13 @@ class JankenCardCog(commands.Cog):
 
         ok = await self._sub_balance(loser_id, game.rate, guild_id)
         if not ok:
-            await if ch: await ch.send("⚠️ 減算に失敗しました。今回は移動なしで終了します。")
+            if ch: await ch.send("⚠️ 減算に失敗しました。今回は移動なしで終了します。")
             self._cleanup_game(game)
             return
 
         await self._add_balance(winner_id, game.rate, guild_id)
 
-        await if ch: await ch.send(
+        if ch: await ch.send(
             f"🏆 **勝者：<@{winner_id}>**\n"
             f"💸 <@{loser_id}> から **{game.rate}** を回収 → <@{winner_id}> に付与しました。\n"
             f"最終：<@{p1}> {game.wins[p1]}勝 / <@{p2}> {game.wins[p2]}勝"
@@ -788,6 +788,7 @@ class JankenCardCog(commands.Cog):
 async def setup(bot: commands.Bot):
 
     await bot.add_cog(JankenCardCog(bot))
+
 
 
 
