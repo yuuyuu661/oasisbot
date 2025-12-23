@@ -52,11 +52,6 @@ class NumberListView(discord.ui.View):
 # 判定ロジック（スライド一致・検索型）
 # =====================================================
 def is_hit(winning: str, number: str, match_len: int) -> bool:
-    """
-    winning: 当選番号（6桁）
-    number : 購入番号（6桁）
-    match_len: 一致させたい桁数（6〜2）
-    """
     for i in range(0, 6 - match_len + 1):
         if winning[i:i + match_len] == number[i:i + match_len]:
             return True
@@ -129,40 +124,26 @@ class JumboCog(commands.Cog):
     # -------------------------------------------------
     @app_commands.command(name="年末ジャンボ当選者発表")
     async def jumbo_announce(self, interaction: discord.Interaction):
-        print("[JUMBO] announce start")
         await interaction.response.defer()
-        print("[JUMBO] defer OK")
 
         if not await self.is_admin(interaction):
             return await interaction.followup.send("❌ 管理者専用")
 
         guild_id = str(interaction.guild.id)
-
         config = await self.jumbo_db.get_config(guild_id)
+
         if not config or not config["winning_number"]:
             return await interaction.followup.send("❌ 当選番号が未設定です")
 
         winning = config["winning_number"]
-        print("[JUMBO] winning_number =", winning)
-
         entries = await self.jumbo_db.get_all_entries(guild_id)
-        print("[JUMBO] entries count =", len(entries))
 
         if not entries:
             return await interaction.followup.send("⚠ 購入者がいません")
 
-        # 念のため当選結果リセット
         await self.jumbo_db.clear_winners(guild_id)
 
-        # 等級ルール
-        RANK_RULES = {
-            1: 6,
-            2: 5,
-            3: 4,
-            4: 3,
-            5: 2,
-        }
-
+        RANK_RULES = {1: 6, 2: 5, 3: 4, 4: 3, 5: 2}
         PRIZES = {
             1: 10_000_000,
             2: 5_000_000,
@@ -172,11 +153,9 @@ class JumboCog(commands.Cog):
         }
 
         results = {r: [] for r in range(1, 6)}
-        used_numbers = set()  # 同じ番号の重複当選防止
+        used_numbers = set()
 
-        # ===== 判定処理 =====
         for rank, match_len in RANK_RULES.items():
-            print("[JUMBO] start rank loop", rank, "len", match_len)
             for e in entries:
                 number = e["number"]
 
@@ -185,38 +164,23 @@ class JumboCog(commands.Cog):
 
                 if is_hit(winning, number, match_len):
                     used_numbers.add(number)
-
                     results[rank].append({
                         "user_id": e["user_id"],
                         "number": number,
-                        "match_len": match_len,
-                        "prize": PRIZES[rank],
                     })
 
-                    print("[JUMBO] HIT", number, "rank", rank)
-                    
-
-        # ===== パネル生成 =====
         embed = discord.Embed(
             title="🎉 年末ジャンボ 当選者発表",
             color=0xF1C40F
         )
-
-        embed.add_field(
-            name="🎯 当選番号",
-            value=f"**{winning}**",
-            inline=False
-        )
+        embed.add_field(name="🎯 当選番号", value=f"**{winning}**", inline=False)
 
         for rank in range(1, 6):
             prize = PRIZES[rank]
             winners = results[rank]
-
             text = "いませんでした。" if not winners else "\n".join(
-                f"<@{w['user_id']}> `{w['number']}`"
-                for w in winners
+                f"<@{w['user_id']}> `{w['number']}`" for w in winners
             )
-
             embed.add_field(
                 name=f"第{rank}等（{prize:,} rrc）",
                 value=text,
@@ -224,7 +188,10 @@ class JumboCog(commands.Cog):
             )
 
         await interaction.followup.send(embed=embed)
-        print("[JUMBO] announce done")
+
+    # -------------------------------------------------
+    # /年末ジャンボ設定
+    # -------------------------------------------------
         
     @app_commands.command(name="年末ジャンボ設定")
     async def jumbo_set_prize(self, interaction: discord.Interaction, winning_number: str):
@@ -304,6 +271,7 @@ class JumboCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
