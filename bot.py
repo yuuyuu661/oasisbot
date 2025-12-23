@@ -35,6 +35,11 @@ async def on_ready():
     print(f"ログイン完了：{bot.user}")
 
     await bot.db.init_db()
+    
+    from cogs.jumbo.jumbo_db import JumboDB
+    jumbo_db = JumboDB(bot)
+    await jumbo_db.init_tables()
+    
     print("データベース準備完了")
 
     await load_cogs()
@@ -86,6 +91,7 @@ async def load_cogs():
 
 if __name__ == "__main__":
     asyncio.run(bot.start(TOKEN))
+
 
 
 
