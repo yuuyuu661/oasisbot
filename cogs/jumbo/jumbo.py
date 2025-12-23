@@ -235,7 +235,32 @@ class JumboCog(commands.Cog):
 
         await interaction.followup.send(embed=embed)
         print("[JUMBO] announce done")
+        
+    @app_commands.command(name="年末ジャンボ設定")
+    async def jumbo_set_prize(self, interaction: discord.Interaction, winning_number: str):
 
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            if not await self.is_admin(interaction):
+                return await interaction.followup.send("❌ 管理者専用")
+
+            if not winning_number.isdigit() or len(winning_number) != 6:
+                return await interaction.followup.send("❌ 当選番号は6桁です")
+
+            await self.jumbo_db.set_winning_number(
+                str(interaction.guild.id),
+                winning_number
+            )
+
+            await interaction.followup.send("🎯 当選番号を設定しました！")
+
+        except Exception as e:
+            print("jumbo_set_prize error:", repr(e))
+            await interaction.followup.send(
+                "❌ 内部エラーが発生しました（DB）",
+                ephemeral=True
+            )
 
 
     # -------------------------------------------------
@@ -289,6 +314,7 @@ class JumboCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
