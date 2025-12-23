@@ -428,6 +428,8 @@ class JankenCardCog(commands.Cog):
     @app_commands.command(name="じゃんけんカード", description="じゃんけんカードゲーム（2人専用）")
     @app_commands.describe(rate="勝敗で移動するレート（整数）")
     async def janken_card(self, interaction: discord.Interaction, rate: int):
+        await interaction.response.defer()
+        
         if rate <= 0:
             await interaction.response.send_message("❌ rate は1以上で指定してください。", ephemeral=True)
             return
@@ -768,4 +770,5 @@ class JankenCardCog(commands.Cog):
 
 
 async def setup(bot: commands.Bot):
+
     await bot.add_cog(JankenCardCog(bot))
