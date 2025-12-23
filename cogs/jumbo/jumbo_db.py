@@ -32,30 +32,11 @@ class JumboDB:
                 description     TEXT NOT NULL,
                 deadline        TIMESTAMP NOT NULL,
                 is_open         BOOLEAN NOT NULL DEFAULT TRUE,
-
-                -- 追加仕様
-                winning_number  VARCHAR(6),
-                prize_1         BIGINT DEFAULT 0,
-                prize_2         BIGINT DEFAULT 0,
-                prize_3         BIGINT DEFAULT 0,
-                prize_4         BIGINT DEFAULT 0,
-                prize_5         BIGINT DEFAULT 0,
                 prize_paid      BOOLEAN DEFAULT FALSE
             );
         """)
 
-        await self.db.conn.execute("""
-            CREATE TABLE IF NOT EXISTS jumbo_winners (
-                guild_id    TEXT NOT NULL,
-                rank        INT NOT NULL,
-                number      VARCHAR(6) NOT NULL,
-                user_id     TEXT NOT NULL,
-                match_count INT,
-                prize       BIGINT DEFAULT 0,
-                PRIMARY KEY (guild_id, rank, number)
-            );
-        """)
-        # ★★★ ここから追加（最重要）★★★
+        # ★ 既存DB救済（後付けカラム）
         await self.db.conn.execute("""
             ALTER TABLE jumbo_config
             ADD COLUMN IF NOT EXISTS winning_number VARCHAR(6);
@@ -74,29 +55,24 @@ class JumboDB:
                 guild_id TEXT NOT NULL,
                 user_id  TEXT NOT NULL,
                 number   VARCHAR(6) NOT NULL,
-
                 PRIMARY KEY (guild_id, number)
             );
         """)
 
         # ------------------------------
-        # 当選結果
+        # 当選結果（CREATEは1回だけ）
         # ------------------------------
         await self.db.conn.execute("""
             CREATE TABLE IF NOT EXISTS jumbo_winners (
-                guild_id    TEXT NOT NULL,
-                rank        INT NOT NULL,
-                number      VARCHAR(6) NOT NULL,
-                user_id     TEXT NOT NULL,
-
-                -- 追加仕様
-                match_count INT,
-                prize       BIGINT DEFAULT 0,
-
+                guild_id TEXT NOT NULL,
+                rank     INT NOT NULL,
+                number   VARCHAR(6) NOT NULL,
+                user_id  TEXT NOT NULL,
                 PRIMARY KEY (guild_id, rank, number)
             );
         """)
-        # ★ 既存DB救済用
+
+        # ★ 既存DB救済（後付けカラム）
         await self.db.conn.execute("""
             ALTER TABLE jumbo_winners
             ADD COLUMN IF NOT EXISTS match_count INT;
@@ -131,7 +107,6 @@ class JumboDB:
         )
 
     async def close_config(self, guild_id: str):
-        """購入期限後にクローズ"""
         await self.db.conn.execute("""
             UPDATE jumbo_config
             SET is_open = FALSE
@@ -139,7 +114,6 @@ class JumboDB:
         """, guild_id)
 
     async def reset_config(self, guild_id: str):
-        """設定の完全リセット"""
         await self.db.conn.execute(
             "DELETE FROM jumbo_config WHERE guild_id=$1",
             guild_id
@@ -150,27 +124,17 @@ class JumboDB:
     # ============================================================
 
     async def add_number(self, guild_id: str, user_id: str, number: str):
-        """購入番号を保存（被りなし）"""
         try:
             await self.db.conn.execute("""
                 INSERT INTO jumbo_entries (guild_id, user_id, number)
                 VALUES ($1, $2, $3)
             """, guild_id, user_id, number)
             return True
-
         except UniqueViolationError:
             return False
-
         except Exception as e:
             print("[JUMBO add_number ERROR]:", e)
             return False
-
-    async def get_all_numbers(self, guild_id: str):
-        return await self.db.conn.fetch("""
-            SELECT * FROM jumbo_entries
-            WHERE guild_id=$1
-            ORDER BY number ASC
-        """, guild_id)
 
     async def get_user_numbers(self, guild_id: str, user_id: str):
         return await self.db.conn.fetch("""
@@ -212,13 +176,6 @@ class JumboDB:
             DO NOTHING;
         """, guild_id, rank, number, user_id, match_count, prize)
 
-    async def get_winners_by_rank(self, guild_id: str, rank: int):
-        return await self.db.conn.fetch("""
-            SELECT * FROM jumbo_winners
-            WHERE guild_id=$1 AND rank=$2
-            ORDER BY number ASC
-        """, guild_id, rank)
-
     async def get_all_winners(self, guild_id: str):
         return await self.db.conn.fetch("""
             SELECT * FROM jumbo_winners
@@ -229,37 +186,21 @@ class JumboDB:
     async def clear_winners(self, guild_id: str):
         await self.db.conn.execute("""
             DELETE FROM jumbo_winners WHERE guild_id=$1
-        """, guild_id)
+        """)
 
     # ============================================================
-    # 当選番号・賞金設定
+    # 当選番号設定
     # ============================================================
 
     async def set_winning_number(self, guild_id: str, winning_number: str):
-        result = await self.db.conn.execute(
-            """
+        result = await self.db.conn.execute("""
             UPDATE jumbo_config
-            SET
-                winning_number = $2,
+            SET winning_number = $2,
                 prize_paid = FALSE
             WHERE guild_id = $1
-            """,
-            guild_id,
-            winning_number
-        )
+        """, guild_id, winning_number)
 
-        # まだ開催されていない場合
         if result == "UPDATE 0":
             raise RuntimeError(
                 "ジャンボが未開催です。先に /年末ジャンボ開催 を実行してください。"
             )
-
-
-
-
-
-
-
-
-
-
