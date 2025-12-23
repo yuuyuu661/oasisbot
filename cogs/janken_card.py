@@ -18,6 +18,7 @@ from discord import app_commands
 from PIL import Image
 import io
 from collections import Counter
+from pathlib import Path
 
 
 # =========================================================
@@ -26,7 +27,8 @@ from collections import Counter
 
 # 画像素材フォルダ（あなたの配置に合わせて調整してOK）
 # 例: project_root/assets/janken/gu1.jpg ...
-ASSET_DIR = os.path.join(os.path.dirname(__file__), "..", "assets", "janken")
+BASE_DIR = Path(__file__).resolve().parent  # .../oasisbot/cogs
+ASSET_DIR = (BASE_DIR / "assets" / "janken").resolve()
 
 # 参加者は2人固定
 MAX_PLAYERS = 2
@@ -734,6 +736,7 @@ class JankenCardCog(commands.Cog):
 async def setup(bot: commands.Bot):
 
     await bot.add_cog(JankenCardCog(bot))
+
 
 
 
