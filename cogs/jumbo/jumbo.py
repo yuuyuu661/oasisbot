@@ -53,19 +53,24 @@ class NumberListView(discord.ui.View):
 # =====================================================
 # 判定ロジック（スライド一致）
 # =====================================================
-def is_hit(winning: str, number: str, match_len: int) -> bool:
+def rough_hit(winning: str, number: str, match_len: int) -> bool:
     """
-    winning / number : 6桁
-    match_len        : 6〜2
-    条件：同じ位置で連続 match_len 桁が一致
+    フェーズ1：位置は問わず、連続 match_len 桁が含まれているか
+    """
+    for i in range(0, 6 - match_len + 1):
+        if winning[i:i + match_len] in number:
+            return True
+    return False
+
+def strict_hit(winning: str, number: str, match_len: int) -> bool:
+    """
+    フェーズ2：同じ位置で連続 match_len 桁が完全一致
     """
     for start in range(0, 6 - match_len + 1):
-        ok = True
         for offset in range(match_len):
             if winning[start + offset] != number[start + offset]:
-                ok = False
                 break
-        if ok:
+        else:
             return True
     return False
 
@@ -180,26 +185,33 @@ class JumboCog(commands.Cog):
         # ==========================
         # 判定処理
         # ==========================
-        for rank in range(1, 6):
-            length = RANK_RULES[rank]
-            patterns = make_patterns(winning, length)
+        results = {r: [] for r in range(1, 6)}
+        used_numbers = set()
 
+        for rank, match_len in RANK_RULES.items():
+            candidates = []
+
+            # ---- フェーズ1：粗く絞る ----
             for e in entries:
                 number = e["number"]
 
-                # 同じ番号は1回のみ当選
                 if number in used_numbers:
                     continue
 
-                if any(p == number[i:i + length]
-                       for p in patterns
-                       for i in range(0, 6 - length + 1)):
+                if rough_hit(winning, number, match_len):
+                    candidates.append(e)
 
+            # ---- フェーズ2：厳密判定 ----
+            for e in candidates:
+                number = e["number"]
+
+                if strict_hit(winning, number, match_len):
                     used_numbers.add(number)
+
                     results[rank].append({
                         "user_id": e["user_id"],
                         "number": number,
-                    })
+                    })})
 
         # ==========================
         # パネル生成
@@ -289,5 +301,6 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
