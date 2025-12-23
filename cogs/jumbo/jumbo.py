@@ -169,22 +169,39 @@ class JumboCog(commands.Cog):
     # -------------------------------------------------
     @app_commands.command(name="年末ジャンボ当選者発表")
     async def jumbo_announce(self, interaction: discord.Interaction):
+        print("[JUMBO] announce start")
+
         await interaction.response.defer()
+        print("[JUMBO] defer OK")
 
         if not await self.is_admin(interaction):
+            print("[JUMBO] admin check NG")
             return await interaction.followup.send("❌ 管理者専用")
 
+        print("[JUMBO] admin check OK")
+
         guild_id = str(interaction.guild.id)
+        print("[JUMBO] guild_id =", guild_id)
+
         config = await self.jumbo_db.get_config(guild_id)
+        print("[JUMBO] config fetched:", dict(config) if config else None)
 
         if not config or not config["winning_number"]:
+            print("[JUMBO] winning_number missing")
             return await interaction.followup.send("❌ 当選番号が未設定です")
 
+        print("[JUMBO] winning_number =", config["winning_number"])
+
         entries = await self.jumbo_db.get_all_entries(guild_id)
+        print("[JUMBO] entries count =", len(entries))
+
         if not entries:
+            print("[JUMBO] no entries")
             return await interaction.followup.send("⚠ 購入者がいません")
 
-        # ★ 固定賞金テーブル
+        await self.jumbo_db.clear_winners(guild_id)
+        print("[JUMBO] winners cleared")
+
         PRIZES = {
             1: 10_000_000,
             2: 5_000_000,
@@ -193,13 +210,17 @@ class JumboCog(commands.Cog):
             5: 100_000,
         }
 
-        await self.jumbo_db.clear_winners(guild_id)
-
         results = {i: [] for i in range(1, 6)}
 
         for e in entries:
+            print("[JUMBO] check number:", e["number"])
+
             match = count_continuous_match(config["winning_number"], e["number"])
+            print("[JUMBO] match count =", match)
+
             rank = match_to_rank(match)
+            print("[JUMBO] rank =", rank)
+
             if not rank:
                 continue
 
@@ -213,7 +234,11 @@ class JumboCog(commands.Cog):
                 match,
                 prize
             )
+
+            print("[JUMBO] winner saved:", e["number"], "rank", rank)
             results[rank].append(e)
+
+        print("[JUMBO] building embed")
 
         embed = discord.Embed(title="🎉 年末ジャンボ 当選者発表", color=0xF1C40F)
         embed.add_field(
@@ -237,36 +262,9 @@ class JumboCog(commands.Cog):
                 inline=False
             )
 
+        print("[JUMBO] sending embed")
         await interaction.followup.send(embed=embed)
-
-
-    # -------------------------------------------------
-    # /所持宝くじ番号確認
-    # -------------------------------------------------
-    @app_commands.command(name="所持宝くじ番号確認")
-    async def jumbo_my_numbers(
-        self,
-        interaction: discord.Interaction,
-        search: str | None = None,
-    ):
-        guild_id = str(interaction.guild.id)
-        user_id = str(interaction.user.id)
-
-        rows = await self.jumbo_db.get_user_numbers(guild_id, user_id)
-        numbers = [r["number"] for r in rows]
-
-        if search:
-            numbers = [n for n in numbers if n.startswith(search) or n.endswith(search)]
-
-        if not numbers:
-            return await interaction.response.send_message("該当なし", ephemeral=True)
-
-        view = NumberListView(interaction.user, numbers)
-        await interaction.response.send_message(
-            embed=view.make_embed(),
-            view=view,
-            ephemeral=True
-        )
+        print("[JUMBO] announce done")
 
     # -------------------------------------------------
     # /ジャンボ履歴リセット
@@ -289,6 +287,7 @@ class JumboCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
