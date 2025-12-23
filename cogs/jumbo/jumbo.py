@@ -213,62 +213,37 @@ class JumboCog(commands.Cog):
         results = {i: [] for i in range(1, 6)}
 
         for e in entries:
-            print("[JUMBO] check number:", e["number"])
+            try:
+                print("[JUMBO] check number:", e["number"])
 
-            match = count_continuous_match(config["winning_number"], e["number"])
-            print("[JUMBO] match count =", match)
+                match = count_continuous_match(
+                    str(config["winning_number"]),
+                    str(e["number"])
+                )
+                print("[JUMBO] match count =", match)
 
-            rank = match_to_rank(match)
-            print("[JUMBO] rank =", rank)
+                rank = match_to_rank(match)
+                print("[JUMBO] rank =", rank)
 
-            if not rank:
-                continue
+                if not rank:
+                    continue
 
-            prize = PRIZES[rank]
+                prize = PRIZES[rank]
 
-            await self.jumbo_db.set_winner(
-                guild_id,
-                rank,
-                e["number"],
-                e["user_id"],
-                match,
-                prize
-            )
+                await self.jumbo_db.set_winner(
+                    guild_id,
+                    rank,
+                    e["number"],
+                    e["user_id"],
+                    match,
+                    prize
+                )
 
-            print("[JUMBO] winner saved:", e["number"], "rank", rank)
-            results[rank].append(e)
+                print("[JUMBO] winner saved:", e["number"], "rank", rank)
+                results[rank].append(e)
 
-        print("[JUMBO] building embed")
-
-        embed = discord.Embed(title="🎉 年末ジャンボ 当選者発表", color=0xF1C40F)
-        embed.add_field(
-            name="🎯 当選番号",
-            value=f"**{config['winning_number']}**",
-            inline=False
-        )
-
-        for rank in range(1, 6):
-            prize = PRIZES[rank]
-            winners = results[rank]
-
-            text = "いませんでした。" if not winners else "\n".join(
-                f"<@{w['user_id']}> `{w['number']}`"
-                for w in winners
-            )
-
-            embed.add_field(
-                name=f"第{rank}等（{prize:,} rrc）",
-                value=text,
-                inline=False
-            )
-
-        print("[JUMBO] sending embed")
-
-        try:
-            await interaction.followup.send(embed=embed)
-            print("[JUMBO] announce done")
-        except Exception as e:
-            print("[JUMBO] followup.send FAILED:", repr(e))
+            except Exception as ex:
+                print("[JUMBO] ERROR in loop:", repr(ex), "data:", dict(e))
 
     # -------------------------------------------------
     # /所持宝くじ番号確認
@@ -321,6 +296,7 @@ class JumboCog(commands.Cog):
 # =====================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
