@@ -407,7 +407,7 @@ class JankenCardCog(commands.Cog):
         self.panel_message_ids: Dict[Tuple[int, int], int] = {}  # panel message id
 
     # -----------------------------
-    # 通貨（既存Botに合わせて吸収）
+    # 通貨
     # -----------------------------
     async def _get_balance(self, user_id: int, guild_id: int) -> int:
         row = await self.bot.db.get_user(str(user_id), str(guild_id))
@@ -490,7 +490,7 @@ class JankenCardCog(commands.Cog):
         return embed
 
     # -----------------------------
-    # RateSelectView から呼ばれる：パネル設置
+    # パネル設置
     # -----------------------------
     async def _create_panel(self, interaction: discord.Interaction, rate: int) -> bool:
         if interaction.guild_id is None or interaction.channel is None:
@@ -627,7 +627,7 @@ class JankenCardCog(commands.Cog):
         self._start_turn_timer(game)
 
     # -----------------------------
-    # 手札表示（ephemeral）…“押した interaction” の場だけで出す
+    # 手札表示（ephemeral）
     # -----------------------------
     async def _show_hand_ephemeral(self, interaction: discord.Interaction, game: JankenGame, player_id: int):
         if game.resolving:
@@ -821,12 +821,11 @@ class JankenCardCog(commands.Cog):
         self.panel_message_ids.pop(key, None)
 
     # -----------------------------
-    # 起動時：永続View登録（パネル用custom_idを生かす）
+    # 起動時：永続View登録
     # -----------------------------
     @commands.Cog.listener()
     async def on_ready(self):
         try:
-            # ダミーgameでOK（ボタンのcustom_idを登録するだけ）
             dummy = JankenGame(0, 0, 0, 1)
             self.bot.add_view(JankenPanelView(self, dummy))
         except Exception:
@@ -835,4 +834,5 @@ class JankenCardCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JankenCardCog(bot))
+
 
