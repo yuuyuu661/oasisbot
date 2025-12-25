@@ -1,7 +1,10 @@
 # cogs/janken_card.py
 # =========================================================
 # じゃんけんカード（2人専用 / 5回戦 or 先に3勝 / 60秒自動選択）
+# VC内テキスト / フォーラムスレ / 通常テキストでも止まらない安定版
+#
 # 画像素材: gu1~5.jpg / cyo1~5.jpg / pa1~5.jpg
+# 配置: cogs/assets/janken/gu1.jpg ...
 # =========================================================
 
 from __future__ import annotations
@@ -22,27 +25,18 @@ from pathlib import Path
 
 
 # =========================================================
-# 設定（ここだけ最初に確認）
+# 設定
 # =========================================================
 
-# 画像素材フォルダ（あなたの配置に合わせて調整してOK）
-# 例: project_root/assets/janken/gu1.jpg ...
-BASE_DIR = Path(__file__).resolve().parent  # .../oasisbot/cogs
+BASE_DIR = Path(__file__).resolve().parent
 ASSET_DIR = (BASE_DIR / "assets" / "janken").resolve()
 
-# 参加者は2人固定
 MAX_PLAYERS = 2
-
-# 1ターンの選択猶予（秒）
 TURN_TIMEOUT = 60
-
-# 最大ラウンド
 MAX_ROUNDS = 5
-
-# 先にこの勝利数で勝ち
 WIN_TARGET = 3
 
-# レートプルダウン
+# レートプルダウン（2000～300000）
 RATE_OPTIONS = [2000, 5000, 10000, 30000, 50000, 100000, 300000]
 
 
@@ -64,6 +58,11 @@ class JCard:
             return "チョキ"
         return "パー"
 
+    @property
+    def label_full(self) -> str:
+        # 自分の手札では星も表示（戦略要素）
+        return f"{self.label_jp} ⭐{self.star}"
+
 
 def build_deck() -> List[JCard]:
     deck: List[JCard] = []
@@ -76,8 +75,7 @@ def build_deck() -> List[JCard]:
 
 def judge(a: JCard, b: JCard) -> str:
     """
-    戻り値:
-      "A" / "B" / "draw"
+    戻り値: "A" / "B" / "draw"
     じゃんけん: gu > cyo, cyo > pa, pa > gu
     あいこ: star が高い方が勝ち、同starは引き分け
     """
@@ -111,7 +109,7 @@ def summarize_hand(hand: List[JCard]) -> str:
 
 
 # =========================================================
-# 画像合成（横並び）
+# 画像合成
 # =========================================================
 
 def _load_card_image(card: JCard) -> Image.Image:
@@ -150,7 +148,6 @@ async def create_hand_image(hand: List[JCard]) -> discord.File:
 
 
 async def create_card_image(card: JCard) -> discord.File:
-    """1枚カード画像をそのまま送信用discord.Fileにする"""
     img = _load_card_image(card)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
@@ -166,7 +163,6 @@ class JankenGame:
     def __init__(self, guild_id: int, channel_id: int, owner_id: int, rate: int):
         self.guild_id = guild_id
         self.channel_id = channel_id
-        self.channel: Optional[discord.TextChannel] = None
         self.owner_id = owner_id
         self.rate = rate
 
@@ -176,19 +172,18 @@ class JankenGame:
         self.deck: List[JCard] = []
         self.hands: Dict[int, List[JCard]] = {}
         self.wins: Dict[int, int] = {}
-        self.round_no: int = 0
 
-        # 今ラウンドの選択（index）
-        self.selected: Dict[int, Optional[int]] = {}
+        self.round_no: int = 0
+        self.selected: Dict[int, Optional[int]] = {}  # pid -> index
         self.resolving: bool = False
 
-        # タイムアウト管理
-        self.round_token: int = 0
         self.turn_timer_task: Optional[asyncio.Task] = None
 
-        # ★ ephemral送信用：各プレイヤーが最後に押したinteractionを覚える
-        # （ephemeralは「interactionに対する返信」or「followup」でしか送れないため）
-        self.last_interaction: Dict[int, discord.Interaction] = {}
+        # 進行先チャンネル（Text/Thread/ForumThread/Voice内テキスト等すべて許容）
+        self.channel: Optional[discord.abc.Messageable] = None
+
+        # “今ラウンドの操作パネル”メッセージID（あれば編集や無効化に使える）
+        self.round_panel_message_id: Optional[int] = None
 
     def is_full(self) -> bool:
         return len(self.players) >= MAX_PLAYERS
@@ -201,7 +196,7 @@ class JankenGame:
 
 
 # =========================================================
-# View: レート
+# View: レート選択
 # =========================================================
 
 class RateSelectView(discord.ui.View):
@@ -209,11 +204,7 @@ class RateSelectView(discord.ui.View):
         super().__init__(timeout=60)
         self.cog = cog
 
-        options = [
-            discord.SelectOption(label=f"{r} rrc", value=str(r))
-            for r in available_rates
-        ]
-
+        options = [discord.SelectOption(label=f"{r} rrc", value=str(r)) for r in available_rates]
         self.select = discord.ui.Select(
             placeholder="レートを選択",
             min_values=1,
@@ -226,13 +217,10 @@ class RateSelectView(discord.ui.View):
     async def on_select(self, interaction: discord.Interaction):
         rate = int(self.select.values[0])
 
-        # パネル生成（ゲーム作成）
         ok = await self.cog._create_panel(interaction, rate)
         if not ok:
-            # 失敗時はそのまま（理由は_create_panelが返信）
             return
 
-        # 選択後は無効化（連打防止）
         for child in self.children:
             child.disabled = True
 
@@ -261,9 +249,6 @@ class JankenPanelView(discord.ui.View):
 
     @discord.ui.button(label="参加", style=discord.ButtonStyle.success, custom_id="janken_join")
     async def join_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # ★ last_interaction 更新
-        self.game.last_interaction[interaction.user.id] = interaction
-
         if self.game.started:
             await interaction.response.send_message("❌ すでに開始されています。", ephemeral=True)
             return
@@ -296,9 +281,6 @@ class JankenPanelView(discord.ui.View):
 
     @discord.ui.button(label="開始", style=discord.ButtonStyle.primary, custom_id="janken_start")
     async def start_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # ★ last_interaction 更新
-        self.game.last_interaction[interaction.user.id] = interaction
-
         if not self._is_owner(interaction.user.id):
             await interaction.response.send_message("❌ 開始できるのは主催者のみです。", ephemeral=True)
             return
@@ -311,7 +293,6 @@ class JankenPanelView(discord.ui.View):
 
         self.game.started = True
         button.disabled = True
-        # 参加ボタンも止める
         for child in self.children:
             if isinstance(child, discord.ui.Button) and child.custom_id == "janken_join":
                 child.disabled = True
@@ -319,68 +300,45 @@ class JankenPanelView(discord.ui.View):
         await interaction.response.send_message("🃏 じゃんけんカードを開始します！", ephemeral=False)
         await self._refresh_panel(interaction)
 
-        # ゲーム本体開始
         await self.cog._start_game(interaction, self.game)
 
 
 # =========================================================
-# View: 手札UI（ephemeralで本人にだけ出す）
+# View: ラウンド操作（チャンネルに出る “手札を開く” パネル）
 # =========================================================
 
-class JankenHandView(discord.ui.View):
-    def __init__(self, cog: "JankenCardCog", game: JankenGame, player_id: int):
+class RoundActionView(discord.ui.View):
+    def __init__(self, cog: "JankenCardCog", game: JankenGame):
         super().__init__(timeout=None)
         self.cog = cog
         self.game = game
-        self.player_id = player_id
 
-    async def on_timeout(self):
-        # Viewのtimeoutは使わない（ターンタイマーで管理しているため）
-        return
-
-    @discord.ui.button(label="🎴 カード選択", style=discord.ButtonStyle.success, custom_id="janken_choose")
-    async def choose_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # ★ last_interaction 更新
-        self.game.last_interaction[interaction.user.id] = interaction
-
-        if interaction.user.id != self.player_id:
-            await interaction.response.send_message("❌ あなた用のボタンではありません。", ephemeral=True)
+    @discord.ui.button(label="🎴 自分の手札を開く", style=discord.ButtonStyle.success)
+    async def open_hand(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id not in self.game.players:
+            await interaction.response.send_message("❌ 参加者のみ操作できます。", ephemeral=True)
             return
-        if self.game.resolving:
-            await interaction.response.send_message("⏳ いま勝敗処理中です。少し待ってね。", ephemeral=True)
+        await self.cog._show_hand_ephemeral(interaction, self.game, interaction.user.id)
+
+    @discord.ui.button(label="👁 相手の手札(枚数だけ)", style=discord.ButtonStyle.secondary)
+    async def peek_opp(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id not in self.game.players:
+            await interaction.response.send_message("❌ 参加者のみ操作できます。", ephemeral=True)
             return
-        if self.game.selected.get(self.player_id) is not None:
-            await interaction.response.send_message("✅ すでに選択済みです。", ephemeral=True)
-            return
-
-        hand = self.game.hands.get(self.player_id, [])
-        if not hand:
-            await interaction.response.send_message("❌ 手札がありません。", ephemeral=True)
-            return
-
-        view = JankenSelectView(self.cog, self.game, self.player_id)
-        await interaction.response.send_message("出すカードを選んでね👇", view=view, ephemeral=True)
-
-    @discord.ui.button(label="👁 対戦相手の手札確認", style=discord.ButtonStyle.secondary, custom_id="janken_peek")
-    async def peek_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # ★ last_interaction 更新
-        self.game.last_interaction[interaction.user.id] = interaction
-
-        if interaction.user.id != self.player_id:
-            await interaction.response.send_message("❌ あなた用のボタンではありません。", ephemeral=True)
-            return
-
-        opp = self.game.other(self.player_id)
+        opp = self.game.other(interaction.user.id)
         if opp is None:
             await interaction.response.send_message("❌ 対戦相手が見つかりません。", ephemeral=True)
             return
-
         opp_hand = self.game.hands.get(opp, [])
         msg = "相手の手札情報（星は非公開）\n" + summarize_hand(opp_hand)
         await interaction.response.send_message(msg, ephemeral=True)
 
 
-class JankenSelectView(discord.ui.View):
+# =========================================================
+# View: 手札からカード選択（ephemeral）
+# =========================================================
+
+class HandSelectView(discord.ui.View):
     def __init__(self, cog: "JankenCardCog", game: JankenGame, player_id: int):
         super().__init__(timeout=TURN_TIMEOUT)
         self.cog = cog
@@ -388,16 +346,17 @@ class JankenSelectView(discord.ui.View):
         self.player_id = player_id
         self.choice_index: Optional[int] = None
 
-        # 初期化時にselectを組む
         hand = self.game.hands.get(self.player_id, [])
-        opts = []
-        for i in range(len(hand)):
-            opts.append(discord.SelectOption(label=f"{i+1}枚目", value=str(i)))
+        options: List[discord.SelectOption] = []
+        for i, c in enumerate(hand):
+            # “自分の手札”は星まで見える（ここ重要）
+            options.append(discord.SelectOption(label=f"{i+1}枚目：{c.label_full}", value=str(i)))
+
         self.select = discord.ui.Select(
             placeholder="出すカードを選択",
             min_values=1,
             max_values=1,
-            options=opts
+            options=options if options else [discord.SelectOption(label="手札なし", value="0")]
         )
         self.select.callback = self.on_select
         self.add_item(self.select)
@@ -406,17 +365,17 @@ class JankenSelectView(discord.ui.View):
         if interaction.user.id != self.player_id:
             await interaction.response.send_message("❌ あなた用の選択ではありません。", ephemeral=True)
             return
+        if not self.game.hands.get(self.player_id):
+            await interaction.response.send_message("❌ 手札がありません。", ephemeral=True)
+            return
         self.choice_index = int(self.select.values[0])
         await interaction.response.send_message(
-            f"✅ {self.choice_index+1}枚目を選択しました。確定を押してね。",
+            f"✅ {self.choice_index+1}枚目を選択しました。下の「確定」でロックイン！",
             ephemeral=True
         )
 
     @discord.ui.button(label="確定", style=discord.ButtonStyle.primary)
     async def confirm_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # ★ ここにあった壊れた誤字を修正（これないと起動しない）
-        self.game.last_interaction[interaction.user.id] = interaction
-
         if interaction.user.id != self.player_id:
             await interaction.response.send_message("❌ あなた用のボタンではありません。", ephemeral=True)
             return
@@ -434,7 +393,7 @@ class JankenSelectView(discord.ui.View):
             )
             self.stop()
         else:
-            await interaction.response.send_message("❌ すでに確定済み or 無効な選択です。", ephemeral=True)
+            await interaction.response.send_message("❌ すでに確定済み / 無効な選択 / 処理中です。", ephemeral=True)
 
 
 # =========================================================
@@ -465,12 +424,15 @@ class JankenCardCog(commands.Cog):
         return True
 
     # -----------------------------
-    # /じゃんけんカード  ★レート選択UI起動に変更（rate引数削除）
+    # /じゃんけんカード（レート選択UI）
     # -----------------------------
     @app_commands.command(name="じゃんけんカード", description="じゃんけんカードゲーム（2人専用）")
     async def janken_card(self, interaction: discord.Interaction):
         if interaction.guild_id is None:
             await interaction.response.send_message("❌ サーバー内で実行してください。", ephemeral=True)
+            return
+        if interaction.channel_id is None:
+            await interaction.response.send_message("❌ この場所では実行できません。", ephemeral=True)
             return
 
         key = (interaction.guild_id, interaction.channel_id)
@@ -478,10 +440,8 @@ class JankenCardCog(commands.Cog):
             await interaction.response.send_message("❌ このチャンネルではすでにゲームが進行中です。", ephemeral=True)
             return
 
-        # 主催者の残高に応じて選べるレートを絞る
         bal = await self._get_balance(interaction.user.id, interaction.guild_id)
         available = [r for r in RATE_OPTIONS if r <= bal]
-
         if not available:
             await interaction.response.send_message(
                 f"❌ 残高不足で開始できません。（現在: {bal} / 最低: {min(RATE_OPTIONS)}）",
@@ -489,8 +449,7 @@ class JankenCardCog(commands.Cog):
             )
             return
 
-        view = RateSelectView(self, available)
-        await interaction.response.send_message("🎚 レートを選んでね👇", view=view, ephemeral=True)
+        await interaction.response.send_message("🎚 レートを選んでね👇", view=RateSelectView(self, available), ephemeral=True)
 
     # -----------------------------
     # パネルembed
@@ -499,12 +458,12 @@ class JankenCardCog(commands.Cog):
         embed = discord.Embed(
             title="🃏 じゃんけんカードゲーム",
             description=(
-                "山札から5枚ランダムにお互いに配られたカードを使用し、下記ルールに沿ってじゃんけんを最大5回戦行う。\n"
-                f"先に{WIN_TARGET}勝したら勝利。\n\n"
-                "**山札の内訳は以下。**\n\n"
-                "グー(⭐︎1〜⭐︎5)\n"
-                "チョキ(⭐︎1〜⭐︎5)\n"
-                "パー(⭐︎1〜⭐︎5)\n"
+                "山札から5枚ランダムにお互いに配られたカードで、最大5回戦。\n"
+                f"先に{WIN_TARGET}勝で勝利。\n\n"
+                "**山札の内訳**\n"
+                "グー(⭐1〜⭐5)\n"
+                "チョキ(⭐1〜⭐5)\n"
+                "パー(⭐1〜⭐5)\n"
                 "計15枚"
             ),
             color=discord.Color.blurple()
@@ -533,8 +492,8 @@ class JankenCardCog(commands.Cog):
     # RateSelectView から呼ばれる：パネル設置
     # -----------------------------
     async def _create_panel(self, interaction: discord.Interaction, rate: int) -> bool:
-        if interaction.guild_id is None:
-            await interaction.response.send_message("❌ サーバー内で実行してください。", ephemeral=True)
+        if interaction.guild_id is None or interaction.channel is None:
+            await interaction.response.send_message("❌ サーバー内のチャンネルで実行してください。", ephemeral=True)
             return False
 
         key = (interaction.guild_id, interaction.channel_id)
@@ -542,7 +501,6 @@ class JankenCardCog(commands.Cog):
             await interaction.response.send_message("❌ このチャンネルではすでにゲームが進行中です。", ephemeral=True)
             return False
 
-        # 主催者残高チェック（念のため再確認）
         bal = await self._get_balance(interaction.user.id, interaction.guild_id)
         if bal < rate:
             await interaction.response.send_message("❌ 残高不足のためそのレートは選べません。", ephemeral=True)
@@ -556,9 +514,6 @@ class JankenCardCog(commands.Cog):
         game.wins[interaction.user.id] = 0
         game.selected[interaction.user.id] = None
 
-        # ★ last_interaction
-        game.last_interaction[interaction.user.id] = interaction
-
         embed = self._build_panel_embed(interaction.guild, game)
         view = JankenPanelView(self, game)
 
@@ -567,7 +522,7 @@ class JankenCardCog(commands.Cog):
         return True
 
     async def _update_panel_message(self, interaction: discord.Interaction):
-        if interaction.guild_id is None:
+        if interaction.guild_id is None or interaction.channel is None:
             return
         key = (interaction.guild_id, interaction.channel_id)
         game = self.games.get(key)
@@ -587,10 +542,8 @@ class JankenCardCog(commands.Cog):
         mid = self.panel_message_ids.get(key)
         if mid:
             try:
-                ch = interaction.channel
-                if isinstance(ch, discord.TextChannel):
-                    msg = await ch.fetch_message(mid)
-                    await msg.edit(embed=embed, view=view)
+                msg = await interaction.channel.fetch_message(mid)  # type: ignore
+                await msg.edit(embed=embed, view=view)
             except Exception:
                 pass
 
@@ -598,18 +551,13 @@ class JankenCardCog(commands.Cog):
     # ゲーム開始
     # -----------------------------
     async def _start_game(self, interaction: discord.Interaction, game: JankenGame):
+        # 進行先チャンネル確定（VC内テキスト/スレッド等でもOK）
+        game.channel = interaction.channel
+
         deck = build_deck()
-
-        if isinstance(interaction.channel, discord.TextChannel):
-            game.channel = interaction.channel
-        else:
-            ch = self.bot.get_channel(game.channel_id)
-            game.channel = ch if isinstance(ch, discord.TextChannel) else None
-
         random.shuffle(deck)
         game.deck = deck
 
-        # 5枚ずつ配布（重複なし・共通山札）
         p1, p2 = game.players[0], game.players[1]
         game.hands[p1] = [game.deck.pop() for _ in range(5)]
         game.hands[p2] = [game.deck.pop() for _ in range(5)]
@@ -617,49 +565,13 @@ class JankenCardCog(commands.Cog):
         game.wins[p2] = 0
 
         game.round_no = 0
-        game.round_token += 1
 
-        # ★ DMは使わず、ephemeralで手札を出す
-        await self._send_hand_ephemeral(game, p1, first=True)
-        await self._send_hand_ephemeral(game, p2, first=True)
-
+        # ラウンド開始
         await self._begin_round(game)
 
-    # ======================================================
-    # ここが修正点：_send_hand_dm をやめて ephemeral版に置換
-    # ======================================================
-    async def _send_hand_ephemeral(self, game: JankenGame, player_id: int, first: bool = False):
-        """
-        テキストチャンネルに「ephemeral（本人だけ見える）」で手札＋操作Viewを出す。
-        ephemeralはinteractionが必要なので、last_interactionを使う。
-        """
-        inter = game.last_interaction.get(player_id)
-        if inter is None:
-            # interactionがないとephemeralが送れないので、チャンネルに促す
-            ch = game.channel or self.bot.get_channel(game.channel_id)
-            if isinstance(ch, discord.TextChannel):
-                await ch.send(f"⚠️ <@{player_id}> は操作用の表示ができませんでした。いったんパネルのボタンを押してね。")
-            return
-
-        hand = game.hands.get(player_id, [])
-        file = await create_hand_image(hand)
-
-        header = "🎴 あなたの手札はこちら：" if first else "🎴 次の手札はこちら："
-        footer = f"\n（{TURN_TIMEOUT}秒以内に選ばないとランダムで出ます）"
-        view = JankenHandView(self, game, player_id)
-
-        # interaction.response が既に使われている可能性があるので followup を優先
-        try:
-            if inter.response.is_done():
-                await inter.followup.send(content=header + footer, file=file, view=view, ephemeral=True)
-            else:
-                await inter.response.send_message(content=header + footer, file=file, view=view, ephemeral=True)
-        except Exception:
-            # 万が一失敗してもチャンネルに通知（DMは送らない）
-            ch = game.channel or self.bot.get_channel(game.channel_id)
-            if isinstance(ch, discord.TextChannel):
-                await ch.send(f"⚠️ <@{player_id}> への手札表示に失敗しました。")
-
+    # -----------------------------
+    # ラウンド開始（チャンネルに“手札を開く”パネルを出す）
+    # -----------------------------
     def _cancel_turn_timer(self, game: JankenGame):
         task = game.turn_timer_task
         if task and not task.done():
@@ -673,6 +585,7 @@ class JankenCardCog(commands.Cog):
             except asyncio.CancelledError:
                 return
 
+            # 時間切れ：未選択を自動選択
             for pid in game.players:
                 await self._auto_pick_if_needed(game, pid)
 
@@ -683,50 +596,83 @@ class JankenCardCog(commands.Cog):
     async def _begin_round(self, game: JankenGame):
         if game.resolving:
             return
+
         game.round_no += 1
-        game.round_token += 1
 
         # 選択リセット
         for pid in game.players:
             game.selected[pid] = None
 
-        p1, p2 = game.players
-
-        ch = game.channel or self.bot.get_channel(game.channel_id)
-        if not isinstance(ch, discord.TextChannel):
+        ch = game.channel
+        if ch is None:
             return
 
+        p1, p2 = game.players
         await ch.send(
             f"🟦 **第{game.round_no}回戦** 開始！\n"
             f"先に{WIN_TARGET}勝で勝利（最大{MAX_ROUNDS}回戦）。\n"
             f"現在：<@{p1}> {game.wins[p1]}勝 / <@{p2}> {game.wins[p2]}勝"
         )
 
-        # ターンタイマー開始
+        # “手札を開く”操作パネル（ここがVC内テキストでも止まらない肝）
+        panel_msg = await ch.send(
+            "👇 参加者はここから **自分の手札を開いてカードを確定** してね（手札は本人にだけ表示されます）",
+            view=RoundActionView(self, game)
+        )
+        game.round_panel_message_id = panel_msg.id
+
+        # タイマー開始
         self._cancel_turn_timer(game)
         self._start_turn_timer(game)
 
+    # -----------------------------
+    # 手札表示（ephemeral）…“押した interaction” の場だけで出す
+    # -----------------------------
+    async def _show_hand_ephemeral(self, interaction: discord.Interaction, game: JankenGame, player_id: int):
+        if game.resolving:
+            await interaction.response.send_message("⏳ いま勝敗処理中です。少し待ってね。", ephemeral=True)
+            return
+
+        if game.selected.get(player_id) is not None:
+            # すでに確定してる
+            await interaction.response.send_message("✅ すでに確定済みです（相手の確定待ち）。", ephemeral=True)
+            return
+
+        hand = game.hands.get(player_id, [])
+        if not hand:
+            await interaction.response.send_message("❌ 手札がありません。", ephemeral=True)
+            return
+
+        file = await create_hand_image(hand)
+        view = HandSelectView(self, game, player_id)
+
+        # ここは「必ず interaction に対して返す」ので、保存 interaction は不要
+        await interaction.response.send_message(
+            content=f"🎴 **あなたの手札**（{TURN_TIMEOUT}秒以内に確定しないとランダムになります）",
+            file=file,
+            view=view,
+            ephemeral=True
+        )
+
+    # -----------------------------
+    # 自動選択（タイマーで必ず動く）
+    # -----------------------------
     async def _auto_pick_if_needed(self, game: JankenGame, player_id: int):
         if game.selected.get(player_id) is not None:
             return
         hand = game.hands.get(player_id, [])
         if not hand:
             return
+        game.selected[player_id] = random.randrange(0, len(hand))
 
-        idx = random.randrange(0, len(hand))
-        game.selected[player_id] = idx
+        # 通知はチャンネルに軽く（ephemeralに依存しない）
+        ch = game.channel
+        if ch:
+            await ch.send(f"⏱️ <@{player_id}> は時間切れ！ランダムでカードを選びました。")
 
-        # ★ DMしない：ephemeralで通知（interactionがある場合のみ）
-        inter = game.last_interaction.get(player_id)
-        if inter:
-            try:
-                if inter.response.is_done():
-                    await inter.followup.send(f"⏱️ 時間切れ！ {idx+1}枚目が自動で選ばれました。", ephemeral=True)
-                else:
-                    await inter.response.send_message(f"⏱️ 時間切れ！ {idx+1}枚目が自動で選ばれました。", ephemeral=True)
-            except Exception:
-                pass
-
+    # -----------------------------
+    # 確定
+    # -----------------------------
     async def _confirm_choice(self, interaction: discord.Interaction, game: JankenGame, player_id: int, index: int) -> bool:
         if game.resolving:
             return False
@@ -739,23 +685,32 @@ class JankenCardCog(commands.Cog):
 
         game.selected[player_id] = index
 
-        # ★ 両者が揃ったら即進行
+        # 確定アナウンス（相手に“確定が届かない”問題を視覚的に潰す）
+        ch = game.channel
+        if ch:
+            await ch.send(f"🔒 <@{player_id}> がカードを確定！")
+
+        # 両者揃ったら即解決
         if all(game.selected.get(pid) is not None for pid in game.players):
             self._cancel_turn_timer(game)
             asyncio.create_task(self._try_resolve_round(game))
+
         return True
 
-    async def _try_resolve_round(self, game):
+    async def _try_resolve_round(self, game: JankenGame):
         if game.resolving:
             return
         if any(game.selected.get(pid) is None for pid in game.players):
             return
         await self._resolve_round(game)
 
+    # -----------------------------
+    # 勝敗処理
+    # -----------------------------
     async def _resolve_round(self, game: JankenGame):
         game.resolving = True
-        ch = game.channel or self.bot.get_channel(game.channel_id)
-        if not isinstance(ch, discord.TextChannel):
+        ch = game.channel
+        if ch is None:
             game.resolving = False
             return
 
@@ -771,6 +726,7 @@ class JankenCardCog(commands.Cog):
 
         result = judge(c1, c2)
 
+        # 公開
         guild = self.bot.get_guild(game.guild_id)
         m1 = guild.get_member(p1) if guild else None
         m2 = guild.get_member(p2) if guild else None
@@ -778,9 +734,10 @@ class JankenCardCog(commands.Cog):
         file1 = await create_card_image(c1)
         file2 = await create_card_image(c2)
 
-        await ch.send(content=f"**{m1.display_name if m1 else f'<@{p1}>'}**", file=file1)
-        await ch.send(content=f"**{m2.display_name if m2 else f'<@{p2}>'}**", file=file2)
+        await ch.send(content=f"**{m1.display_name if m1 else f'<@{p1}>'}** のカード", file=file1)
+        await ch.send(content=f"**{m2.display_name if m2 else f'<@{p2}>'}** のカード", file=file2)
 
+        # 勝敗
         if result == "A":
             game.wins[p1] += 1
             await ch.send(f"✅ 勝者：<@{p1}>")
@@ -790,13 +747,13 @@ class JankenCardCog(commands.Cog):
         else:
             await ch.send("🤝 引き分け（勝敗なし）")
 
-        # 使用カードを除外
+        # 使用カードを除外（引き分けでも両者消費）
         for pid, idx in sorted([(p1, i1), (p2, i2)], key=lambda x: x[1], reverse=True):
             hand = game.hands[pid]
             if 0 <= idx < len(hand):
                 hand.pop(idx)
 
-        # 勝利チェック
+        # 決着判定
         winner_id: Optional[int] = None
         loser_id: Optional[int] = None
 
@@ -805,16 +762,13 @@ class JankenCardCog(commands.Cog):
         elif game.wins[p2] >= WIN_TARGET:
             winner_id, loser_id = p2, p1
 
-        # 継続
+        # 継続条件（ラウンド残 / 手札残）
         if winner_id is None and game.round_no < MAX_ROUNDS and game.hands[p1] and game.hands[p2]:
-            await self._send_hand_ephemeral(game, p1, first=False)
-            await self._send_hand_ephemeral(game, p2, first=False)
-
             game.resolving = False
             await self._begin_round(game)
             return
 
-        # 決着（勝利数で決める）
+        # 5回戦終了 or 手札切れ → 勝利数で決定
         if winner_id is None:
             if game.wins[p1] > game.wins[p2]:
                 winner_id, loser_id = p1, p2
@@ -829,7 +783,7 @@ class JankenCardCog(commands.Cog):
                 self._cleanup_game(game)
                 return
 
-        # 残高移動
+        # 残高移動（最終チェック）
         guild_id = game.guild_id
         bal_loser = await self._get_balance(loser_id, guild_id)
         if bal_loser < game.rate:
@@ -856,22 +810,27 @@ class JankenCardCog(commands.Cog):
 
         self._cleanup_game(game)
 
+    # -----------------------------
+    # cleanup
+    # -----------------------------
     def _cleanup_game(self, game: JankenGame):
+        self._cancel_turn_timer(game)
         key = (game.guild_id, game.channel_id)
         self.games.pop(key, None)
         self.panel_message_ids.pop(key, None)
 
     # -----------------------------
-    # 起動時：永続View登録
+    # 起動時：永続View登録（パネル用custom_idを生かす）
     # -----------------------------
     @commands.Cog.listener()
     async def on_ready(self):
         try:
-            self.bot.add_view(JankenPanelView(self, JankenGame(0, 0, 0, 1)))
+            # ダミーgameでOK（ボタンのcustom_idを登録するだけ）
+            dummy = JankenGame(0, 0, 0, 1)
+            self.bot.add_view(JankenPanelView(self, dummy))
         except Exception:
             pass
 
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JankenCardCog(bot))
-
