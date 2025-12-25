@@ -320,7 +320,7 @@ class RoundActionView(discord.ui.View):
             return
         await self.cog._show_hand_ephemeral(interaction, self.game, interaction.user.id)
 
-    @discord.ui.button(label="👁 相手の手札(枚数だけ)", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="👁 相手の手札を確認", style=discord.ButtonStyle.secondary)
     async def peek_opp(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id not in self.game.players:
             await interaction.response.send_message("❌ 参加者のみ操作できます。", ephemeral=True)
@@ -465,6 +465,7 @@ class JankenCardCog(commands.Cog):
                 "チョキ(⭐1〜⭐5)\n"
                 "パー(⭐1〜⭐5)\n"
                 "計15枚"
+                "※あいこの場合は星が多い方が勝ちです。"
             ),
             color=discord.Color.blurple()
         )
@@ -685,7 +686,7 @@ class JankenCardCog(commands.Cog):
 
         game.selected[player_id] = index
 
-        # 確定アナウンス（相手に“確定が届かない”問題を視覚的に潰す）
+        # 確定アナウンス
         ch = game.channel
         if ch:
             await ch.send(f"🔒 <@{player_id}> がカードを確定！")
@@ -804,7 +805,7 @@ class JankenCardCog(commands.Cog):
 
         await ch.send(
             f"🏆 **勝者：<@{winner_id}>**\n"
-            f"💸 <@{loser_id}> から **{game.rate}** を回収 → <@{winner_id}> に付与しました。\n"
+            f"💸 <@{loser_id}> 負けた為、 **{game.rate}** 残高から <@{winner_id}> に送信されました。\n"
             f"最終：<@{p1}> {game.wins[p1]}勝 / <@{p2}> {game.wins[p2]}勝"
         )
 
@@ -834,3 +835,4 @@ class JankenCardCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JankenCardCog(bot))
+
