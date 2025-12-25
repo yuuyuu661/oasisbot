@@ -745,7 +745,7 @@ class JankenCardCog(commands.Cog):
             asyncio.create_task(self._try_resolve_round(game))
         return True
 
-    async def _try_resolve_round(self, game: JankenGame):
+    async def _try_resolve_round(self, game):
         if game.resolving:
             return
         if any(game.selected.get(pid) is None for pid in game.players):
@@ -874,3 +874,4 @@ class JankenCardCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JankenCardCog(bot))
+
