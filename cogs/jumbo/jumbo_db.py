@@ -186,7 +186,7 @@ class JumboDB:
     async def clear_entries(self, guild_id: str):
         await self.db.conn.execute("""
             DELETE FROM jumbo_entries WHERE guild_id=$1
-        """)
+        """, guild_id)
 
     # ============================================================
     # 当選結果
@@ -248,6 +248,7 @@ class JumboDB:
             guild_id
         )
         return row["cnt"] if row else 0
+
 
 
 
