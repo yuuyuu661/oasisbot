@@ -146,6 +146,7 @@ class JumboCog(commands.Cog):
 
         await interaction.response.send_message("🎫 ジャンボを開始しました", ephemeral=True)
         await interaction.followup.send(embed=embed, view=view)
+        await self.jumbo_db.set_panel_message(guild_id, str(msg.id))
 
     # -------------------------------------------------
     # /年末ジャンボ当選者発表（DB非依存・表示専用）
@@ -321,6 +322,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
