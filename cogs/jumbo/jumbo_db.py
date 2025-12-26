@@ -249,17 +249,6 @@ class JumboDB:
         )
         return row["cnt"] if row else 0
 
-    # ============================================================
-    # 賞金給付フラグ
-    # ============================================================
-
-    async def mark_prize_paid(self, guild_id: str):
-        await self.db.conn.execute("""
-            UPDATE jumbo_config
-            SET prize_paid = TRUE
-            WHERE guild_id = $1
-        """, guild_id)
-
 
 
 
