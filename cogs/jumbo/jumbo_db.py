@@ -1,5 +1,3 @@
-# cogs/jumbo/jumbo_db.py
-
 import asyncpg
 from asyncpg.exceptions import UniqueViolationError
 from datetime import datetime
@@ -45,6 +43,12 @@ class JumboDB:
         await self.db.conn.execute("""
             ALTER TABLE jumbo_config
             ADD COLUMN IF NOT EXISTS prize_paid BOOLEAN DEFAULT FALSE;
+        """)
+
+        # ★★★ リアルタイム更新用（追加）
+        await self.db.conn.execute("""
+            ALTER TABLE jumbo_config
+            ADD COLUMN IF NOT EXISTS panel_message_id TEXT;
         """)
 
         # ------------------------------
@@ -120,6 +124,24 @@ class JumboDB:
         )
 
     # ============================================================
+    # ★ パネルメッセージID（リアルタイム更新用）
+    # ============================================================
+
+    async def set_panel_message_id(self, guild_id: str, message_id: str):
+        await self.db.conn.execute("""
+            UPDATE jumbo_config
+            SET panel_message_id = $2
+            WHERE guild_id = $1
+        """, guild_id, message_id)
+
+    async def get_panel_message_id(self, guild_id: str) -> str | None:
+        row = await self.db.conn.fetchrow(
+            "SELECT panel_message_id FROM jumbo_config WHERE guild_id=$1",
+            guild_id
+        )
+        return row["panel_message_id"] if row else None
+
+    # ============================================================
     # 番号生成・保存
     # ============================================================
 
@@ -153,7 +175,7 @@ class JumboDB:
     async def clear_entries(self, guild_id: str):
         await self.db.conn.execute("""
             DELETE FROM jumbo_entries WHERE guild_id=$1
-        """, guild_id)
+        """)
 
     # ============================================================
     # 当選結果
@@ -215,10 +237,3 @@ class JumboDB:
             guild_id
         )
         return row["cnt"] if row else 0
-
-
-
-
-
-
-
