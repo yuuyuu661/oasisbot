@@ -204,3 +204,15 @@ class JumboDB:
             raise RuntimeError(
                 "ジャンボが未開催です。先に /年末ジャンボ開催 を実行してください。"
             )
+
+    # ============================================================
+    # 宝くじ残数
+    # ============================================================
+
+    async def count_entries(self, guild_id: str) -> int:
+        row = await self.db.conn.fetchrow(
+            "SELECT COUNT(*) AS cnt FROM jumbo_entries WHERE guild_id=$1",
+            guild_id
+        )
+        return row["cnt"] if row else 0
+
