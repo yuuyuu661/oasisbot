@@ -87,7 +87,6 @@ class JumboBuyModal(discord.ui.Modal):
                 ok = await self.jumbo_db.add_number(guild_id, user_id, num)
                 if ok:
                     numbers.append(num)
-                    await self.jumbo_db.set_user_last_guild(user_id, guild_id)
                     break
 
 
@@ -188,6 +187,7 @@ class JumboBuyView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(JumboBuyButton(bot, jumbo_db, guild_id))
         self.add_item(JumboCloseButton(bot, jumbo_db, guild_id))
+
 
 
 
