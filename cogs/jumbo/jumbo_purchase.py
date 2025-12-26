@@ -135,6 +135,39 @@ class JumboBuyButton(discord.ui.Button):
         modal = JumboBuyModal(self.bot, self.jumbo_db, self.guild_id)
         await interaction.response.send_modal(modal)
 
+# ======================================================
+# 終了ボタン
+# ======================================================
+
+class JumboCloseButton(discord.ui.Button):
+    def __init__(self, bot, jumbo_db, guild_id):
+        super().__init__(
+            label="⛔ 締め切り",
+            style=discord.ButtonStyle.danger
+        )
+        self.bot = bot
+        self.jumbo_db = jumbo_db
+        self.guild_id = guild_id
+
+    async def callback(self, interaction: discord.Interaction):
+
+        # 管理者チェック
+        settings = await self.bot.db.get_settings()
+        admin_roles = settings["admin_roles"] or []
+        if not any(str(r.id) in admin_roles for r in interaction.user.roles):
+            return await interaction.response.send_message("❌ 管理者専用", ephemeral=True)
+
+        # 締め切り
+        await self.jumbo_db.close_config(self.guild_id)
+
+        # ボタン全無効化
+        for child in self.view.children:
+            child.disabled = True
+
+        await interaction.response.edit_message(
+            content="🚫 このジャンボは締め切られました。",
+            view=self.view
+        )
 
 # ======================================================
 # パネル View
@@ -144,5 +177,9 @@ class JumboBuyView(discord.ui.View):
     def __init__(self, bot, jumbo_db, guild_id):
         super().__init__(timeout=None)
         self.add_item(JumboBuyButton(bot, jumbo_db, guild_id))
+        self.add_item(JumboCloseButton(bot, jumbo_db, guild_id))
+
+
+
 
 
