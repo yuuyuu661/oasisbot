@@ -72,7 +72,7 @@ class JumboDB:
             );
         """)
         # ------------------------------
-        # 宝くじ残数
+        # 宝くじ確認
         # ------------------------------
         await self.db.conn.execute("""
             CREATE TABLE IF NOT EXISTS jumbo_user_last_guild (
@@ -225,5 +225,25 @@ class JumboDB:
             guild_id
         )
         return row["cnt"] if row else 0
+
+    # ============================================================
+    # 宝くじ確認
+    # ============================================================
+
+    async def set_user_last_guild(self, user_id: str, guild_id: str):
+        await self.db.conn.execute("""
+            INSERT INTO jumbo_user_last_guild (user_id, guild_id)
+            VALUES ($1, $2)
+            ON CONFLICT (user_id)
+            DO UPDATE SET guild_id = $2, updated_at = NOW();
+        """, user_id, guild_id)
+
+    async def get_user_last_guild(self, user_id: str) -> str | None:
+        row = await self.db.conn.fetchrow("""
+            SELECT guild_id FROM jumbo_user_last_guild WHERE user_id=$1
+        """, user_id)
+        return row["guild_id"] if row else None
+
+
 
 
