@@ -376,15 +376,18 @@ class JumboCog(commands.Cog):
     # -------------------------------------------------
     @app_commands.command(name="ジャンボ履歴リセット")
     async def jumbo_reset(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
         if not await self.is_admin(interaction):
-            return await interaction.response.send_message("❌ 管理者専用", ephemeral=True)
+            return await interaction.followup.send("❌ 管理者専用")
 
         guild_id = str(interaction.guild.id)
+
         await self.jumbo_db.clear_entries(guild_id)
         await self.jumbo_db.clear_winners(guild_id)
         await self.jumbo_db.reset_config(guild_id)
 
-        await interaction.response.send_message("🧹 リセット完了", ephemeral=True)
+        await interaction.followup.send("🧹 ジャンボ履歴をすべてリセットしました")
 
 
     @tasks.loop(seconds=10)
@@ -449,6 +452,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
