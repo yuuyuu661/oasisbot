@@ -132,6 +132,13 @@ class JumboBuyButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
 
+        config = await self.jumbo_db.get_config(self.guild_id)
+        if not config or not config["is_open"]:
+            return await interaction.response.send_message(
+                "❌ このジャンボはすでに締め切られています。",
+                ephemeral=True
+            )
+
         modal = JumboBuyModal(self.bot, self.jumbo_db, self.guild_id)
         await interaction.response.send_modal(modal)
 
@@ -178,6 +185,7 @@ class JumboBuyView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(JumboBuyButton(bot, jumbo_db, guild_id))
         self.add_item(JumboCloseButton(bot, jumbo_db, guild_id))
+
 
 
 
