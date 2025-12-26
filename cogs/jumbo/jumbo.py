@@ -8,6 +8,7 @@ from datetime import datetime
 
 from .jumbo_db import JumboDB
 from .jumbo_purchase import JumboBuyView
+from discord.ext import tasks
 
 
 # =====================================================
@@ -82,6 +83,7 @@ class JumboCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.jumbo_db = JumboDB(bot)
+        self.panel_tasks: dict[str, tasks.Loop] = {}
 
     # ★ ここが超重要（DB初期化）
     @commands.Cog.listener()
@@ -146,6 +148,23 @@ class JumboCog(commands.Cog):
 
         await interaction.response.send_message("🎫 ジャンボを開始しました", ephemeral=True)
         await interaction.followup.send(embed=embed, view=view)
+        # ★ パネル情報をDBに保存
+        await self.jumbo_db.set_panel_message(
+            guild_id,
+            str(panel_msg.channel.id),
+            str(panel_msg.id),
+        )
+
+        # ★ 既存タスクがあれば停止
+        if guild_id in self.panel_tasks:
+            self.panel_tasks[guild_id].cancel()
+
+        # ★ 10秒更新タスク起動
+        task = tasks.loop(seconds=10)(
+            lambda: self.update_panel_remaining(guild_id)
+        )
+        task.start()
+        self.panel_tasks[guild_id] = task
         await self.jumbo_db.set_panel_message(guild_id, str(msg.id))
 
     # -------------------------------------------------
@@ -309,8 +328,55 @@ class JumboCog(commands.Cog):
         await interaction.response.send_message("🧹 リセット完了", ephemeral=True)
 
 
+    @tasks.loop(seconds=10)
+    async def panel_updater(self):
+        rows = await self.bot.db.conn.fetch("""
+            SELECT guild_id, panel_channel_id, panel_message_id
+            FROM jumbo_config
+            WHERE is_open = TRUE
+              AND panel_message_id IS NOT NULL
+        """)
+
+        for row in rows:
+            guild_id = row["guild_id"]
+            channel_id = row["panel_channel_id"]
+            message_id = row["panel_message_id"]
+
+            try:
+                issued = await self.jumbo_db.count_entries(guild_id)
+                remaining = max(0, 999_999 - issued)
+
+                channel = self.bot.get_channel(int(channel_id))
+                if not channel:
+                    continue
+
+                message = await channel.fetch_message(int(message_id))
+                if not message.embeds:
+                    continue
+
+                embed = message.embeds[0]
+
+                for i, field in enumerate(embed.fields):
+                    if field.name.startswith("🎫 宝くじ残り枚数"):
+                        if field.value == f"{remaining:,} 枚":
+                            break  # 変化なし → 編集しない
+
+                        embed.set_field_at(
+                            i,
+                            name="🎫 宝くじ残り枚数",
+                            value=f"{remaining:,} 枚",
+                            inline=False
+                        )
+                        await message.edit(embed=embed)
+                        break
+
+            except Exception as e:
+                print("[JUMBO] panel updater error:", e)
+
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
