@@ -8,7 +8,6 @@ from datetime import datetime
 
 from .jumbo_db import JumboDB
 from .jumbo_purchase import JumboBuyView
-from discord.app_commands import allowed_contexts, AppCommandContext
 
 
 # =====================================================
@@ -322,6 +321,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
