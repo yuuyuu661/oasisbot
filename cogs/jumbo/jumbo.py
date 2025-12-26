@@ -397,92 +397,6 @@ class JumboCog(commands.Cog):
                 "❌ リセット中にエラーが発生しました。\n管理者にログを確認してもらってください。"
             )
 
-    # -------------------------------------------------
-    # /ジャンボ賞金給付（管理者専用）
-    # -------------------------------------------------
-    @app_commands.command(name="ジャンボ賞金給付")
-    async def jumbo_pay_prize(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-
-        # ---------------------------
-        # 管理者チェック
-        # ---------------------------
-        if not await self.is_admin(interaction):
-            return await interaction.followup.send("❌ 管理者専用")
-
-        guild_id = str(interaction.guild.id)
-
-        # ---------------------------
-        # 開催情報取得
-        # ---------------------------
-        config = await self.jumbo_db.get_config(guild_id)
-        if not config:
-            return await interaction.followup.send(
-                "❌ ジャンボが開催されていません。"
-            )
-
-        if not config["winning_number"]:
-            return await interaction.followup.send(
-                "❌ まだ当選番号が設定されていません。"
-            )
-
-        if config["prize_paid"]:
-            return await interaction.followup.send(
-                "❌ このジャンボはすでに賞金給付済みです。"
-            )
-
-        # ---------------------------
-        # 当選者取得
-        # ---------------------------
-        winners = await self.jumbo_db.get_all_winners(guild_id)
-        if not winners:
-            return await interaction.followup.send(
-                "⚠ 当選者データが存在しません。"
-            )
-
-        # ---------------------------
-        # 給付処理
-        # ---------------------------
-        paid_count = 0
-        total_paid = 0
-
-        for w in winners:
-            user_id = w["user_id"]
-            prize = int(w["prize"])
-
-            if prize <= 0:
-                continue
-
-            try:
-                await self.bot.db.add_balance(user_id, guild_id, prize)
-                paid_count += 1
-                total_paid += prize
-            except Exception as e:
-                # 途中で止まらない設計
-                print(
-                    "[JUMBO PAY ERROR]",
-                    f"user={user_id}",
-                    f"prize={prize}",
-                    repr(e)
-                )
-
-        # ---------------------------
-        # 給付済みフラグ更新
-        # ---------------------------
-        await self.bot.db.conn.execute("""
-            UPDATE jumbo_config
-            SET prize_paid = TRUE
-            WHERE guild_id = $1
-        """, guild_id)
-
-        # ---------------------------
-        # 完了通知
-        # ---------------------------
-        await interaction.followup.send(
-            f"💰 **ジャンボ賞金給付が完了しました！**\n"
-            f"給付人数：{paid_count} 人\n"
-            f"総給付額：{total_paid:,} rrc"
-        )
 
     @tasks.loop(seconds=10)
     async def panel_updater(self):
@@ -546,7 +460,6 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
-
 
 
 
