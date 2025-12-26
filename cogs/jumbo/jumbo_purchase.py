@@ -88,7 +88,36 @@ class JumboBuyModal(discord.ui.Modal):
                 if ok:
                     numbers.append(num)
                     break
+        # ===========================
+        # ★★★ ③ パネル残り枚数更新（ここ！）
+        # ===========================
+        config = await self.jumbo_db.get_config(guild_id)
+        panel_message_id = config.get("panel_message_id")
 
+        if panel_message_id:
+            try:
+                channel = interaction.channel
+                message = await channel.fetch_message(int(panel_message_id))
+
+                embed = message.embeds[0]
+
+                issued = await self.jumbo_db.count_entries(guild_id)
+                remaining = max(0, 999_999 - issued)
+
+                for i, field in enumerate(embed.fields):
+                    if field.name.startswith("🎫 宝くじ残り枚数"):
+                        embed.set_field_at(
+                            i,
+                            name="🎫 宝くじ残り枚数",
+                            value=f"{remaining:,} 枚",
+                            inline=False
+                        )
+                        break
+
+                await message.edit(embed=embed, view=message.view)
+
+            except Exception as e:
+                print("[JUMBO] panel update failed:", e)
 
 
         # ===========================
@@ -187,6 +216,7 @@ class JumboBuyView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(JumboBuyButton(bot, jumbo_db, guild_id))
         self.add_item(JumboCloseButton(bot, jumbo_db, guild_id))
+
 
 
 
