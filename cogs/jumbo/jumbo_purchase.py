@@ -198,15 +198,15 @@ class JumboCloseButton(discord.ui.Button):
         # 締め切り
         await self.jumbo_db.close_config(self.guild_id)
 
-            # ボタン全無効化
-            for child in self.children:
-                child.disabled = True
+        # ボタン全無効化
+        for child in self.children:
+            child.disabled = True
 
-            # パネルを書き換え（← これが超重要）
-            await interaction.response.edit_message(
-                content="🔒 ジャンボを締め切りました",
-                view=self
-                )
+        # パネルを書き換え（← これが超重要）
+        await interaction.response.edit_message(
+            content="🔒 ジャンボを締め切りました",
+            view=self
+        )
 
 # ======================================================
 # パネル View
@@ -217,6 +217,7 @@ class JumboBuyView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(JumboBuyButton(bot, jumbo_db, guild_id))
         self.add_item(JumboCloseButton(bot, jumbo_db, guild_id))
+
 
 
 
