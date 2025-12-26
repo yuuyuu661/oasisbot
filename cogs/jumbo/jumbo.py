@@ -83,7 +83,6 @@ class JumboCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.jumbo_db = JumboDB(bot)
-        self.panel_tasks: dict[str, tasks.Loop] = {}
 
     # ★ ここが超重要（DB初期化）
     @commands.Cog.listener()
@@ -102,95 +101,6 @@ class JumboCog(commands.Cog):
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
         return any(str(r.id) in admin_roles for r in interaction.user.roles)
-
-    def stop_panel_task(self, guild_id: str):
-        """残数更新タスクを停止（あれば）"""
-        task = self.panel_tasks.pop(guild_id, None)
-        if task:
-            task.cancel()
-            print(f"[JUMBO] panel updater stopped guild={guild_id}")
-
-
-    async def update_panel_remaining(self, guild_id: str):
-        """
-        10秒ごとに呼ばれる：
-        - DBの発行枚数を数える
-        - 残数を算出
-        - パネルの embed の「🎫 宝くじ残り枚数」だけ更新
-        - パネルが消えていたら自動停止
-        """
-        try:
-            config = await self.jumbo_db.get_config(guild_id)
-            if not config:
-                print("[JUMBO] updater stop: no config")
-                self.stop_panel_task(guild_id)
-                return
-
-            # 締め切り済みなら止める
-            if not config.get("is_open", True):
-                print("[JUMBO] updater stop: closed")
-                self.stop_panel_task(guild_id)
-                return
-
-            channel_id = config.get("panel_channel_id")
-            message_id = config.get("panel_message_id")
-
-            print("[JUMBO] panel ids", channel_id, message_id)
-
-            # パネル情報が無いなら止める
-            if not channel_id or not message_id:
-                self.stop_panel_task(guild_id)
-                print("[JUMBO] updater stop: no panel ids")
-                return
-
-            # 発行済み枚数→残数
-            issued = await self.jumbo_db.count_entries(guild_id)
-            remaining = max(0, 999_999 - issued)
-
-            # パネル取得
-            channel = self.bot.get_channel(int(channel_id))
-            if channel is None:
-                # キャッシュに無い場合は fetch する
-                channel = await self.bot.fetch_channel(int(channel_id))
-
-            msg = await channel.fetch_message(int(message_id))
-
-            if not msg.embeds:
-                return
-
-            embed = msg.embeds[0]
-
-            # フィールド更新（存在すれば上書き、無ければ追加）
-            updated = False
-            for i, field in enumerate(embed.fields):
-                if field.name.startswith("🎫 宝くじ残り枚数"):
-                    new_value = f"{remaining:,} 枚"
-                    if field.value == new_value:
-                        return  # 変化なしなら編集しない
-                    embed.set_field_at(
-                        i,
-                        name="🎫 宝くじ残り枚数",
-                        value=new_value,
-                        inline=False
-                    )
-                    updated = True
-                    break
-
-            if not updated:
-                embed.add_field(
-                    name="🎫 宝くじ残り枚数",
-                    value=f"{remaining:,} 枚",
-                    inline=False
-                )
-
-            await msg.edit(embed=embed)
-
-        except discord.NotFound:
-            # メッセージ（パネル）が消された
-            self.stop_panel_task(guild_id)
-
-        except Exception as e:
-            print("[JUMBO] update_panel_remaining error:", repr(e))
 
     # -------------------------------------------------
     # /年末ジャンボ開催
@@ -258,16 +168,6 @@ class JumboCog(commands.Cog):
         )
         print("[JUMBO] panel message saved")
 
-        # ★ 既存タスクがあれば停止
-        if guild_id in self.panel_tasks:
-            self.panel_tasks[guild_id].cancel()
-
-        # ★ 10秒更新タスク起動
-        task = tasks.loop(seconds=10)(
-            lambda: self.update_panel_remaining(guild_id)
-        )
-        task.start()
-        self.panel_tasks[guild_id] = task
 
     # -------------------------------------------------
     # /年末ジャンボ当選者発表（DB非依存・表示専用）
@@ -492,6 +392,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
