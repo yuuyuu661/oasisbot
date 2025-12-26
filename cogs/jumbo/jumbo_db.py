@@ -75,6 +75,16 @@ class JumboDB:
                 PRIMARY KEY (guild_id, rank, number)
             );
         """)
+        # ★★★ リアルタイム更新用（追加）
+        await self.db.conn.execute("""
+            ALTER TABLE jumbo_config
+            ADD COLUMN IF NOT EXISTS panel_channel_id TEXT;
+        """)
+
+        await self.db.conn.execute("""
+            ALTER TABLE jumbo_config
+            ADD COLUMN IF NOT EXISTS panel_message_id TEXT;
+        """)
 
         # ★ 既存DB救済（後付けカラム）
         await self.db.conn.execute("""
@@ -238,4 +248,5 @@ class JumboDB:
             guild_id
         )
         return row["cnt"] if row else 0
+
 
