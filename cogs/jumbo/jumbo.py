@@ -90,6 +90,10 @@ class JumboCog(commands.Cog):
     async def on_ready(self):
         await self.jumbo_db.init_tables()
         print("[JUMBO] DB tables ready")
+        # ★ 10秒更新ループを起動（多重起動防止）
+        if not self.panel_updater.is_running():
+            self.panel_updater.start()
+            print("[JUMBO] panel_updater started")
 
     # -------------------------------------------------
     # 管理者判定
@@ -233,9 +237,9 @@ class JumboCog(commands.Cog):
         await interaction.followup.send(embed=embed, view=view)
         # ★ パネル情報をDBに保存
         await self.jumbo_db.set_panel_message(
-            guild_id,
-            str(panel_msg.channel.id),
-            str(panel_msg.id),
+            guild_id=guild_id,
+            channel_id=str(panel_msg.channel.id),
+            message_id=str(panel_msg.id),
         )
 
         # ★ 既存タスクがあれば停止
@@ -430,8 +434,11 @@ class JumboCog(commands.Cog):
                 remaining = max(0, 999_999 - issued)
 
                 channel = self.bot.get_channel(int(channel_id))
-                if not channel:
-                    continue
+                if channel is None:
+                    try:
+                        channel = await self.bot.fetch_channel(int(channel_id))
+                    except:
+                        continue
 
                 message = await channel.fetch_message(int(message_id))
                 if not message.embeds:
@@ -439,19 +446,30 @@ class JumboCog(commands.Cog):
 
                 embed = message.embeds[0]
 
+                found = False
                 for i, field in enumerate(embed.fields):
                     if field.name.startswith("🎫 宝くじ残り枚数"):
-                        if field.value == f"{remaining:,} 枚":
-                            break  # 変化なし → 編集しない
+                        found = True
+                        new_value = f"{remaining:,} 枚"
+                        if field.value == new_value:
+                            break
 
                         embed.set_field_at(
                             i,
                             name="🎫 宝くじ残り枚数",
-                            value=f"{remaining:,} 枚",
+                            value=new_value,
                             inline=False
                         )
                         await message.edit(embed=embed)
                         break
+
+                if not found:
+                    embed.add_field(
+                        name="🎫 宝くじ残り枚数",
+                        value=f"{remaining:,} 枚",
+                        inline=False
+                    )
+                    await message.edit(embed=embed)
 
             except Exception as e:
                 print("[JUMBO] panel updater error:", e)
@@ -459,6 +477,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
