@@ -136,6 +136,12 @@ class JumboCog(commands.Cog):
             color=0xF1C40F
         )
 
+        embed.add_field(
+            name="🎫 宝くじ残り枚数",
+            value=f"{remaining:,} 枚",
+            inline=False
+        )
+
         view = JumboBuyView(self.bot, self.jumbo_db, guild_id)
 
         await interaction.response.send_message("🎫 ジャンボを開始しました", ephemeral=True)
@@ -304,6 +310,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
