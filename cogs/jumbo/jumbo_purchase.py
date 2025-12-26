@@ -198,6 +198,11 @@ class JumboCloseButton(discord.ui.Button):
         # 締め切り
         await self.jumbo_db.close_config(self.guild_id)
 
+        # ★ 残数更新タスク停止
+        cog = self.bot.get_cog("JumboCog")
+        if cog:
+            cog.stop_panel_task(self.guild_id)
+
         # ボタン全無効化
         for child in self.view.children:
             child.disabled = True
@@ -216,6 +221,7 @@ class JumboBuyView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(JumboBuyButton(bot, jumbo_db, guild_id))
         self.add_item(JumboCloseButton(bot, jumbo_db, guild_id))
+
 
 
 
