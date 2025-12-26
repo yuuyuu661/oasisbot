@@ -119,7 +119,7 @@ class JumboCog(commands.Cog):
         try:
             year, month, day = map(int, deadline.split("-"))
             deadline_dt = datetime(year, month, day, 23, 59)
-            except Exception:
+        except Exception:
                 return await interaction.response.send_message(
                     "❌ 期限は YYYY-MM-DD（例: 2025-12-31）",
                     ephemeral=True
@@ -452,6 +452,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
