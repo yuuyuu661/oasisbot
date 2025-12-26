@@ -281,17 +281,6 @@ class JumboCog(commands.Cog):
         guild_id = str(interaction.guild.id)
         user_id = str(interaction.user.id)
 
-        if interaction.guild is None:
-            guild_id = await self.jumbo_db.get_user_last_guild(user_id)
-            if not guild_id:
-                return await interaction.response.send_message(
-                    "❌ DMでは参照先サーバーが分かりません。\n"
-                    "一度どこかのサーバーで宝くじを購入してから、もう一度DMで実行してください。",
-                    ephemeral=True
-                )
-        else:
-            guild_id = str(interaction.guild.id)
-
         rows = await self.jumbo_db.get_user_numbers(guild_id, user_id)
         numbers = [r["number"] for r in rows]
 
@@ -322,6 +311,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
