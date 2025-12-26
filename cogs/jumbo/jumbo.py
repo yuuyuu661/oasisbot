@@ -378,16 +378,24 @@ class JumboCog(commands.Cog):
     async def jumbo_reset(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
-        if not await self.is_admin(interaction):
-            return await interaction.followup.send("❌ 管理者専用")
+        try:
+            if not await self.is_admin(interaction):
+                return await interaction.followup.send("❌ 管理者専用")
 
-        guild_id = str(interaction.guild.id)
+            guild_id = str(interaction.guild.id)
 
-        await self.jumbo_db.clear_entries(guild_id)
-        await self.jumbo_db.clear_winners(guild_id)
-        await self.jumbo_db.reset_config(guild_id)
+            await self.jumbo_db.clear_entries(guild_id)
+            await self.jumbo_db.clear_winners(guild_id)
+            await self.jumbo_db.reset_config(guild_id)
 
-        await interaction.followup.send("🧹 ジャンボ履歴をすべてリセットしました")
+            await interaction.followup.send("🧹 ジャンボ履歴をすべてリセットしました")
+
+        except Exception as e:
+            # ★ これが無いと「考え中…」になる
+            print("[JUMBO reset ERROR]", repr(e))
+            await interaction.followup.send(
+                "❌ リセット中にエラーが発生しました。\n管理者にログを確認してもらってください。"
+            )
 
 
     @tasks.loop(seconds=10)
@@ -452,6 +460,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
