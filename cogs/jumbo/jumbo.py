@@ -117,13 +117,13 @@ class JumboCog(commands.Cog):
             return await interaction.response.send_message("❌ 管理者専用", ephemeral=True)
 
         try:
-            month, day = map(int, deadline.split("-"))
-            year = datetime.now().year
-            deadline_dt = datetime(year, month, day, 23, 59)
-        except Exception:
-            return await interaction.response.send_message(
-                "❌ 期限は MM-DD（例: 12-31）", ephemeral=True
-            )
+            year, month, day = map(int, deadline.split("-"))
+                deadline_dt = datetime(year, month, day, 23, 59)
+            except Exception:
+                return await interaction.response.send_message(
+                    "❌ 期限は YYYY-MM-DD（例: 2025-12-31）",
+                    ephemeral=True
+                )
 
         guild_id = str(interaction.guild.id)
         await self.jumbo_db.set_config(guild_id, title, description, deadline_dt)
@@ -452,6 +452,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
