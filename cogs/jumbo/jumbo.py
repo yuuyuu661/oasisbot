@@ -127,7 +127,7 @@ class JumboCog(commands.Cog):
             title=f"🎉 {title}",
             description=(
                 f"{description}\n\n"
-                f"締切：{deadline_dt.strftime('%Y/%m/%d 23:59')}\n"
+                f"締切：{deadline_dt.strftime('%Y/%m/%d')}\n"
                 f"1口 = 1,000 rrc"
             ),
             color=0xF1C40F
@@ -301,6 +301,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
