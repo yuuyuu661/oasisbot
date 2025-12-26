@@ -19,7 +19,7 @@ class JumboBuyModal(discord.ui.Modal):
         self.guild_id = guild_id
 
         self.count = discord.ui.TextInput(
-            label="購入口数（1〜10）",
+            label="購入口数（1〜100）",
             placeholder="例：3",
             required=True,
             max_length=2
@@ -34,8 +34,8 @@ class JumboBuyModal(discord.ui.Modal):
         except:
             return await interaction.response.send_message("❌ 数字を入力してください。", ephemeral=True)
 
-        if not 1 <= count <= 10:
-            return await interaction.response.send_message("❌ 口数は1〜10です。", ephemeral=True)
+        if not 1 <= count <= 100:
+            return await interaction.response.send_message("❌ 口数は1〜100です。", ephemeral=True)
 
         guild_id = str(self.guild_id)
         user_id = str(interaction.user.id)
@@ -144,3 +144,4 @@ class JumboBuyView(discord.ui.View):
     def __init__(self, bot, jumbo_db, guild_id):
         super().__init__(timeout=None)
         self.add_item(JumboBuyButton(bot, jumbo_db, guild_id))
+
