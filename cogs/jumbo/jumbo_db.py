@@ -127,12 +127,13 @@ class JumboDB:
     # ★ パネルメッセージID（リアルタイム更新用）
     # ============================================================
 
-    async def set_panel_message_id(self, guild_id: str, message_id: str):
+    async def set_panel_message(self, guild_id, channel_id, message_id):
         await self.db.conn.execute("""
             UPDATE jumbo_config
-            SET panel_message_id = $2
-            WHERE guild_id = $1
-        """, guild_id, message_id)
+            SET panel_channel_id=$2,
+                panel_message_id=$3
+            WHERE guild_id=$1
+        """, guild_id, channel_id, message_id)
 
     async def get_panel_message_id(self, guild_id: str) -> str | None:
         row = await self.db.conn.fetchrow(
@@ -237,3 +238,4 @@ class JumboDB:
             guild_id
         )
         return row["cnt"] if row else 0
+
