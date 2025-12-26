@@ -110,6 +110,8 @@ class JumboCog(commands.Cog):
             task.cancel()
             print(f"[JUMBO] panel updater stopped guild={guild_id}")
 
+    print("[JUMBO] updater tick", guild_id)
+
     async def update_panel_remaining(self, guild_id: str):
         """
         10秒ごとに呼ばれる：
@@ -121,20 +123,25 @@ class JumboCog(commands.Cog):
         try:
             config = await self.jumbo_db.get_config(guild_id)
             if not config:
+                print("[JUMBO] updater stop: no config")
                 self.stop_panel_task(guild_id)
                 return
 
             # 締め切り済みなら止める
             if not config.get("is_open", True):
+                print("[JUMBO] updater stop: closed")
                 self.stop_panel_task(guild_id)
                 return
 
             channel_id = config.get("panel_channel_id")
             message_id = config.get("panel_message_id")
 
+            print("[JUMBO] panel ids", channel_id, message_id)
+
             # パネル情報が無いなら止める
             if not channel_id or not message_id:
                 self.stop_panel_task(guild_id)
+                print("[JUMBO] updater stop: no panel ids")
                 return
 
             # 発行済み枚数→残数
@@ -235,12 +242,23 @@ class JumboCog(commands.Cog):
 
         await interaction.response.send_message("🎫 ジャンボを開始しました", ephemeral=True)
         await interaction.followup.send(embed=embed, view=view)
+        panel_msg = await interaction.followup.send(embed=embed, view=view)
+
+        print(
+            "[JUMBO] panel sent",
+            "guild=", guild_id,
+            "channel=", panel_msg.channel.id,
+            "message=", panel_msg.id
+        )
         # ★ パネル情報をDBに保存
+        print("[JUMBO] saving panel message to DB")
+        
         await self.jumbo_db.set_panel_message(
             guild_id=guild_id,
             channel_id=str(panel_msg.channel.id),
             message_id=str(panel_msg.id),
         )
+        print("[JUMBO] panel message saved")
 
         # ★ 既存タスクがあれば停止
         if guild_id in self.panel_tasks:
@@ -477,6 +495,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
