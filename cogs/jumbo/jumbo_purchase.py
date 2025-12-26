@@ -114,7 +114,7 @@ class JumboBuyModal(discord.ui.Modal):
                         )
                         break
 
-                await message.edit(embed=embed, view=message.view)
+                await message.edit(embed=embed)
 
             except Exception as e:
                 print("[JUMBO] panel update failed:", e)
@@ -221,6 +221,7 @@ class JumboBuyView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(JumboBuyButton(bot, jumbo_db, guild_id))
         self.add_item(JumboCloseButton(bot, jumbo_db, guild_id))
+
 
 
 
