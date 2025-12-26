@@ -59,7 +59,7 @@ class JumboBuyModal(discord.ui.Modal):
         # ===========================
         # 残高チェック（通貨 rrc）
         # ===========================
-        PRICE = 10000  # 1口 = 10000 rrc
+        PRICE = 1000  # 1口 = 1000 rrc
 
         user_data = await self.bot.db.get_user(user_id, guild_id)
 
@@ -144,4 +144,5 @@ class JumboBuyView(discord.ui.View):
     def __init__(self, bot, jumbo_db, guild_id):
         super().__init__(timeout=None)
         self.add_item(JumboBuyButton(bot, jumbo_db, guild_id))
+
 
