@@ -277,7 +277,6 @@ class JumboCog(commands.Cog):
     # /所持宝くじ番号を確認
     # -------------------------------------------------
     @app_commands.command(name="所持宝くじ番号を確認")
-    @allowed_contexts(AppCommandContext.guild, AppCommandContext.private_channel)
     async def jumbo_my_numbers(self, interaction: discord.Interaction, search: str | None = None):
         guild_id = str(interaction.guild.id)
         user_id = str(interaction.user.id)
@@ -323,6 +322,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
