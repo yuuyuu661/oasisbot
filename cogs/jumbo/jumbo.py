@@ -110,7 +110,6 @@ class JumboCog(commands.Cog):
             task.cancel()
             print(f"[JUMBO] panel updater stopped guild={guild_id}")
 
-    print("[JUMBO] updater tick", guild_id)
 
     async def update_panel_remaining(self, guild_id: str):
         """
@@ -241,7 +240,6 @@ class JumboCog(commands.Cog):
         view = JumboBuyView(self.bot, self.jumbo_db, guild_id)
 
         await interaction.response.send_message("🎫 ジャンボを開始しました", ephemeral=True)
-        await interaction.followup.send(embed=embed, view=view)
         panel_msg = await interaction.followup.send(embed=embed, view=view)
 
         print(
@@ -270,7 +268,6 @@ class JumboCog(commands.Cog):
         )
         task.start()
         self.panel_tasks[guild_id] = task
-        await self.jumbo_db.set_panel_message(guild_id, str(msg.id))
 
     # -------------------------------------------------
     # /年末ジャンボ当選者発表（DB非依存・表示専用）
@@ -495,6 +492,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
