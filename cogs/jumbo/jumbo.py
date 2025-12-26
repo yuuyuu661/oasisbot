@@ -123,6 +123,9 @@ class JumboCog(commands.Cog):
         guild_id = str(interaction.guild.id)
         await self.jumbo_db.set_config(guild_id, title, description, deadline_dt)
 
+        issued = await self.jumbo_db.count_entries(guild_id)
+        remaining = 999_999 - issued
+
         embed = discord.Embed(
             title=f"🎉 {title}",
             description=(
@@ -301,6 +304,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
