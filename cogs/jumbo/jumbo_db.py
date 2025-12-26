@@ -60,7 +60,7 @@ class JumboDB:
         """)
 
         # ------------------------------
-        # 当選結果（CREATEは1回だけ）
+        # 当選結果
         # ------------------------------
         await self.db.conn.execute("""
             CREATE TABLE IF NOT EXISTS jumbo_winners (
@@ -69,6 +69,16 @@ class JumboDB:
                 number   VARCHAR(6) NOT NULL,
                 user_id  TEXT NOT NULL,
                 PRIMARY KEY (guild_id, rank, number)
+            );
+        """)
+        # ------------------------------
+        # 宝くじ残数
+        # ------------------------------
+        await self.db.conn.execute("""
+            CREATE TABLE IF NOT EXISTS jumbo_user_last_guild (
+                user_id   TEXT PRIMARY KEY,
+                guild_id  TEXT NOT NULL,
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW()
             );
         """)
 
@@ -215,4 +225,5 @@ class JumboDB:
             guild_id
         )
         return row["cnt"] if row else 0
+
 
