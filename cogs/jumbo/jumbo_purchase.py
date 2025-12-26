@@ -22,7 +22,7 @@ class JumboBuyModal(discord.ui.Modal):
             label="購入口数（1〜100）",
             placeholder="例：3",
             required=True,
-            max_length=2
+            max_length=3
         )
         self.add_item(self.count)
 
@@ -221,6 +221,7 @@ class JumboBuyView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(JumboBuyButton(bot, jumbo_db, guild_id))
         self.add_item(JumboCloseButton(bot, jumbo_db, guild_id))
+
 
 
 
