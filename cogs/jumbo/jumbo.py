@@ -176,7 +176,7 @@ class JumboCog(commands.Cog):
             2: 5_000_000,
             3: 1_000_000,
             4: 500_000,
-            5: 100_000,
+            5: 50_000,
         }
 
         results: dict[int, list[dict]] = {r: [] for r in range(1, 6)}
@@ -301,6 +301,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
