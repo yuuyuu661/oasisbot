@@ -160,7 +160,6 @@ class JumboBuyButton(discord.ui.Button):
         self.view_ref = view
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
         config = await self.view_ref.db.jumbo_get_config(self.view_ref.guild_id)
         if not config or not config["is_open"]:
             return await interaction.response.send_message(
@@ -217,4 +216,5 @@ class JumboBuyView(discord.ui.View):
         self.guild_id = str(guild_id)
         self.add_item(JumboBuyButton(self))
         self.add_item(JumboCloseButton(self))
+
 
