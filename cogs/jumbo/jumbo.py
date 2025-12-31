@@ -481,6 +481,18 @@ class JumboCog(commands.Cog):
                 view=PayResultView(interaction.user, embeds)
             )
 
+        except Exception as e:
+            print("[JUMBO pay ERROR]", repr(e))
+            if interaction.response.is_done():
+                await interaction.followup.send(
+                    "❌ 内部エラーが発生しました（ログを確認してください）"
+                )
+            else:
+                await interaction.response.send_message(
+                    "❌ 内部エラーが発生しました（ログを確認してください）",
+                    ephemeral=True
+                )
+
 
     @tasks.loop(seconds=10)
     async def panel_updater(self):
@@ -544,6 +556,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
