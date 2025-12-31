@@ -49,43 +49,39 @@ class NumberListView(discord.ui.View):
 
 
 # =====================================================
-# 判定ロジック（スライド一致）
+# 判定ロジック（右側固定一致）
 # =====================================================
-def rough_hit(winning: str, number: str, match_len: int) -> bool:
-    for i in range(0, 6 - match_len + 1):
-        if winning[i:i + match_len] in number:
-            return True
-    return False
-
-def strict_hit(winning: str, number: str, match_len: int) -> bool:
-    for start in range(0, 6 - match_len + 1):
-        for offset in range(match_len):
-            if winning[start + offset] != number[start + offset]:
-                break
-        else:
-            return True
-    return False
-
 def calc_jumbo_results(winning: str, entries: list[dict]):
-    RANK_RULES = {1: 6, 2: 5, 3: 4, 4: 3, 5: 2}
-    PRIZES = {1: 10_000_000, 2: 5_000_000, 3: 1_000_000, 4: 500_000, 5: 50_000}
+    # 右から何桁一致で何等か
+    RANK_RULES = {
+        1: 6,  # 完全一致
+        2: 5,  # 〇23456
+        3: 4,  # 〇〇3456
+        4: 3,  # 〇〇〇456
+        5: 2,  # 〇〇〇〇56
+    }
+
+    PRIZES = {
+        1: 10_000_000,
+        2: 5_000_000,
+        3: 1_000_000,
+        4: 500_000,
+        5: 50_000,
+    }
 
     results: dict[int, list[dict]] = {r: [] for r in range(1, 6)}
     used_numbers: set[str] = set()
 
     for rank, match_len in RANK_RULES.items():
-        candidates = []
-
         for e in entries:
             number = e["number"]
+
+            # すでに上位等で使われた番号は除外
             if number in used_numbers:
                 continue
-            if rough_hit(winning, number, match_len):
-                candidates.append(e)
 
-        for e in candidates:
-            number = e["number"]
-            if strict_hit(winning, number, match_len):
+            # ★ 右側 match_len 桁が一致しているか
+            if number[-match_len:] == winning[-match_len:]:
                 used_numbers.add(number)
                 results[rank].append({
                     "user_id": e["user_id"],
@@ -520,6 +516,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
