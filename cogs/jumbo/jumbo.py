@@ -75,6 +75,39 @@ def strict_hit(winning: str, number: str, match_len: int) -> bool:
             return True
     return False
 
+# =====================================================
+# 当選判定
+# =====================================================
+
+def calc_jumbo_results(winning: str, entries: list[dict]):
+    RANK_RULES = {1: 6, 2: 5, 3: 4, 4: 3, 5: 2}
+    PRIZES = {1: 10_000_000, 2: 5_000_000, 3: 1_000_000, 4: 500_000, 5: 50_000}
+
+    results: dict[int, list[dict]] = {r: [] for r in range(1, 6)}
+    used_numbers: set[str] = set()
+
+    for rank, match_len in RANK_RULES.items():
+        candidates = []
+
+        for e in entries:
+            number = e["number"]
+            if number in used_numbers:
+                continue
+            if rough_hit(winning, number, match_len):
+                candidates.append(e)
+
+        for e in candidates:
+            number = e["number"]
+            if strict_hit(winning, number, match_len):
+                used_numbers.add(number)
+                results[rank].append({
+                    "user_id": e["user_id"],
+                    "number": number,
+                    "prize": PRIZES[rank],
+                })
+
+    return results
+
 
 # =====================================================
 # Jumbo Cog
@@ -216,45 +249,9 @@ class JumboCog(commands.Cog):
         # ==========================
         # 判定処理
         # ==========================
-        for rank, match_len in RANK_RULES.items():
-            candidates = []
+        entries = await self.bot.db.jumbo_get_all_entries(guild_id)
 
-            for e in entries:
-                number = e["number"]
-                if number in used_numbers:
-                    continue
-                if rough_hit(winning, number, match_len):
-                    candidates.append(e)
-
-            for e in candidates:
-                number = e["number"]
-                if strict_hit(winning, number, match_len):
-                    used_numbers.add(number)
-                    results[rank].append({
-                        "user_id": e["user_id"],
-                        "number": number,
-                    })
-
-        # ==========================
-        # ページ化用ユーティリティ
-        # ==========================
-        def split_lines(lines, max_chars=900):
-            pages = []
-            buf = ""
-
-            for line in lines:
-                if len(buf) + len(line) + 1 > max_chars:
-                    pages.append(buf)
-                    buf = line
-                else:
-                    buf += "\n" + line if buf else line
-
-            if buf:
-                pages.append(buf)
-
-            return pages
-
-        embeds: list[discord.Embed] = []
+        results = calc_jumbo_results(winning, entries)
 
         # ==========================
         # Embed生成（ページ分割）
@@ -397,6 +394,54 @@ class JumboCog(commands.Cog):
                 "❌ リセット中にエラーが発生しました。\n管理者にログを確認してもらってください。"
             )
 
+    @app_commands.command(name="ジャンボ賞金給付")
+    async def jumbo_pay(self, interaction: discord.Interaction, rank: int):
+        await interaction.response.defer(ephemeral=True)
+
+        if not await self.is_admin(interaction):
+            return await interaction.followup.send("❌ 管理者専用")
+
+        if rank not in (1, 2, 3, 4, 5):
+            return await interaction.followup.send("❌ 等級は1〜5です")
+
+        guild_id = str(interaction.guild.id)
+
+        config = await self.bot.db.jumbo_get_config(guild_id)
+        if not config or not config["winning_number"]:
+            return await interaction.followup.send("❌ 当選番号が未設定です")
+
+        paid_ranks = await self.bot.db.jumbo_get_paid_ranks(guild_id)
+        if rank in paid_ranks:
+            return await interaction.followup.send(f"⚠ 第{rank}等はすでに給付済みです")
+
+        entries = await self.bot.db.jumbo_get_all_entries(guild_id)
+        if not entries:
+            return await interaction.followup.send("⚠ 購入者がいません")
+
+        results = calc_jumbo_results(config["winning_number"], entries)
+
+        winners = results[rank]
+        if not winners:
+            await self.bot.db.jumbo_add_paid_rank(guild_id, rank)
+            return await interaction.followup.send(f"第{rank}等の当選者はいませんでした（給付済み扱い）")
+
+        PRIZES = {1: 10_000_000, 2: 5_000_000, 3: 1_000_000, 4: 500_000, 5: 50_000}
+        prize = PRIZES[rank]
+
+        total = 0
+        for w in winners:
+            await self.bot.db.add_balance(w["user_id"], guild_id, prize)
+            total += prize
+
+        await self.bot.db.jumbo_add_paid_rank(guild_id, rank)
+
+        await interaction.followup.send(
+            f"✅ **第{rank}等 賞金給付完了**\n"
+            f"当選者: {len(winners)}人\n"
+            f"1人あたり: {prize:,} rrc\n"
+            f"総支給額: {total:,} rrc"
+        )
+
 
     @tasks.loop(seconds=10)
     async def panel_updater(self):
@@ -460,6 +505,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
