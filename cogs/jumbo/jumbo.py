@@ -177,14 +177,14 @@ class JumboCog(commands.Cog):
             guild_id = str(interaction.guild.id)
 
             # --- 当選番号取得 ---
-            config = await self.jumbo_get_config(guild_id)
+            config = await self.jumbo_db.jumbo_get_config(guild_id)
             if not config or not config["winning_number"]:
                 return await interaction.followup.send("❌ 当選番号が未設定です")
 
             winning = config["winning_number"]
 
             # --- 購入番号取得 ---
-            entries = await self.jumbo_get_all_entries(guild_id)
+            entries = await self.jumbo_db.jumbo_get_all_entries(guild_id)
             if not entries:
                 return await interaction.followup.send("⚠ 購入者がいません")
 
@@ -318,7 +318,7 @@ class JumboCog(commands.Cog):
 
             guild_id = str(interaction.guild.id)
 
-            config = await self.jumbo_get_config(guild_id)
+            config = await self.jumbo_db.jumbo_get_config(guild_id)
             if not config or not config["winning_number"]:
                 return await interaction.followup.send("❌ 当選番号が未設定です")
 
@@ -326,7 +326,7 @@ class JumboCog(commands.Cog):
             if rank in paid_ranks:
                 return await interaction.followup.send(f"⚠ 第{rank}等はすでに給付済みです")
 
-            entries = await self.jumbo_get_all_entries(guild_id)
+            entries = await self.jumbo_db.jumbo_get_all_entries(guild_id)
             if not entries:
                 return await interaction.followup.send("⚠ 購入者がいません")
 
@@ -414,6 +414,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
