@@ -102,6 +102,7 @@ def calc_jumbo_results(winning: str, entries: list[dict]):
 class JumboCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.jumbo_db = bot.db 
         print("[JUMBO] JumboCog __init__")
 
     @commands.Cog.listener()
@@ -413,6 +414,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
