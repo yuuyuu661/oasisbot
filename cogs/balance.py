@@ -101,6 +101,7 @@ class BalanceCog(commands.Cog):
             f"💰 **{target.display_name} の残高**\n"
             f"所持金: **{row['balance']} {unit}**\n"
             f"チケット: **{tickets}枚**",
+            f"ジャンボ: **{jumbo_count}口 🎫**",
             ephemeral=True
         )
 
