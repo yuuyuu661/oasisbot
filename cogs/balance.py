@@ -75,6 +75,12 @@ class BalanceCog(commands.Cog):
             row = await db.get_user(str(target.id), str(guild.id))
             # チケット枚数
             tickets = await db.get_tickets(str(target.id), str(guild.id))
+            # ジャンボ購入数
+            jumbo_count = await db.jumbo_get_user_count(
+                str(guild.id),
+                str(target.id)
+            )
+
             # 通貨単位
             settings = await db.get_settings()
             unit = settings["currency_unit"]
