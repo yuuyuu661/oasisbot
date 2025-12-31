@@ -352,53 +352,67 @@ class JumboCog(commands.Cog):
                 "❌ リセット中にエラーが発生しました。\n管理者にログを確認してもらってください。"
             )
 
+
+    # -------------------------------------------------
+    # /ジャンボ履歴リセット
+    # -------------------------------------------------
     @app_commands.command(name="ジャンボ賞金給付")
     async def jumbo_pay(self, interaction: discord.Interaction, rank: int):
         await interaction.response.defer(ephemeral=True)
 
-        if not await self.is_admin(interaction):
-            return await interaction.followup.send("❌ 管理者専用")
+        try:
+            if not await self.is_admin(interaction):
+                return await interaction.followup.send("❌ 管理者専用")
 
-        if rank not in (1, 2, 3, 4, 5):
-            return await interaction.followup.send("❌ 等級は1〜5です")
+            if rank not in (1, 2, 3, 4, 5):
+                return await interaction.followup.send("❌ 等級は1〜5です")
 
-        guild_id = str(interaction.guild.id)
+            guild_id = str(interaction.guild.id)
 
-        config = await self.bot.db.jumbo_get_config(guild_id)
-        if not config or not config["winning_number"]:
-            return await interaction.followup.send("❌ 当選番号が未設定です")
+            config = await self.jumbo_db.get_config(guild_id)
+            if not config or not config["winning_number"]:
+                return await interaction.followup.send("❌ 当選番号が未設定です")
 
-        paid_ranks = await self.bot.db.jumbo_get_paid_ranks(guild_id)
-        if rank in paid_ranks:
-            return await interaction.followup.send(f"⚠ 第{rank}等はすでに給付済みです")
+            paid_ranks = await self.bot.db.jumbo_get_paid_ranks(guild_id)
+            if rank in paid_ranks:
+                return await interaction.followup.send(f"⚠ 第{rank}等はすでに給付済みです")
 
-        entries = await self.bot.db.jumbo_get_all_entries(guild_id)
-        if not entries:
-            return await interaction.followup.send("⚠ 購入者がいません")
+            entries = await self.jumbo_db.get_all_entries(guild_id)
+            if not entries:
+                return await interaction.followup.send("⚠ 購入者がいません")
 
-        results = calc_jumbo_results(config["winning_number"], entries)
+            results = calc_jumbo_results(config["winning_number"], entries)
+            winners = results[rank]
 
-        winners = results[rank]
-        if not winners:
+            PRIZES = {1: 10_000_000, 2: 5_000_000, 3: 1_000_000, 4: 500_000, 5: 50_000}
+            prize = PRIZES[rank]
+
+            if not winners:
+                await self.bot.db.jumbo_add_paid_rank(guild_id, rank)
+                return await interaction.followup.send(
+                    f"第{rank}等の当選者はいませんでした（給付済み扱い）"
+                )
+
+            total = 0
+            for w in winners:
+                await self.bot.db.add_balance(w["user_id"], guild_id, prize)
+                total += prize
+
             await self.bot.db.jumbo_add_paid_rank(guild_id, rank)
-            return await interaction.followup.send(f"第{rank}等の当選者はいませんでした（給付済み扱い）")
 
-        PRIZES = {1: 10_000_000, 2: 5_000_000, 3: 1_000_000, 4: 500_000, 5: 50_000}
-        prize = PRIZES[rank]
+            await interaction.followup.send(
+                f"✅ **第{rank}等 賞金給付完了**\n"
+                f"当選者: {len(winners)}人\n"
+                f"1人あたり: {prize:,} rrc\n"
+                f"総支給額: {total:,} rrc"
+            )
 
-        total = 0
-        for w in winners:
-            await self.bot.db.add_balance(w["user_id"], guild_id, prize)
-            total += prize
-
-        await self.bot.db.jumbo_add_paid_rank(guild_id, rank)
-
-        await interaction.followup.send(
-            f"✅ **第{rank}等 賞金給付完了**\n"
-            f"当選者: {len(winners)}人\n"
-            f"1人あたり: {prize:,} rrc\n"
-            f"総支給額: {total:,} rrc"
-        )
+        except Exception as e:
+            print("[JUMBO PAY ERROR]", repr(e))
+            await interaction.followup.send(
+                "❌ 給付中にエラーが発生しました。\n"
+                "ログを確認してください。"
+            )
 
 
     @tasks.loop(seconds=10)
@@ -463,6 +477,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
