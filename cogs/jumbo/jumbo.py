@@ -316,7 +316,7 @@ class JumboCog(commands.Cog):
 
         # --- 購入データ取得 ---
         entries = await self.bot.db.jumbo_get_all_entries(guild_id)
-       if not entries:
+        if not entries:
             return await interaction.followup.send("⚠ ジャンボ購入者はいません")
 
         # ==================================================
@@ -558,12 +558,13 @@ class JumboCog(commands.Cog):
     # ------------------------------
     @tasks.loop(seconds=10)
     async def panel_updater(self):
-        rows = await self.bot.db.conn.fetch("""
-            SELECT guild_id, panel_channel_id, panel_message_id
-            FROM jumbo_config
-            WHERE is_open = TRUE
-              AND panel_message_id IS NOT NULL
-        """)
+        async with self.bot.db._lock:
+            rows = await self.bot.db.conn.fetch("""
+                SELECT guild_id, panel_channel_id, panel_message_id
+                FROM jumbo_config
+                WHERE is_open = TRUE
+                  AND panel_message_id IS NOT NULL
+            """)
 
         for row in rows:
             guild_id = row["guild_id"]
@@ -571,7 +572,9 @@ class JumboCog(commands.Cog):
             message_id = row["panel_message_id"]
 
             try:
-                issued = await self.bot.db.jumbo_count_entries(guild_id)
+                async with self.bot.db._lock:
+                    issued = await self.bot.db.jumbo_count_entries(guild_id)
+
                 remaining = max(0, 999_999 - issued)
 
                 channel = self.bot.get_channel(int(channel_id)) or await self.bot.fetch_channel(int(channel_id))
@@ -585,11 +588,20 @@ class JumboCog(commands.Cog):
                     if field.name.startswith("🎫 宝くじ残り枚数"):
                         new_value = f"{remaining:,} 枚"
                         if field.value != new_value:
-                            embed.set_field_at(i, name="🎫 宝くじ残り枚数", value=new_value, inline=False)
+                            embed.set_field_at(
+                                i,
+                                name="🎫 宝くじ残り枚数",
+                                value=new_value,
+                                inline=False
+                            )
                             await message.edit(embed=embed)
                         break
                 else:
-                    embed.add_field(name="🎫 宝くじ残り枚数", value=f"{remaining:,} 枚", inline=False)
+                    embed.add_field(
+                        name="🎫 宝くじ残り枚数",
+                        value=f"{remaining:,} 枚",
+                        inline=False
+                    )
                     await message.edit(embed=embed)
 
             except Exception as e:
@@ -602,6 +614,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
