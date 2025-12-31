@@ -244,6 +244,33 @@ class JumboDB:
         )
         return row["cnt"] if row else 0
 
+    # --------------------------------------------------
+    #   ジャンボ購入枚数
+    # --------------------------------------------------
+    async def jumbo_count_user_entries(self, guild_id, user_id):
+        await self._ensure_conn()
+        row = await self.conn.fetchrow("""
+            SELECT COUNT(*) AS cnt
+            FROM jumbo_entries
+            WHERE guild_id=$1 AND user_id=$2
+        """, guild_id, user_id)
+        return row["cnt"] if row else 0
+    # ------------------------------------------------------
+    #   ジャンボ：ユーザーの所持口数
+    # ------------------------------------------------------
+    async def jumbo_get_user_count(self, guild_id: str, user_id: str) -> int:
+        await self._ensure_conn()
+        row = await self.conn.fetchrow(
+            """
+            SELECT COUNT(*) AS cnt
+            FROM jumbo_entries
+            WHERE guild_id = $1 AND user_id = $2
+            """,
+            guild_id,
+            user_id,
+        )
+        return row["cnt"] if row else 0
+
 
 
 
