@@ -494,7 +494,8 @@ class JumboCog(commands.Cog):
 
                 remaining = max(0, 999_999 - issued)
 
-                channel = self.bot.get_channel(int(channel_id)) or await self.bot.fetch_channel(int(channel_id))
+                channel = self.bot.get_channel(int(channel_id)) \
+                    or await self.bot.fetch_channel(int(channel_id))
                 message = await channel.fetch_message(int(message_id))
                 if not message.embeds:
                     continue
@@ -531,6 +532,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
