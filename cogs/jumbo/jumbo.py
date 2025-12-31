@@ -303,6 +303,118 @@ class JumboCog(commands.Cog):
         await interaction.followup.send("🧹 ジャンボ履歴をすべてリセットしました")
 
     # ------------------------------
+    # /ジャンボ購入者確認
+    # ------------------------------
+    @app_commands.command(name="ジャンボ購入者確認")
+    async def jumbo_buyers(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
+        if not await self.is_admin(interaction):
+            return await interaction.followup.send("❌ 管理者専用")
+
+        guild_id = str(interaction.guild.id)
+
+        # --- 購入データ取得 ---
+        entries = await self.bot.db.jumbo_get_all_entries(guild_id)
+       if not entries:
+            return await interaction.followup.send("⚠ ジャンボ購入者はいません")
+
+        # ==================================================
+        # ユーザーごとに購入枚数を集計
+        # ==================================================
+        from collections import Counter
+        counter = Counter()
+
+        for e in entries:
+            counter[e["user_id"]] += 1
+
+        # 0枚以下を除外 & 枚数多い順
+        users = [
+            (uid, cnt)
+            for uid, cnt in counter.items()
+            if cnt > 0
+        ]
+        users.sort(key=lambda x: x[1], reverse=True)
+
+        if not users:
+            return await interaction.followup.send("⚠ 表示できる購入者がいません")
+
+        # ==================================================
+        # 表示用テキスト作成
+        # ==================================================
+        lines = [
+            f"<@{uid}>　**{cnt}枚**"
+            for uid, cnt in users
+        ]
+
+        def split_lines(lines, max_chars=900):
+            pages, buf = [], ""
+            for line in lines:
+                if len(buf) + len(line) + 1 > max_chars:
+                    pages.append(buf)
+                    buf = line
+                else:
+                    buf += "\n" + line if buf else line
+            if buf:
+                pages.append(buf)
+            return pages
+
+        pages = split_lines(lines)
+        total_buyers = len(users)
+
+        # ==================================================
+        # Embed 作成
+        # ==================================================
+        embeds = []
+        for i, page in enumerate(pages):
+            embed = discord.Embed(
+                title="🎫 ジャンボ購入者一覧",
+                description=page,
+                color=0x3498DB
+            )
+            embed.add_field(
+                name="購入者数",
+                value=f"{total_buyers} 人",
+                inline=False
+            )
+            embed.set_footer(text=f"{i + 1} / {len(pages)} ページ")
+            embeds.append(embed)
+
+        # ==================================================
+        # ページ送り View（操作は実行者のみ）
+        # ==================================================
+        class BuyerListView(discord.ui.View):
+            def __init__(self, user, embeds):
+                super().__init__(timeout=300)
+                self.user = user
+                self.embeds = embeds
+                self.page = 0
+
+            async def interaction_check(self, i: discord.Interaction):
+                return i.user.id == self.user.id
+
+            @discord.ui.button(label="◀ 前へ")
+            async def prev(self, i: discord.Interaction, _):
+                self.page = max(0, self.page - 1)
+                await i.response.edit_message(
+                    embed=self.embeds[self.page],
+                    view=self
+                )
+
+            @discord.ui.button(label="次へ ▶")
+            async def next(self, i: discord.Interaction, _):
+                self.page = min(len(self.embeds) - 1, self.page + 1)
+                await i.response.edit_message(
+                    embed=self.embeds[self.page],
+                    view=self
+                )
+
+        await interaction.followup.send(
+            embed=embeds[0],
+            view=BuyerListView(interaction.user, embeds)
+        )
+
+    # ------------------------------
     # /ジャンボ賞金給付
     # ------------------------------
     @app_commands.command(name="ジャンボ賞金給付")
@@ -441,121 +553,6 @@ class JumboCog(commands.Cog):
                 "❌ 給付中にエラーが発生しました。\nログを確認してください。"
             )
 
-
-    # ------------------------------
-    # /ジャンボ購入者確認
-    # ------------------------------
-    @app_commands.command(name="ジャンボ購入者確認")
-    async def jumbo_buyers(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-
-        if not await self.is_admin(interaction):
-            return await interaction.followup.send("❌ 管理者専用")
-
-        guild_id = str(interaction.guild.id)
-
-        # --- 購入データ取得 ---
-        entries = await self.bot.db.jumbo_get_all_entries(guild_id)
-        if not entries:
-            return await interaction.followup.send("⚠ ジャンボ購入者はいません")
-
-        # ==================================================
-        # ユーザーごとに購入枚数を集計
-        # ==================================================
-        from collections import Counter
-        counter = Counter()
-
-        for e in entries:
-            counter[e["user_id"]] += 1
-
-        # 0枚以下を除外 & 枚数多い順
-        users = [
-            (uid, cnt)
-            for uid, cnt in counter.items()
-            if cnt > 0
-        ]
-        users.sort(key=lambda x: x[1], reverse=True)
-
-        if not users:
-            return await interaction.followup.send("⚠ 表示できる購入者がいません")
-
-        # ==================================================
-        # 表示用テキスト作成
-        # ==================================================
-        lines = [
-            f"<@{uid}>　**{cnt}枚**"
-            for uid, cnt in users
-        ]
-
-        def split_lines(lines, max_chars=900):
-            pages, buf = [], ""
-            for line in lines:
-                if len(buf) + len(line) + 1 > max_chars:
-                    pages.append(buf)
-                    buf = line
-                else:
-                    buf += "\n" + line if buf else line
-            if buf:
-                pages.append(buf)
-            return pages
-
-        pages = split_lines(lines)
-        total_buyers = len(users)
-
-        # ==================================================
-        # Embed 作成
-        # ==================================================
-        embeds = []
-        for i, page in enumerate(pages):
-            embed = discord.Embed(
-                title="🎫 ジャンボ購入者一覧",
-                description=page,
-                color=0x3498DB
-            )
-            embed.add_field(
-                name="購入者数",
-                value=f"{total_buyers} 人",
-                inline=False
-            )
-            embed.set_footer(text=f"{i + 1} / {len(pages)} ページ")
-            embeds.append(embed)
-
-        # ==================================================
-        # ページ送り View（操作は実行者のみ）
-        # ==================================================
-        class BuyerListView(discord.ui.View):
-            def __init__(self, user, embeds):
-                super().__init__(timeout=300)
-                self.user = user
-                self.embeds = embeds
-                self.page = 0
-
-            async def interaction_check(self, i: discord.Interaction):
-                return i.user.id == self.user.id
-
-            @discord.ui.button(label="◀ 前へ")
-            async def prev(self, i: discord.Interaction, _):
-                self.page = max(0, self.page - 1)
-                await i.response.edit_message(
-                    embed=self.embeds[self.page],
-                    view=self
-                )
-
-            @discord.ui.button(label="次へ ▶")
-            async def next(self, i: discord.Interaction, _):
-                self.page = min(len(self.embeds) - 1, self.page + 1)
-                await i.response.edit_message(
-                    embed=self.embeds[self.page],
-                    view=self
-                )
-
-        await interaction.followup.send(
-            embed=embeds[0],
-            view=BuyerListView(interaction.user, embeds)
-        )
-
-
-
     # ------------------------------
     # パネル更新（残数）
     # ------------------------------
@@ -605,6 +602,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
