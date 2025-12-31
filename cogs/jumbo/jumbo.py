@@ -209,128 +209,86 @@ class JumboCog(commands.Cog):
     async def jumbo_announce(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        if not await self.is_admin(interaction):
-            return await interaction.followup.send("❌ 管理者専用")
+        try:
+            if not await self.is_admin(interaction):
+                return await interaction.followup.send("❌ 管理者専用")
 
-        guild_id = str(interaction.guild.id)
+            guild_id = str(interaction.guild.id)
 
-        # --- 当選番号取得 ---
-        config = await self.jumbo_db.get_config(guild_id)
-        if not config or not config["winning_number"]:
-            return await interaction.followup.send("❌ 当選番号が未設定です")
+            # --- 当選番号取得 ---
+            config = await self.jumbo_db.get_config(guild_id)
+            if not config or not config["winning_number"]:
+                return await interaction.followup.send("❌ 当選番号が未設定です")
 
-        winning = config["winning_number"]
+            winning = config["winning_number"]
 
-        # --- 購入番号取得 ---
-        entries = await self.jumbo_db.get_all_entries(guild_id)
-        if not entries:
-            return await interaction.followup.send("⚠ 購入者がいません")
+            # --- 購入番号取得 ---
+            entries = await self.jumbo_db.get_all_entries(guild_id)
+            if not entries:
+                return await interaction.followup.send("⚠ 購入者がいません")
 
-        # 等級ルール
-        RANK_RULES = {
-            1: 6,
-            2: 5,
-            3: 4,
-            4: 3,
-            5: 2,
-        }
+            # --- 判定（共通関数） ---
+            results = calc_jumbo_results(winning, entries)
 
-        PRIZES = {
-            1: 10_000_000,
-            2: 5_000_000,
-            3: 1_000_000,
-            4: 500_000,
-            5: 50_000,
-        }
+            PRIZES = {1: 10_000_000, 2: 5_000_000, 3: 1_000_000, 4: 500_000, 5: 50_000}
 
-        results: dict[int, list[dict]] = {r: [] for r in range(1, 6)}
-        used_numbers: set[str] = set()
+            def split_lines(lines, max_chars=900):
+                pages, buf = [], ""
+                for line in lines:
+                    if len(buf) + len(line) + 1 > max_chars:
+                        pages.append(buf)
+                        buf = line
+                    else:
+                        buf += "\n" + line if buf else line
+                if buf:
+                    pages.append(buf)
+                return pages
 
-        # ==========================
-        # 判定処理
-        # ==========================
-        entries = await self.bot.db.jumbo_get_all_entries(guild_id)
+            embeds: list[discord.Embed] = []
 
-        results = calc_jumbo_results(winning, entries)
+            for rank in range(1, 6):
+                prize = PRIZES[rank]
+                winners = results[rank]
 
-        # ==========================
-        # Embed生成（ページ分割）
-        # ==========================
-        for rank in range(1, 6):
-            prize = PRIZES[rank]
-            winners = results[rank]
+                lines = [f"<@{w['user_id']}> `{w['number']}`" for w in winners] if winners else ["いませんでした。"]
+                pages = split_lines(lines)
 
-            if winners:
-                lines = [
-                    f"<@{w['user_id']}> `{w['number']}`"
-                    for w in winners
-                ]
-            else:
-                lines = ["いませんでした。"]
+                for i, page_text in enumerate(pages):
+                    embed = discord.Embed(title="🎉 年末ジャンボ 当選者発表", color=0xF1C40F)
+                    embed.add_field(name="🎯 当選番号", value=f"**{winning}**", inline=False)
+                    embed.add_field(name=f"第{rank}等（{prize:,} rrc）", value=page_text, inline=False)
+                    embed.set_footer(text=f"第{rank}等 {i + 1} / {len(pages)}")
+                    embeds.append(embed)
 
-            pages = split_lines(lines)
+            if not embeds:
+                return await interaction.followup.send("⚠ 表示できる結果がありません")
 
-            for i, page_text in enumerate(pages):
-                embed = discord.Embed(
-                    title="🎉 年末ジャンボ 当選者発表",
-                    color=0xF1C40F
-                )
+            class ResultPageView(discord.ui.View):
+                def __init__(self, user: discord.User, embeds: list[discord.Embed]):
+                    super().__init__(timeout=300)
+                    self.user = user
+                    self.embeds = embeds
+                    self.page = 0
 
-                embed.add_field(
-                    name="🎯 当選番号",
-                    value=f"**{winning}**",
-                    inline=False
-                )
+                async def interaction_check(self, i: discord.Interaction) -> bool:
+                    return i.user.id == self.user.id
 
-                embed.add_field(
-                    name=f"第{rank}等（{prize:,} rrc）",
-                    value=page_text,
-                    inline=False
-                )
+                @discord.ui.button(label="◀ 前へ")
+                async def prev(self, i: discord.Interaction, _):
+                    self.page = max(0, self.page - 1)
+                    await i.response.edit_message(embed=self.embeds[self.page], view=self)
 
-                embed.set_footer(
-                    text=f"第{rank}等 {i + 1} / {len(pages)}"
-                )
+                @discord.ui.button(label="次へ ▶")
+                async def next(self, i: discord.Interaction, _):
+                    self.page = min(len(self.embeds) - 1, self.page + 1)
+                    await i.response.edit_message(embed=self.embeds[self.page], view=self)
 
-                embeds.append(embed)
+            await interaction.followup.send(embed=embeds[0], view=ResultPageView(interaction.user, embeds))
 
-        # ==========================
-        # ページ送りView
-        # ==========================
-        class ResultPageView(discord.ui.View):
-            def __init__(self, user: discord.User, embeds: list[discord.Embed]):
-                super().__init__(timeout=300)
-                self.user = user
-                self.embeds = embeds
-                self.page = 0
-
-            async def interaction_check(self, interaction: discord.Interaction) -> bool:
-                return interaction.user.id == self.user.id
-
-            @discord.ui.button(label="◀ 前へ")
-            async def prev(self, interaction: discord.Interaction, _):
-                self.page = max(0, self.page - 1)
-                await interaction.response.edit_message(
-                    embed=self.embeds[self.page],
-                    view=self
-                )
-
-            @discord.ui.button(label="次へ ▶")
-            async def next(self, interaction: discord.Interaction, _):
-                self.page = min(len(self.embeds) - 1, self.page + 1)
-                await interaction.response.edit_message(
-                    embed=self.embeds[self.page],
-                    view=self
-                )
-
-        # ==========================
-        # 送信
-        # ==========================
-        view = ResultPageView(interaction.user, embeds)
-        await interaction.followup.send(
-            embed=embeds[0],
-            view=view
-        )
+        except Exception as e:
+            print("[JUMBO announce ERROR]", repr(e))
+            # defer() 済みだから followup で返す
+            await interaction.followup.send("❌ 内部エラー（ログ確認してね）")
 
     # -------------------------------------------------
     # /年末ジャンボ設定
@@ -505,6 +463,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
