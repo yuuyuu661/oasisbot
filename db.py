@@ -618,4 +618,30 @@ class Database:
         )
         return row["cnt"] if row else 0
 
+    # ================================
+    # ジャンボ：給付済み等級取得
+    # ================================
+    async def jumbo_get_paid_ranks(self, guild_id: str) -> list[int]:
+        row = await self.conn.fetchrow(
+            "SELECT paid_ranks FROM jumbo_config WHERE guild_id = $1",
+            guild_id
+        )
+        return row["paid_ranks"] if row and row["paid_ranks"] else []
+
+
+    # ================================
+    # ジャンボ：給付済み等級更新
+    # ================================
+    async def jumbo_add_paid_rank(self, guild_id: str, rank: int):
+        await self.conn.execute("""
+            UPDATE jumbo_config
+            SET paid_ranks = (
+                SELECT ARRAY(
+                    SELECT DISTINCT unnest(coalesce(paid_ranks, '{}') || $2::INTEGER)
+                )
+            )
+            WHERE guild_id = $1
+        """, guild_id, rank)
+
+
 
