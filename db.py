@@ -87,25 +87,31 @@ class Database:
             );
         """)
         # -----------------------------------------
-        # 既存 settings テーブルに log_backup カラムが無ければ追加
+        # 既存 settings テーブルのカラム補完
         # -----------------------------------------
         col_check = await self.conn.fetch("""
-            SELECT column_name FROM information_schema.columns
+            SELECT column_name
+            FROM information_schema.columns
             WHERE table_name = 'settings';
         """)
 
         existing_cols = {row["column_name"] for row in col_check}
 
-        if "log_backup" not in existing_cols:
-            print("🛠 settings テーブルに log_backup カラムを追加します…")
-            await self.conn.execute("""
-                ALTER TABLE settings ADD COLUMN log_backup TEXT;
-            """)
-            # NULL 初期化（念のため）
-            await self.conn.execute("""
-                UPDATE settings SET log_backup = NULL WHERE id = 1;
-            """)
-            print("✅ log_backup カラム追加完了")
+        ADD_COLUMNS = {
+            "log_pay": "TEXT",
+            "log_manage": "TEXT",
+            "log_interview": "TEXT",
+            "log_salary": "TEXT",
+            "log_hotel": "TEXT",
+            "log_backup": "TEXT",
+        }
+
+        for col, col_type in ADD_COLUMNS.items():
+            if col not in existing_cols:
+                print(f"🛠 settings テーブルに {col} カラムを追加します…")
+                await self.conn.execute(
+                    f"ALTER TABLE settings ADD COLUMN {col} {col_type};"
+                )
 
         # ホテル設定テーブル
         await self.conn.execute("""
@@ -610,3 +616,4 @@ class Database:
             user_id,
         )
         return row["cnt"] if row else 0
+
