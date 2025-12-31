@@ -354,7 +354,7 @@ class JumboCog(commands.Cog):
 
 
     # -------------------------------------------------
-    # /ジャンボ履歴リセット
+    # /ジャンボ賞金給付
     # -------------------------------------------------
     @app_commands.command(name="ジャンボ賞金給付")
     async def jumbo_pay(self, interaction: discord.Interaction, rank: int):
@@ -387,31 +387,90 @@ class JumboCog(commands.Cog):
             PRIZES = {1: 10_000_000, 2: 5_000_000, 3: 1_000_000, 4: 500_000, 5: 50_000}
             prize = PRIZES[rank]
 
-            if not winners:
-                await self.bot.db.jumbo_add_paid_rank(guild_id, rank)
-                return await interaction.followup.send(
-                    f"第{rank}等の当選者はいませんでした（給付済み扱い）"
-                )
+            # ----------------------------
+            # ユーザー単位に集計
+            # ----------------------------
+            user_stats = defaultdict(lambda: {"count": 0, "total": 0})
 
-            total = 0
             for w in winners:
-                await self.bot.db.add_balance(w["user_id"], guild_id, prize)
-                total += prize
+                uid = w["user_id"]
+                user_stats[uid]["count"] += 1
+                user_stats[uid]["total"] += prize
+
+            # ----------------------------
+            # 残高付与
+            # ----------------------------
+            for uid, data in user_stats.items():
+                await self.bot.db.add_balance(uid, guild_id, data["total"])
 
             await self.bot.db.jumbo_add_paid_rank(guild_id, rank)
 
-            await interaction.followup.send(
-                f"✅ **第{rank}等 賞金給付完了**\n"
-                f"当選者: {len(winners)}人\n"
-                f"1人あたり: {prize:,} rrc\n"
-                f"総支給額: {total:,} rrc"
-            )
+            # ----------------------------
+            # 表示用テキスト作成
+            # ----------------------------
+            lines = [
+                f"<@{uid}>　**{data['count']}口当選**　**{data['total']:,} rrc**"
+                for uid, data in user_stats.items()
+            ]
 
-        except Exception as e:
-            print("[JUMBO PAY ERROR]", repr(e))
+            def split_lines(lines, max_chars=900):
+                pages, buf = [], ""
+                for line in lines:
+                    if len(buf) + len(line) + 1 > max_chars:
+                        pages.append(buf)
+                        buf = line
+                    else:
+                        buf += "\n" + line if buf else line
+                if buf:
+                    pages.append(buf)
+                return pages
+
+            pages = split_lines(lines)
+
+            embeds = []
+            for i, page in enumerate(pages):
+                embed = discord.Embed(
+                    title=f"✅ 第{rank}等 賞金給付完了",
+                    description=page,
+                    color=0x2ECC71
+                )
+                embed.add_field(
+                    name="当選者数",
+                    value=f"{len(user_stats)}人",
+                    inline=False
+                )
+                embed.set_footer(text=f"{i + 1} / {len(pages)} ページ")
+                embeds.append(embed)
+
+            class PayResultView(discord.ui.View):
+                def __init__(self, user, embeds):
+                    super().__init__(timeout=300)
+                    self.user = user
+                    self.embeds = embeds
+                    self.page = 0
+
+                async def interaction_check(self, interaction):
+                    return interaction.user.id == self.user.id
+
+                @discord.ui.button(label="◀ 前へ")
+                async def prev(self, interaction, _):
+                    self.page = max(0, self.page - 1)
+                    await interaction.response.edit_message(
+                        embed=self.embeds[self.page],
+                        view=self
+                    )
+
+                @discord.ui.button(label="次へ ▶")
+                async def next(self, interaction, _):
+                    self.page = min(len(self.embeds) - 1, self.page + 1)
+                    await interaction.response.edit_message(
+                        embed=self.embeds[self.page],
+                        view=self
+                    )
+
             await interaction.followup.send(
-                "❌ 給付中にエラーが発生しました。\n"
-                "ログを確認してください。"
+                embed=embeds[0],
+                view=PayResultView(interaction.user, embeds)
             )
 
 
@@ -477,6 +536,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
