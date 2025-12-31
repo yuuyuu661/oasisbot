@@ -10,6 +10,7 @@ class Database:
     def __init__(self):
         self.conn = None
         self.dsn = os.getenv("DATABASE_URL")
+        self._lock = asyncio.Lock()
 
     # ------------------------------------------------------
     #   DB接続
@@ -616,4 +617,5 @@ class Database:
             user_id,
         )
         return row["cnt"] if row else 0
+
 
