@@ -302,43 +302,6 @@ class JumboCog(commands.Cog):
         await self.bot.db.jumbo_reset_config(str(interaction.guild.id))
         await interaction.followup.send("🧹 ジャンボ履歴をすべてリセットしました")
 
-    # ------------------------------
-    # /ジャンボ購入者確認
-    # ------------------------------
-    @app_commands.command(name="ジャンボ購入者確認")
-    async def jumbo_buyers(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-
-        if not await self.is_admin(interaction):
-            return await interaction.followup.send("❌ 管理者専用")
-
-        guild_id = str(interaction.guild.id)
-
-        # --- 購入データ取得 ---
-        entries = await self.bot.db.jumbo_get_all_entries(guild_id)
-        if not entries:
-            return await interaction.followup.send("⚠ ジャンボ購入者はいません")
-
-        # ==================================================
-        # ユーザーごとに購入枚数を集計
-        # ==================================================
-        from collections import Counter
-        counter = Counter()
-
-        for e in entries:
-            counter[e["user_id"]] += 1
-
-        # 0枚以下を除外 & 枚数多い順
-        users = [
-            (uid, cnt)
-            for uid, cnt in counter.items()
-            if cnt > 0
-        ]
-        users.sort(key=lambda x: x[1], reverse=True)
-
-        if not users:
-            return await interaction.followup.send("⚠ 表示できる購入者がいません")
-
         # ==================================================
         # 表示用テキスト作成
         # ==================================================
@@ -558,13 +521,12 @@ class JumboCog(commands.Cog):
     # ------------------------------
     @tasks.loop(seconds=10)
     async def panel_updater(self):
-        async with self.bot.db._lock:
-            rows = await self.bot.db.conn.fetch("""
-                SELECT guild_id, panel_channel_id, panel_message_id
-                FROM jumbo_config
-                WHERE is_open = TRUE
-                  AND panel_message_id IS NOT NULL
-            """)
+        rows = await self.bot.db.conn.fetch("""
+            SELECT guild_id, panel_channel_id, panel_message_id
+            FROM jumbo_config
+            WHERE is_open = TRUE
+              AND panel_message_id IS NOT NULL
+        """)
 
         for row in rows:
             guild_id = row["guild_id"]
@@ -572,9 +534,7 @@ class JumboCog(commands.Cog):
             message_id = row["panel_message_id"]
 
             try:
-                async with self.bot.db._lock:
-                    issued = await self.bot.db.jumbo_count_entries(guild_id)
-
+                issued = await self.bot.db.jumbo_count_entries(guild_id)
                 remaining = max(0, 999_999 - issued)
 
                 channel = self.bot.get_channel(int(channel_id)) or await self.bot.fetch_channel(int(channel_id))
@@ -588,20 +548,11 @@ class JumboCog(commands.Cog):
                     if field.name.startswith("🎫 宝くじ残り枚数"):
                         new_value = f"{remaining:,} 枚"
                         if field.value != new_value:
-                            embed.set_field_at(
-                                i,
-                                name="🎫 宝くじ残り枚数",
-                                value=new_value,
-                                inline=False
-                            )
+                            embed.set_field_at(i, name="🎫 宝くじ残り枚数", value=new_value, inline=False)
                             await message.edit(embed=embed)
                         break
                 else:
-                    embed.add_field(
-                        name="🎫 宝くじ残り枚数",
-                        value=f"{remaining:,} 枚",
-                        inline=False
-                    )
+                    embed.add_field(name="🎫 宝くじ残り枚数", value=f"{remaining:,} 枚", inline=False)
                     await message.edit(embed=embed)
 
             except Exception as e:
@@ -614,6 +565,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
