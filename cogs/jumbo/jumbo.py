@@ -287,9 +287,16 @@ class JumboCog(commands.Cog):
             await interaction.followup.send(embed=embeds[0], view=ResultPageView(interaction.user, embeds))
 
         except Exception as e:
-            print("[JUMBO announce ERROR]", repr(e))
-            # defer() 済みだから followup で返す
-            await interaction.followup.send("❌ 内部エラー（ログ確認してね）")
+                print("[JUMBO pay ERROR]", repr(e))
+                if interaction.response.is_done():
+                    await interaction.followup.send(
+                        "❌ 内部エラーが発生しました（ログを確認してください）"
+                    )
+                else:
+                    await interaction.response.send_message(
+                        "❌ 内部エラーが発生しました（ログを確認してください）",
+                        ephemeral=True
+                    )
 
     # -------------------------------------------------
     # /年末ジャンボ設定
@@ -537,6 +544,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
