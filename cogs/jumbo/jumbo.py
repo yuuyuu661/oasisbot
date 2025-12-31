@@ -442,36 +442,36 @@ class JumboCog(commands.Cog):
                 embed.set_footer(text=f"{i + 1} / {len(pages)} ページ")
                 embeds.append(embed)
 
-class PayResultView(discord.ui.View):
-    def __init__(self, user, embeds):
-        super().__init__(timeout=300)
-        self.user = user
-        self.embeds = embeds
-        self.page = 0
+            class PayResultView(discord.ui.View):
+                def __init__(self, user, embeds):
+                    super().__init__(timeout=300)
+                    self.user = user
+                    self.embeds = embeds
+                    self.page = 0
 
-    async def interaction_check(self, interaction):
-        return interaction.user.id == self.user.id
+                async def interaction_check(self, interaction):
+                    return interaction.user.id == self.user.id
 
-    @discord.ui.button(label="◀ 前へ")
-    async def prev(self, interaction, _):
-        self.page = max(0, self.page - 1)
-        await interaction.response.edit_message(
-            embed=self.embeds[self.page],
-            view=self
-        )
+                @discord.ui.button(label="◀ 前へ")
+                async def prev(self, interaction, _):
+                    self.page = max(0, self.page - 1)
+                    await interaction.response.edit_message(
+                        embed=self.embeds[self.page],
+                        view=self
+                    )
 
-    @discord.ui.button(label="次へ ▶")
-    async def next(self, interaction, _):
-        self.page = min(len(self.embeds) - 1, self.page + 1)
-        await interaction.response.edit_message(
-            embed=self.embeds[self.page],
-            view=self
-        )
+                @discord.ui.button(label="次へ ▶")
+                async def next(self, interaction, _):
+                    self.page = min(len(self.embeds) - 1, self.page + 1)
+                    await interaction.response.edit_message(
+                        embed=self.embeds[self.page],
+                        view=self
+                    )
 
-await interaction.followup.send(
-    embed=embeds[0],
-    view=PayResultView(interaction.user, embeds)
-)
+            await interaction.followup.send(
+                embed=embeds[0],
+                view=PayResultView(interaction.user, embeds)
+            )
 
 
     @tasks.loop(seconds=10)
@@ -536,6 +536,7 @@ await interaction.followup.send(
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
