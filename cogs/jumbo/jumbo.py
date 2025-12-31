@@ -307,7 +307,8 @@ class JumboCog(commands.Cog):
     # ------------------------------
     @app_commands.command(name="ジャンボ賞金給付")
     async def jumbo_pay(self, interaction: discord.Interaction, rank: int):
-        await interaction.response.defer(ephemeral=True)
+        # ★ 全ユーザーに見せたいので ephemeral=False
+        await interaction.response.defer(ephemeral=False)
 
         try:
             if not await self.is_admin(interaction):
@@ -318,18 +319,22 @@ class JumboCog(commands.Cog):
 
             guild_id = str(interaction.guild.id)
 
+            # --- 設定取得 ---
             config = await self.jumbo_db.jumbo_get_config(guild_id)
             if not config or not config["winning_number"]:
                 return await interaction.followup.send("❌ 当選番号が未設定です")
 
+            # --- 給付済みチェック ---
             paid_ranks = await self.bot.db.jumbo_get_paid_ranks(guild_id)
             if rank in paid_ranks:
                 return await interaction.followup.send(f"⚠ 第{rank}等はすでに給付済みです")
 
+            # --- 購入データ取得 ---
             entries = await self.jumbo_db.jumbo_get_all_entries(guild_id)
             if not entries:
                 return await interaction.followup.send("⚠ 購入者がいません")
 
+            # --- 当選判定 ---
             results = calc_jumbo_results(config["winning_number"], entries)
             winners = results[rank]
 
@@ -342,25 +347,98 @@ class JumboCog(commands.Cog):
                     f"第{rank}等の当選者はいませんでした（給付済み扱い）"
                 )
 
-            total = 0
+            # ==================================================
+            # ★ ユーザー単位で集計（重複排除）
+            # ==================================================
+            from collections import defaultdict
+            user_stats = defaultdict(lambda: {"count": 0, "total": 0})
+
             for w in winners:
-                await self.bot.db.add_balance(w["user_id"], guild_id, prize)
-                total += prize
+                uid = w["user_id"]
+                user_stats[uid]["count"] += 1
+                user_stats[uid]["total"] += prize
+
+            # --- 残高付与 ---
+            for uid, data in user_stats.items():
+                await self.bot.db.add_balance(uid, guild_id, data["total"])
 
             await self.bot.db.jumbo_add_paid_rank(guild_id, rank)
 
+            # ==================================================
+            # ★ 表示用ログ作成（ページ対応）
+            # ==================================================
+            lines = [
+                f"<@{uid}>　**{data['count']}口当選**　**{data['total']:,} rrc**"
+                for uid, data in user_stats.items()
+            ]
+
+            def split_lines(lines, max_chars=900):
+                pages, buf = [], ""
+                for line in lines:
+                    if len(buf) + len(line) + 1 > max_chars:
+                        pages.append(buf)
+                        buf = line
+                    else:
+                        buf += "\n" + line if buf else line
+                if buf:
+                    pages.append(buf)
+                return pages
+
+            pages = split_lines(lines)
+
+            embeds = []
+            for i, page in enumerate(pages):
+                embed = discord.Embed(
+                    title=f"✅ 第{rank}等 賞金給付完了",
+                    description=page,
+                    color=0x2ECC71
+                )
+                embed.add_field(
+                    name="当選者",
+                    value=f"{len(user_stats)}人",
+                    inline=False
+                )
+                embed.set_footer(text=f"{i + 1} / {len(pages)} ページ")
+                embeds.append(embed)
+
+            # ==================================================
+            # ★ ページ送り View（操作は実行者のみ）
+            # ==================================================
+            class PayResultView(discord.ui.View):
+                def __init__(self, user, embeds):
+                    super().__init__(timeout=300)
+                    self.user = user
+                    self.embeds = embeds
+                    self.page = 0
+
+                async def interaction_check(self, i: discord.Interaction):
+                    return i.user.id == self.user.id
+
+                @discord.ui.button(label="◀ 前へ")
+                async def prev(self, i: discord.Interaction, _):
+                    self.page = max(0, self.page - 1)
+                    await i.response.edit_message(
+                        embed=self.embeds[self.page],
+                        view=self
+                    )
+
+                @discord.ui.button(label="次へ ▶")
+                async def next(self, i: discord.Interaction, _):
+                    self.page = min(len(self.embeds) - 1, self.page + 1)
+                    await i.response.edit_message(
+                        embed=self.embeds[self.page],
+                        view=self
+                    )
+
             await interaction.followup.send(
-                f"✅ **第{rank}等 賞金給付完了**\n"
-                f"当選者: {len(winners)}人\n"
-                f"1人あたり: {prize:,} rrc\n"
-                f"総支給額: {total:,} rrc"
+                embed=embeds[0],
+                view=PayResultView(interaction.user, embeds)
             )
 
         except Exception as e:
             print("[JUMBO PAY ERROR]", repr(e))
             await interaction.followup.send(
-                "❌ 給付中にエラーが発生しました。\n"
-                "ログを確認してください。"
+                "❌ 給付中にエラーが発生しました。\nログを確認してください。"
             )
 
 
@@ -414,6 +492,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
