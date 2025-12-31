@@ -358,7 +358,7 @@ class JumboCog(commands.Cog):
     # -------------------------------------------------
     @app_commands.command(name="ジャンボ賞金給付")
     async def jumbo_pay(self, interaction: discord.Interaction, rank: int):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer(ephemeral=False)
 
         try:
             if not await self.is_admin(interaction):
@@ -536,6 +536,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
