@@ -100,6 +100,29 @@ class JumboCog(commands.Cog):
         self.bot = bot
         self.jumbo_db = bot.db 
         print("[JUMBO] JumboCog __init__")
+        
+        async def is_admin(self, interaction: discord.Interaction) -> bool:
+            settings = await self.bot.db.get_settings()
+            admin_roles = settings["admin_roles"] or []
+            return any(str(r.id) in admin_roles for r in interaction.user.roles)
+
+        # ===============================
+        # ジャンボ発表・給付 実行権限
+        # 管理者 OR 指定ユーザーID
+        # ===============================
+        JUMBO_OPERATOR_IDS = {
+            1041193618125357086,
+            1093551127070511235,
+            1370615310075560120,
+        }
+
+        async def can_operate_jumbo(self, interaction: discord.Interaction) -> bool:
+            # 管理者ならOK
+            if await self.is_admin(interaction):
+                return True
+
+            # 指定ユーザーIDならOK（管理者ロール不要）
+            return interaction.user.id in self.JUMBO_OPERATOR_IDS
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -516,6 +539,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
