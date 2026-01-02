@@ -114,6 +114,7 @@ class JumboCog(commands.Cog):
         1041193618125357086,
         1093551127070511235,
         1370615310075560120,
+        969739156756508672,
     }
 
     async def can_operate_jumbo(self, interaction: discord.Interaction) -> bool:
@@ -510,6 +511,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
