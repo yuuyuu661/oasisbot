@@ -190,7 +190,7 @@ class JumboCog(commands.Cog):
         await interaction.response.defer()
 
         try:
-            if not await self.is_admin(interaction):
+            if not await self.can_operate_jumbo(interaction):
                 return await interaction.followup.send("❌ 管理者専用")
 
             guild_id = str(interaction.guild.id)
@@ -322,35 +322,6 @@ class JumboCog(commands.Cog):
         await interaction.followup.send("🧹 ジャンボ履歴をすべてリセットしました")
 
     # ------------------------------
-    # /ジャンボ購入者確認
-    # ------------------------------
-    @app_commands.command(name="ジャンボ購入者確認")
-    async def jumbo_buyers(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-
-        if not await self.is_admin(interaction):
-            return await interaction.followup.send("❌ 管理者専用")
-
-        guild_id = str(interaction.guild.id)
-
-        entries = await self.bot.db.jumbo_get_all_entries(guild_id)
-        if not entries:
-            return await interaction.followup.send("⚠ ジャンボ購入者はいません")
-
-        user_ids = sorted({e["user_id"] for e in entries})
-
-        lines = [f"<@{uid}>" for uid in user_ids]
-
-        text = "\n".join(lines)
-        embed = discord.Embed(
-            title="🎫 ジャンボ購入者一覧",
-            description=text,
-            color=0x3498DB
-        )
-        embed.add_field(name="購入者数", value=f"{len(user_ids)} 人")
-
-        await interaction.followup.send(embed=embed)
-    # ------------------------------
     # /ジャンボ賞金給付
     # ------------------------------
     @app_commands.command(name="ジャンボ賞金給付")
@@ -359,7 +330,7 @@ class JumboCog(commands.Cog):
         await interaction.response.defer(ephemeral=False)
 
         try:
-            if not await self.is_admin(interaction):
+            if not await self.can_operate_jumbo(interaction):
                 return await interaction.followup.send("❌ 管理者専用")
 
             if rank not in (1, 2, 3, 4, 5):
@@ -539,6 +510,7 @@ class JumboCog(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(JumboCog(bot))
+
 
 
 
