@@ -67,13 +67,8 @@ bot = MyBot()
 async def on_ready():
     print(f"🚀 ログイン完了：{bot.user}")
     
-    for guild in bot.guilds:
-        print(f"🧹 Slash Command 初期化: {guild.id}")
-        bot.tree.clear_commands(guild=guild)
-        await bot.tree.sync(guild=guild)
-        print(f"✅ Slash Command 再同期完了: {guild.id}")
-
 
 bot.run(TOKEN)
+
 
 
