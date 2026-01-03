@@ -49,7 +49,6 @@ class MyBot(commands.Bot):
             "cogs.subscription",
             "cogs.hotel.setup",
             "cogs.gamble",
-            "cogs.jumbo.jumbo",
             "cogs.backup",
             "cogs.slot",
             "cogs.janken_card",
@@ -76,4 +75,5 @@ async def on_ready():
 
 
 bot.run(TOKEN)
+
 
