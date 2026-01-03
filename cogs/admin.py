@@ -78,7 +78,7 @@ class AdminCog(commands.Cog):
     # /ロール送金（送金・引き落とし共通）
     # ------------------------------------------------------
     @app_commands.command(
-        name="ロール送金",
+        name="ロール送金または引き落とし",
         description="指定ロールを持つ全メンバーに一括送金または引き落としを行います（管理者）"
     )
     @app_commands.choices(
@@ -254,5 +254,6 @@ class AdminCog(commands.Cog):
 # --------------------------
 async def setup(bot: commands.Bot):
     await bot.add_cog(AdminCog(bot))
+
 
 
