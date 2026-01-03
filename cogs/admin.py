@@ -75,19 +75,25 @@ class AdminCog(commands.Cog):
         )
 
     # ------------------------------------------------------
-    # /ロール送金（管理者ロール必須）
+    # /ロール送金（送金・引き落とし共通）
     # ------------------------------------------------------
     @app_commands.command(
         name="ロール送金",
-        description="指定ロールを持つ全メンバーに一括送金します（管理者）"
+        description="指定ロールを持つ全メンバーに一括送金または引き落としを行います（管理者）"
+    )
+    @app_commands.choices(
+        action=[
+            app_commands.Choice(name="送金", value="pay"),
+            app_commands.Choice(name="引き落とし", value="deduct"),
+        ]
     )
     async def role_pay(
         self,
         interaction: discord.Interaction,
         role: discord.Role,
+        action: app_commands.Choice[str],
         amount: int
     ):
-
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
         unit = settings["currency_unit"]
@@ -108,7 +114,7 @@ class AdminCog(commands.Cog):
         guild = interaction.guild
         guild_id = str(guild.id)
 
-        # ホテル設定のサブ垢ロール取得
+        # サブ垢ロール取得（ホテル設定）
         hotel_config = await self.bot.db.conn.fetchrow(
             "SELECT sub_role FROM hotel_settings WHERE guild_id=$1",
             guild_id
@@ -116,10 +122,10 @@ class AdminCog(commands.Cog):
         sub_role_id = hotel_config["sub_role"] if hotel_config else None
         sub_role = guild.get_role(int(sub_role_id)) if sub_role_id else None
 
-        # 対象メンバー抽出（サブ垢ロールは除外）
+        # 対象メンバー抽出
         members = [
             m for m in guild.members
-            if (role in m.roles)
+            if role in m.roles
             and not m.bot
             and not (sub_role and sub_role in m.roles)
         ]
@@ -130,16 +136,28 @@ class AdminCog(commands.Cog):
                 ephemeral=True
             )
 
-        # 加算処理
-        for member in members:
-            await self.bot.db.add_balance(str(member.id), guild_id, amount)
+        # 処理分岐
+        if action.value == "pay":
+            for member in members:
+                await self.bot.db.add_balance(str(member.id), guild_id, amount)
+
+            verb = "送金"
+            sign = "+"
+
+        else:  # deduct
+            for member in members:
+                await self.bot.db.add_balance(str(member.id), guild_id, -amount)
+
+            verb = "引き落とし"
+            sign = "-"
 
         total = amount * len(members)
 
-        # ここは公開メッセージのまま
         await interaction.response.send_message(
-            f"💰 ロール **{role.name}** を持つ **{len(members)}名** に "
-            f"**{amount}{unit}** を送金しました！（合計：{total}{unit}）\n"
+            f"💰 ロール **{role.name}** を持つ **{len(members)}名** に対して\n"
+            f"**{verb}** を実行しました。\n"
+            f"金額：**{sign}{amount}{unit}** × {len(members)}人\n"
+            f"合計：**{sign}{total}{unit}**"
         )
 
     # --------------------------
@@ -236,4 +254,5 @@ class AdminCog(commands.Cog):
 # --------------------------
 async def setup(bot: commands.Bot):
     await bot.add_cog(AdminCog(bot))
+
 
