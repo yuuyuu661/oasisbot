@@ -246,6 +246,15 @@ class BalanceCog(commands.Cog):
             print("log_pay error:", repr(e))
 
 
-async def setup(bot: commands.Bot):
-    await bot.add_cog(BalanceCog(bot))
+
+# --------------------------
+# setup（必須）
+# --------------------------
+
+async def setup(bot):
+    cog = BalanceCog(bot)
+    await bot.add_cog(cog)
+    for cmd in cog.get_app_commands():
+        for gid in bot.GUILD_IDS:
+            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
 
