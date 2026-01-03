@@ -136,29 +136,56 @@ class AdminCog(commands.Cog):
                 ephemeral=True
             )
 
-        # 処理分岐
+        # -----------------------
+        # 処理本体
+        # -----------------------
+        success_members = []
+        lack_members = []
+
         if action.value == "pay":
+            # 送金は全員OK
             for member in members:
                 await self.bot.db.add_balance(str(member.id), guild_id, amount)
+                success_members.append(member)
 
             verb = "送金"
             sign = "+"
 
         else:  # deduct
             for member in members:
+                user = await self.bot.db.get_user(str(member.id), guild_id)
+                balance = user["balance"]
+
+                if balance < amount:
+                    lack_members.append(member)
+                    continue
+
                 await self.bot.db.add_balance(str(member.id), guild_id, -amount)
+                success_members.append(member)
 
             verb = "引き落とし"
             sign = "-"
 
-        total = amount * len(members)
+        total = amount * len(success_members)
 
-        await interaction.response.send_message(
-            f"💰 ロール **{role.name}** を持つ **{len(members)}名** に対して\n"
+        # -----------------------
+        # メッセージ生成
+        # -----------------------
+        msg = (
+            f"💰 ロール **{role.name}** を持つ **{len(success_members)}名** に対して\n"
             f"**{verb}** を実行しました。\n"
-            f"金額：**{sign}{amount}{unit}** × {len(members)}人\n"
+            f"金額：**{sign}{amount}{unit}** × {len(success_members)}人\n"
             f"合計：**{sign}{total}{unit}**"
         )
+
+        if lack_members:
+            mentions = " ".join(m.mention for m in lack_members)
+            msg += (
+                f"\n\n⚠ **残高不足のため処理できなかったユーザー**\n"
+                f"{mentions}"
+            )
+
+        await interaction.response.send_message(msg)
 
     # --------------------------
     # /残高一覧（ギルド別）
@@ -259,6 +286,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
