@@ -66,9 +66,13 @@ bot = MyBot()
 @bot.event
 async def on_ready():
     print(f"🚀 ログイン完了：{bot.user}")
+    await bot.tree.clear_commands(guild=None)
+    await bot.tree.sync()
+    print("🧹 グローバル Slash Command 全削除 → 再同期 完了")
     
 
 bot.run(TOKEN)
+
 
 
 
