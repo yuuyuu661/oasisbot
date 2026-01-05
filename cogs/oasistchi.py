@@ -71,6 +71,10 @@ def build_growth_gauge_file(growth: float) -> discord.File:
     # -----------------------------
     return discord.File(path, filename="growth.png")
 
+def gauge_emoji(value: int, max_value: int = 100, emoji: str = "😊", steps: int = 10):
+    count = max(0, min(steps, round(value / max_value * steps)))
+    return emoji * max(1, count)
+
 # =========================
 # Cog
 # =========================
@@ -142,6 +146,7 @@ class OasistchiCog(commands.Cog):
 
         pet_file = self.get_pet_image(pet)
         gauge_file = build_growth_gauge_file(pet["growth"])
+        view = CareView(uid, pet_index)
 
         await interaction.response.send_message(
            embed=embed,
@@ -152,20 +157,20 @@ class OasistchiCog(commands.Cog):
     def make_status_embed(self, pet: dict):
         embed = discord.Embed(title="🐣 おあしすっち", color=discord.Color.green())
         embed.add_field(
-            name="空腹度",
-            value="🍗🍗🍗🍗🍗🍗🍗🍗🍗🍗",
+            name="🍽 空腹度",
+            value=gauge_emoji(pet.get("hunger", 100), emoji="🍗"),
             inline=False
         )
 
         embed.add_field(
-            name="幸福度",
-            value="😊😊😊😊😊😊😊😊😊😊",
+            name="😊 幸福度",
+            value=gauge_emoji(pet["happiness"], emoji="😊"),
             inline=False
         )
 
         embed.add_field(
            name="🌱 成長ゲージ",
-           value=f"{round(pet['growth'])}%",
+           value=" ", 
            inline=False
         )
         embed.set_image(url="attachment://growth.png")
@@ -444,6 +449,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
