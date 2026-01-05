@@ -257,52 +257,102 @@ class ConfirmPurchaseView(discord.ui.View):
 
     @discord.ui.button(label="購入する", style=discord.ButtonStyle.green)
     async def ok(self, interaction: discord.Interaction, button: discord.ui.Button):
+        bot = interaction.client
+        guild = interaction.guild
+        user = interaction.user
+
+        if guild is None:
+            return await interaction.response.edit_message(
+                content="❌ サーバー内でのみ購入できます。",
+                view=None
+            )
+
+        db = bot.db
         data = load_data()
-        uid = str(interaction.user.id)
-        user = ensure_user(data, uid)
+        uid = str(user.id)
+        gid = str(guild.id)
 
-        # ---- TODO: 通貨チェック（Spt減算）ここに差し込む ----
-        # 例: if await get_balance(uid) < self.price: ...
-        # ---------------------------------------------------
+        # -------------------------
+        # 残高チェック
+        # -------------------------
+        try:
+            settings = await db.get_settings()
+            unit = settings["currency_unit"]
 
-        if self.kind == "egg":
-            # 育成枠チェック
-            if len(user["pets"]) >= user["slots"]:
+            row = await db.get_user(uid, gid)
+            balance = row["balance"]
+
+            if balance < self.price:
                 return await interaction.response.edit_message(
-                    content="❌ 育成枠が足りません。課金で増築してください。",
+                    content=(
+                        f"❌ 残高が足りません。\n"
+                        f"現在: **{balance:,} {unit}** / 必要: **{self.price:,} {unit}**"
+                    ),
                     view=None
                 )
 
-            # たまご登録（今はeggのみ）
-            user["pets"].append({
+            # 残高減算
+            await db.remove_balance(uid, gid, self.price)
+
+        except Exception as e:
+            print("purchase error:", repr(e))
+            return await interaction.response.edit_message(
+                content="❌ 通貨処理中にエラーが発生しました。",
+                view=None
+            )
+
+        # -------------------------
+        # 購入内容の反映
+        # -------------------------
+        user_data = ensure_user(data, uid)
+
+        if self.kind == "egg":
+            if len(user_data["pets"]) >= user_data["slots"]:
+                # 差し戻し（返金）
+                await db.add_balance(uid, gid, self.price)
+                return await interaction.response.edit_message(
+                    content="❌ 育成枠が足りません。（返金しました）",
+                    view=None
+                )
+
+            user_data["pets"].append({
                 "stage": "egg",
                 "egg_type": self.egg_key or "red",
                 "growth": 0.0,
                 "happiness": 50,
                 "poop": False,
                 "last_pet": 0,
-                "last_update": now_ts()
+                "last_update": time.time()
             })
+
             save_data(data)
 
             return await interaction.response.edit_message(
-                content="✅ たまごを購入しました！ `/おあしすっち` で確認できます。",
+                content=(
+                    f"✅ **たまごを購入しました！**\n"
+                   f"残高: **{balance - self.price:,} {unit}**\n"
+                    f"`/おあしすっち` で確認できます 🥚"
+                ),
                 view=None
             )
 
         if self.kind == "slot":
-            user["slots"] = int(user.get("slots", 1)) + 1
+            user_data["slots"] += 1
             save_data(data)
+
             return await interaction.response.edit_message(
-                content=f"✅ 育成枠を増築しました！ 現在の育成枠：**{user['slots']}**",
+                content=(
+                    f"✅ **育成枠を1つ増築しました！**\n"
+                    f"現在の育成枠: **{user_data['slots']}**\n"
+                    f"残高: **{balance - self.price:,} {unit}**"
+                ),
                 view=None
             )
 
-        await interaction.response.edit_message(content="❌ 不明な購入種別です。", view=None)
-
-    @discord.ui.button(label="やめる", style=discord.ButtonStyle.gray)
-    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.edit_message(content="キャンセルしました。", view=None)
+        return await interaction.response.edit_message(
+            content="❌ 不明な購入種別です。",
+            view=None
+        )
 
 # =========================
 # お世話ボタン（既存そのまま）
@@ -350,3 +400,4 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
