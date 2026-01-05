@@ -139,19 +139,14 @@ class OasistchiCog(commands.Cog):
 
         pet = pets[pet_index]
         embed = self.make_status_embed(pet)
-        # 成長ゲージ画像
-        gauge_file = build_growth_gauge_image(pet["growth"])
-        embed.set_image(url="attachment://growth_gauge.png")
 
-        # たまごGIF
         pet_file = self.get_pet_image(pet)
-
-        view = CareView(uid, pet_index)
+        gauge_file = build_growth_gauge_file(pet["growth"])
 
         await interaction.response.send_message(
-            embed=embed,
+           embed=embed,
             view=view,
-            files=[gauge_file, pet_file]
+            files=[pet_file, gauge_file]
         )
 
     def make_status_embed(self, pet: dict):
@@ -448,6 +443,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
