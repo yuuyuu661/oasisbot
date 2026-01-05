@@ -5,6 +5,8 @@ import json
 import time
 import os
 import random
+from PIL import Image
+from io import BytesIO
 
 DATA_PATH = "data/oasistchi.json"
 
@@ -13,6 +15,7 @@ DATA_PATH = "data/oasistchi.json"
 # =========================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # oasisbot/cogs
 ASSET_BASE = os.path.join(BASE_DIR, "assets", "oasistchi")
+GAUGE_DIR = os.path.join(ASSET_BASE, "ui", "gauge")
 
 EGG_CATALOG = [
     {
@@ -40,6 +43,57 @@ def ensure_user(data: dict, uid: str) -> dict:
 
 def now_ts() -> float:
     return time.time()
+
+def build_growth_gauge_image(growth: float) -> discord.File:
+    """
+    成長ゲージ画像を生成して discord.File として返す
+    growth: 0.0 ～ 100.0
+    """
+
+    # -----------------------------
+    # ゲージ本数計算（四捨五入）
+    # -----------------------------
+    bars = round(growth / 10)
+    bars = max(0, min(10, bars))
+
+    # -----------------------------
+    # 素材パス
+    # -----------------------------
+    exp_path = os.path.join(GAUGE_DIR, "exp.png")
+
+    if bars == 0:
+        gauge_path = os.path.join(GAUGE_DIR, "gauge_01.png")
+    else:
+        gauge_path = os.path.join(GAUGE_DIR, f"gauge_{bars:02}.png")
+
+    # -----------------------------
+    # 画像読み込み（RGBA）
+    # -----------------------------
+    exp_img = Image.open(exp_path).convert("RGBA")
+    gauge_img = Image.open(gauge_path).convert("RGBA")
+
+    # -----------------------------
+    # 合成キャンバス作成
+    # -----------------------------
+    width = exp_img.width + gauge_img.width
+    height = max(exp_img.height, gauge_img.height)
+
+    canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+
+    # -----------------------------
+    # 貼り付け
+    # -----------------------------
+    canvas.paste(exp_img, (0, 0), exp_img)
+    canvas.paste(gauge_img, (exp_img.width, 0), gauge_img)
+
+    # -----------------------------
+    # BytesIO に書き出し
+    # -----------------------------
+    buffer = BytesIO()
+    canvas.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    return discord.File(buffer, filename="growth_gauge.png")
 
 # =========================
 # Cog
@@ -401,6 +455,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
