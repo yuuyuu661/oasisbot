@@ -52,6 +52,7 @@ class MyBot(commands.Bot):
             "cogs.backup",
             "cogs.slot",
             "cogs.janken_card",
+            "cogs.oasistchi",
         ]
 
         for ext in extensions:
@@ -70,6 +71,7 @@ async def on_ready():
     
 
 bot.run(TOKEN)
+
 
 
 
