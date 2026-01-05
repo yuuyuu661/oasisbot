@@ -226,7 +226,7 @@ class EggSelectView(discord.ui.View):
             view=view
         )
 
-    @discord.ui.button(label="課金", style=discord.ButtonStyle.gold)
+    @discord.ui.button(label="課金", style=discord.ButtonStyle.primary)
     async def charge(self, interaction: discord.Interaction, button: discord.ui.Button):
         # 増築確認（ephemeral）
         view = ConfirmPurchaseView(
@@ -400,4 +400,5 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
