@@ -165,7 +165,8 @@ class OasistchiCog(commands.Cog):
 
         embed.add_field(
            name="🌱 成長ゲージ",
-            inline=False
+           value=f"{round(pet['growth'])}%",
+           inline=False
         )
         embed.set_image(url="attachment://growth.png")
 
@@ -443,6 +444,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
