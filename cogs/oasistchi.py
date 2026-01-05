@@ -181,20 +181,19 @@ class OasistchiCog(commands.Cog):
     def make_status_embed(self, pet: dict):
         embed = discord.Embed(title="🐣 おあしすっち", color=discord.Color.green())
         embed.add_field(
-            name="🍽 空腹度",
+            name="空腹度",
             value="🍗🍗🍗🍗🍗🍗🍗🍗🍗🍗",
             inline=False
         )
 
         embed.add_field(
-            name="😊 幸福度",
+            name="幸福度",
             value="😊😊😊😊😊😊😊😊😊😊",
             inline=False
         )
 
         embed.add_field(
            name="🌱 成長ゲージ",
-            value=f"{round(pet['growth'])}%",
             inline=False
         )
         embed.set_image(url="attachment://growth.png")
@@ -473,6 +472,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
