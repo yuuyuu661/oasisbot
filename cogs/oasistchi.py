@@ -247,5 +247,13 @@ class CareView(discord.ui.View):
         else:
             await interaction.response.send_message("今はお世話不要です。", ephemeral=True)
 
+
 async def setup(bot):
-    await bot.add_cog(OasistchiCog(bot))
+    cog = OasistchiCog(bot)
+    await bot.add_cog(cog)
+    for cmd in cog.get_app_commands():
+        for gid in bot.GUILD_IDS:
+            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
+
+
