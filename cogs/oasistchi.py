@@ -11,13 +11,15 @@ DATA_PATH = "data/oasistchi.json"
 # =========================
 # ここだけ環境に合わせて
 # =========================
-ASSET_BASE = "assets/oasistchi"  # oasisbot/assets/oasistchi を想定
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # /app/cogs
+PROJECT_ROOT = os.path.dirname(BASE_DIR)                # /app
+ASSET_BASE = os.path.join(PROJECT_ROOT, "assets", "oasistchi")
 
 EGG_CATALOG = [
     {
         "key": "red",
         "name": "🔴 レッドたまご",
-        "icon": f"{ASSET_BASE}/egg/red/icon.png",
+        "icon": os.path.join(ASSET_BASE, "egg", "red", "icon.png")
     },
     # 追加する時はここに増やす
     # {"key":"blue","name":"🔵 ブルーたまご","icon": f"{ASSET_BASE}/egg/blue/icon.png"},
@@ -400,5 +402,6 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
