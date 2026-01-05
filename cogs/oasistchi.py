@@ -163,13 +163,19 @@ class OasistchiCog(commands.Cog):
 
         pet = pets[pet_index]
         embed = self.make_status_embed(pet)
-        file = self.get_pet_image(pet)
+        # 成長ゲージ画像
+        gauge_file = build_growth_gauge_image(pet["growth"])
+        embed.set_image(url="attachment://growth_gauge.png")
+
+        # たまごGIF
+        pet_file = self.get_pet_image(pet)
+
         view = CareView(uid, pet_index)
 
         await interaction.response.send_message(
             embed=embed,
             view=view,
-            files=[file]
+            files=[gauge_file, pet_file]
         )
 
     def make_status_embed(self, pet: dict):
@@ -189,7 +195,7 @@ class OasistchiCog(commands.Cog):
             path = f"{ASSET_BASE}/egg/red/poop.gif"
         else:
             path = f"{ASSET_BASE}/egg/red/idle.gif"
-        return discord.File(path, "pet.gif")
+        return discord.File(path, filename="pet.gif")
 
     # -----------------------------
     # うんち抽選（60分）
@@ -455,6 +461,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
