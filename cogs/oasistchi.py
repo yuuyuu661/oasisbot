@@ -75,6 +75,24 @@ def gauge_emoji(value: int, max_value: int = 100, emoji: str = "😊", steps: in
     count = max(0, min(steps, round(value / max_value * steps)))
     return emoji * max(1, count)
 
+def growth_rate_per_hour(stage: str) -> float:
+    if stage == "egg":
+        return 100.0 / 12.0     # 12時間
+    if stage == "child":
+        return 100.0 / 36.0     # 36時間
+    return 0.0
+
+def try_evolve(pet: dict):
+    if pet["stage"] == "egg" and pet["growth"] >= 100.0:
+        pet["stage"] = "child"
+        pet["growth"] = 0.0
+        pet["poop"] = False
+
+    elif pet["stage"] == "child" and pet["growth"] >= 100.0:
+        pet["stage"] = "adult"
+        pet["growth"] = 0.0
+        pet["poop"] = False
+
 # =========================
 # Cog
 # =========================
@@ -369,6 +387,7 @@ class ConfirmPurchaseView(discord.ui.View):
                 "egg_type": self.egg_key or "red",
                 "growth": 0.0,
                 "happiness": 50,
+                "hunger": 100, 
                 "poop": False,
                 "last_pet": 0,
                 "last_update": time.time()
@@ -425,6 +444,7 @@ class CareView(discord.ui.View):
             )
 
         pet["happiness"] = min(100, pet["happiness"] + 10)
+        pet["growth"] = min(100.0, pet["growth"] + 5.0)
         pet["last_pet"] = now
         save_data(data)
 
@@ -443,12 +463,48 @@ class CareView(discord.ui.View):
         else:
             await interaction.response.send_message("今はお世話不要です。", ephemeral=True)
 
+@tasks.loop(minutes=60)
+async def poop_check(self):
+    data = load_data()
+    now = now_ts()
+
+    for user in data["users"].values():
+        for pet in user["pets"]:
+
+            # -----------------
+            # うんち抽選
+            # -----------------
+            if pet["stage"] in ("egg", "child") and not pet["poop"]:
+                if random.random() < 0.3:
+                    pet["poop"] = True
+
+            # -----------------
+            # 成長処理
+            # -----------------
+            rate = growth_rate_per_hour(pet["stage"])
+            mult = 0.5 if pet.get("poop") else 1.0
+            pet["growth"] = min(100.0, pet["growth"] + rate * mult)
+
+            # 進化判定
+            try_evolve(pet)
+
+            # -----------------
+            # 放置ペナルティ
+            # -----------------
+            if now - pet["last_update"] > 36000:
+                pet["happiness"] = max(0, pet["happiness"] - 10)
+
+            pet["last_update"] = now
+
+    save_data(data)
+
 async def setup(bot):
     cog = OasistchiCog(bot)
     await bot.add_cog(cog)
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
