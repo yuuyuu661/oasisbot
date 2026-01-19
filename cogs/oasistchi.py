@@ -213,15 +213,38 @@ class OasistchiCog(commands.Cog):
 
         for user in data["users"].values():
             for pet in user["pets"]:
-                if pet["stage"] == "egg" and not pet["poop"]:
+
+                # -----------------
+                # うんち抽選
+                # -----------------
+                if pet["stage"] in ("egg", "child") and not pet["poop"]:
                     if random.random() < 0.3:
                         pet["poop"] = True
 
-                # 10時間放置で幸福度減少
-                if now - pet["last_update"] > 36000:
+                # -----------------
+                # 成長処理（時間経過）
+                # -----------------
+                rate = growth_rate_per_hour(pet["stage"])
+                if rate > 0:
+                    mult = 0.5 if pet.get("poop") else 1.0
+                    pet["growth"] = min(100.0, pet["growth"] + rate * mult)
+
+                # -----------------
+                # 進化判定
+                # -----------------
+                try_evolve(pet)
+
+                # -----------------
+                # 放置ペナルティ（10時間）
+                # -----------------
+                last_interaction = pet.get("last_interaction", pet.get("last_tick", now))
+                if now - last_interaction > 36000:
                     pet["happiness"] = max(0, pet["happiness"] - 10)
 
-                pet["last_update"] = now
+                # -----------------
+                # 内部更新時刻
+                # -----------------
+                pet["last_tick"] = now
 
         save_data(data)
 
@@ -387,10 +410,13 @@ class ConfirmPurchaseView(discord.ui.View):
                 "egg_type": self.egg_key or "red",
                 "growth": 0.0,
                 "happiness": 50,
-                "hunger": 100, 
+                "hunger": 100,
                 "poop": False,
+
+                # 時刻管理を分離
                 "last_pet": 0,
-                "last_update": time.time()
+                "last_interaction": time.time(),  # ユーザー操作用
+                "last_tick": time.time()          # Bot定期処理用
             })
 
             save_data(data)
@@ -446,6 +472,7 @@ class CareView(discord.ui.View):
         pet["happiness"] = min(100, pet["happiness"] + 10)
         pet["growth"] = min(100.0, pet["growth"] + 5.0)
         pet["last_pet"] = now
+        pet["last_interaction"] = now 
         save_data(data)
 
         await interaction.response.send_message("😊 なでなでした！", ephemeral=True)
@@ -458,45 +485,11 @@ class CareView(discord.ui.View):
         if pet["poop"]:
             pet["poop"] = False
             pet["happiness"] = min(100, pet["happiness"] + 5)
+            pet["last_interaction"] = now 
             save_data(data)
             await interaction.response.send_message("🧹 きれいにしました！", ephemeral=True)
         else:
             await interaction.response.send_message("今はお世話不要です。", ephemeral=True)
-
-@tasks.loop(minutes=60)
-async def poop_check(self):
-    data = load_data()
-    now = now_ts()
-
-    for user in data["users"].values():
-        for pet in user["pets"]:
-
-            # -----------------
-            # うんち抽選
-            # -----------------
-            if pet["stage"] in ("egg", "child") and not pet["poop"]:
-                if random.random() < 0.3:
-                    pet["poop"] = True
-
-            # -----------------
-            # 成長処理
-            # -----------------
-            rate = growth_rate_per_hour(pet["stage"])
-            mult = 0.5 if pet.get("poop") else 1.0
-            pet["growth"] = min(100.0, pet["growth"] + rate * mult)
-
-            # 進化判定
-            try_evolve(pet)
-
-            # -----------------
-            # 放置ペナルティ
-            # -----------------
-            if now - pet["last_update"] > 36000:
-                pet["happiness"] = max(0, pet["happiness"] - 10)
-
-            pet["last_update"] = now
-
-    save_data(data)
 
 async def setup(bot):
     cog = OasistchiCog(bot)
@@ -504,6 +497,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
