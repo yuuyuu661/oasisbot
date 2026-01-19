@@ -482,6 +482,8 @@ class CareView(discord.ui.View):
         data = load_data()
         pet = data["users"][self.uid]["pets"][self.index]
 
+        now = now_ts()
+
         if pet["poop"]:
             pet["poop"] = False
             pet["happiness"] = min(100, pet["happiness"] + 5)
@@ -497,6 +499,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
