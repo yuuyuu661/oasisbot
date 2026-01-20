@@ -101,6 +101,14 @@ def try_evolve(pet: dict):
         pet["growth"] = 0.0
         pet["poop"] = False
 
+def get_pet_file(pet: dict, state: str) -> discord.File:
+    """
+    state: "idle" | "pet" | "clean" | "poop"
+    """
+    egg = pet.get("egg_type", "red")
+    path = os.path.join(ASSET_BASE, "egg", egg, f"{state}.gif")
+    return discord.File(path, filename="pet.gif")
+
 # =========================
 # Cog
 # =========================
@@ -561,6 +569,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
