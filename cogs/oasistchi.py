@@ -292,9 +292,9 @@ class EggSelectView(discord.ui.View):
             description=(
                 f"{self.panel_body}\n\n"
                 f"**選択中：{egg['name']}**\n"
-                f"🥚 たまご価格：**{self.egg_price} rrc**\n"
+                f"🐣 たまご価格：**{self.egg_price} rrc**\n"
                 f"🧩 育成枠増築：**{self.slot_price} rrc**\n\n"
-                "⬅➡でたまごを切り替え、購入してください。"
+                "⬅➡でたまごを切り替えて購入してね。"
             ),
             color=discord.Color.orange()
         )
@@ -485,7 +485,7 @@ class CareView(discord.ui.View):
         now = now_ts()
         if now - pet["last_pet"] < 10800:
             return await interaction.response.send_message(
-                "まだなでなでできません。（3時間クールタイム）",
+                "まだなでなでできないよ。(⏰3時間おき)",
                 ephemeral=True
             )
 
@@ -511,7 +511,7 @@ class CareView(discord.ui.View):
             save_data(data)
             await interaction.response.send_message("🧹 きれいにしました！", ephemeral=True)
         else:
-            await interaction.response.send_message("今はお世話不要です。", ephemeral=True)
+            await interaction.response.send_message("今はお世話しなくて大丈夫！", ephemeral=True)
 
 async def setup(bot):
     cog = OasistchiCog(bot)
@@ -519,6 +519,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
