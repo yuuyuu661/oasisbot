@@ -486,6 +486,7 @@ class CareView(discord.ui.View):
 
     @discord.ui.button(label="なでなで", style=discord.ButtonStyle.primary)
     async def pet(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
         data = load_data()
         pet = data["users"][self.uid]["pets"][self.index]
 
@@ -560,6 +561,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
