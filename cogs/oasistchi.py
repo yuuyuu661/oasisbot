@@ -7,6 +7,7 @@ import os
 import random
 from PIL import Image
 from io import BytesIO
+import asyncio
 
 DATA_PATH = "data/oasistchi.json"
 
@@ -204,6 +205,7 @@ class OasistchiCog(commands.Cog):
            inline=False
         )
         embed.set_image(url="attachment://growth.png")
+        embed.set_thumbnail(url="attachment://pet.gif")
 
         return embed
 
@@ -212,6 +214,11 @@ class OasistchiCog(commands.Cog):
         state = "poop" if pet.get("poop") else "idle"
         path = os.path.join(ASSET_BASE, "egg", egg, f"{state}.gif")
         return discord.File(path, filename="pet.gif")
+
+    def get_pet_file(pet: dict, state: str):
+    egg = pet.get("egg_type", "red")
+    path = os.path.join(ASSET_BASE, "egg", egg, f"{state}.gif")
+    return discord.File(path, filename="pet.gif")
 
     # -----------------------------
     # うんち抽選（60分）
@@ -485,17 +492,51 @@ class CareView(discord.ui.View):
         now = now_ts()
         if now - pet["last_pet"] < 10800:
             return await interaction.response.send_message(
-                "まだなでなでできないよ。(⏰3時間おき)",
+                "まだなでなでできません。（3時間クールタイム）",
                 ephemeral=True
             )
 
+        # -------------------------
+        # ステータス更新
+        # -------------------------
         pet["happiness"] = min(100, pet["happiness"] + 10)
         pet["growth"] = min(100.0, pet["growth"] + 5.0)
         pet["last_pet"] = now
-        pet["last_interaction"] = now 
+        pet["last_interaction"] = now
         save_data(data)
 
-        await interaction.response.send_message("😊 なでなでした！", ephemeral=True)
+        cog = interaction.client.get_cog("OasistchiCog")
+
+        # -------------------------
+        # ① なでなでGIF表示
+        # -------------------------
+        embed = cog.make_status_embed(pet)
+        pet_file = get_pet_file(pet, "pet")
+        gauge_file = build_growth_gauge_file(pet["growth"])
+
+        await interaction.response.edit_message(
+            embed=embed,
+            attachments=[pet_file, gauge_file],
+            view=self
+        )
+
+        # -------------------------
+        # ② 少し待つ（演出）
+        # -------------------------
+        await asyncio.sleep(2)
+
+        # -------------------------
+        # ③ idle に戻す
+        # -------------------------
+        embed = cog.make_status_embed(pet)
+        pet_file = get_pet_file(pet, "idle")
+        gauge_file = build_growth_gauge_file(pet["growth"])
+
+        await interaction.edit_original_response(
+            embed=embed,
+            attachments=[pet_file, gauge_file],
+            view=self
+        )
 
     @discord.ui.button(label="お世話", style=discord.ButtonStyle.success)
     async def care(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -519,6 +560,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
