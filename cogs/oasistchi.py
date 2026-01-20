@@ -122,7 +122,12 @@ class OasistchiCog(commands.Cog):
                 ephemeral=True
             )
 
-        view = EggSelectView(egg_price=egg_price, slot_price=slot_price)
+        view = EggSelectView(
+            egg_price=egg_price,
+            slot_price=slot_price,
+            panel_title=title,
+            panel_body=body
+        )
 
         embed, file = view.build_panel_embed()
 
@@ -257,31 +262,41 @@ class EggSelectView(discord.ui.View):
     購入で 1匹登録
     課金で 育成枠増築（確認付き）
     """
-    def __init__(self, egg_price: int, slot_price: int):
-        super().__init__(timeout=None)
-        self.egg_price = int(egg_price)
-        self.slot_price = int(slot_price)
-        self.index = 0  # EGG_CATALOG の index
+    def __init__(
+            self,
+            egg_price: int,
+            slot_price: int,
+            panel_title: str,
+            panel_body: str
+        ):
+            super().__init__(timeout=None)
+            self.egg_price = int(egg_price)
+            self.slot_price = int(slot_price)
+            self.panel_title = panel_title
+            self.panel_body = panel_body
+            self.index = 0
 
     def current(self) -> dict:
         return EGG_CATALOG[self.index]
 
     def build_panel_embed(self) -> tuple[discord.Embed, discord.File]:
         egg = self.current()
+
         embed = discord.Embed(
-            title="🥚 おあしすっち たまごショップ",
+            title=self.panel_title,
             description=(
+                f"{self.panel_body}\n\n"
                 f"**選択中：{egg['name']}**\n"
-                f"🥚 たまご価格：**{self.egg_price}**\n"
-                f"🧩 育成枠増築：**{self.slot_price}**\n\n"
+                f"🥚 たまご価格：**{self.egg_price} rrc**\n"
+                f"🧩 育成枠増築：**{self.slot_price} rrc**\n\n"
                 "⬅➡でたまごを切り替え、購入してください。"
             ),
             color=discord.Color.orange()
         )
-        # 画像は添付ファイル参照
-        embed.set_image(url="attachment://egg_icon.png")
 
+        embed.set_image(url="attachment://egg_icon.png")
         file = discord.File(egg["icon"], filename="egg_icon.png")
+
         return embed, file
 
     async def refresh(self, interaction: discord.Interaction):
@@ -499,6 +514,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
