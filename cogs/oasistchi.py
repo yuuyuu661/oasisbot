@@ -20,8 +20,28 @@ GAUGE_DIR = os.path.join(ASSET_BASE, "ui", "gauge")
 EGG_CATALOG = [
     {
         "key": "red",
-        "name": "🔴 レッドたまご",
-        "icon": os.path.join(ASSET_BASE, "egg", "red", "icon.png")
+        "name": "🔴 あかいたまご",
+        "icon": os.path.join(ASSET_BASE, "egg", "red", "idle.gif")
+    },
+    {
+        "key": "blue",
+        "name": "🔵 あおいたまご",
+        "icon": os.path.join(ASSET_BASE, "egg", "red", "idle.gif")
+    },
+    {
+        "key": "green",
+        "name": "🟢 みどりたまご",
+        "icon": os.path.join(ASSET_BASE, "egg", "red", "idle.gif")
+    },
+    {
+        "key": "yellow",
+        "name": "🟡 きいろたまご",
+        "icon": os.path.join(ASSET_BASE, "egg", "red", "idle.gif")
+    },
+    {
+        "key": "purple",
+        "name": "🟣 むらさきたまご",
+        "icon": os.path.join(ASSET_BASE, "egg", "red", "idle.gif")
     },
     # 追加する時はここに増やす
     # {"key":"blue","name":"🔵 ブルーたまご","icon": f"{ASSET_BASE}/egg/blue/icon.png"},
@@ -514,6 +534,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
