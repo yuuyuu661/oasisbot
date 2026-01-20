@@ -216,9 +216,9 @@ class OasistchiCog(commands.Cog):
         return discord.File(path, filename="pet.gif")
 
     def get_pet_file(pet: dict, state: str):
-    egg = pet.get("egg_type", "red")
-    path = os.path.join(ASSET_BASE, "egg", egg, f"{state}.gif")
-    return discord.File(path, filename="pet.gif")
+        egg = pet.get("egg_type", "red")
+        path = os.path.join(ASSET_BASE, "egg", egg, f"{state}.gif")
+        return discord.File(path, filename="pet.gif")
 
     # -----------------------------
     # うんち抽選（60分）
@@ -560,6 +560,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
