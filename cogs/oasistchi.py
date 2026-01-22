@@ -153,6 +153,7 @@ class OasistchiCog(commands.Cog):
         interaction: discord.Interaction,
         index: int | None = None
     ):
+        await interaction.response.defer()
         data = load_data()
         uid = str(interaction.user.id)
 
@@ -177,8 +178,7 @@ class OasistchiCog(commands.Cog):
         pet_file = self.get_pet_image(pet)
         gauge_file = build_growth_gauge_file(pet["growth"])
         view = CareView(uid, pet_index)
-
-        await interaction.response.send_message(
+        await interaction.followup.send(
            embed=embed,
             view=view,
             files=[pet_file, gauge_file]
@@ -550,6 +550,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
