@@ -164,19 +164,21 @@ class OasistchiCog(commands.Cog):
                 ephemeral=True
             )
 
-        view = EggSelectView(
-            egg_price=egg_price,
-            slot_price=slot_price,
-            panel_title=title,
-            panel_body=body
+        # ✅ 共有パネルは「固定のEmbed + 入口ボタンのみ」
+        embed = discord.Embed(
+            title=title,
+            description=body,
+            color=discord.Color.orange()
         )
 
-        embed, file = view.build_panel_embed()
+        view = OasistchiPanelRootView(
+            egg_price=int(egg_price),
+            slot_price=int(slot_price)
+        )
 
         await interaction.response.send_message(
-            embed=embed,
-            view=view,
-            files=[file]
+           embed=embed,
+            view=view
         )
 
     # -----------------------------
@@ -297,6 +299,90 @@ class OasistchiCog(commands.Cog):
         save_data(data)
 
 # =========================
+# ボタンView
+# =========================
+class OasistchiPanelRootView(discord.ui.View):
+    """
+    全員に見える「入口」パネル
+    ・たまご購入 → 押した人だけ購入UI（ephemeral）
+    ・課金       → 押した人だけ課金UI（ephemeral）
+    """
+    def __init__(self, egg_price: int, slot_price: int):
+        super().__init__(timeout=None)
+        self.egg_price = egg_price
+        self.slot_price = slot_price
+
+    @discord.ui.button(label="🥚 たまご購入", style=discord.ButtonStyle.green)
+    async def open_buy(self, interaction: discord.Interaction, button: discord.ui.Button):
+        view = EggSelectView(
+            egg_price=self.egg_price,
+            slot_price=self.slot_price
+        )
+        embed, file = view.build_panel_embed()
+
+        await interaction.response.send_message(
+            embed=embed,
+            view=view,
+            files=[file],
+            ephemeral=True
+        )
+
+    @discord.ui.button(label="💳 課金", style=discord.ButtonStyle.primary)
+    async def open_charge(self, interaction: discord.Interaction, button: discord.ui.Button):
+        view = ChargeSelectView(slot_price=self.slot_price)
+
+        await interaction.response.send_message(
+            "課金メニューを選択してください。",
+            view=view,
+            ephemeral=True
+        )
+
+# =========================
+# プルダウン View
+# =========================
+
+class ChargeSelectView(discord.ui.View):
+    def __init__(self, slot_price: int):
+        super().__init__(timeout=60)
+        self.slot_price = int(slot_price)
+        self.add_item(ChargeSelect(self.slot_price))
+
+
+class ChargeSelect(discord.ui.Select):
+    def __init__(self, slot_price: int):
+        self.slot_price = slot_price
+        options = [
+            discord.SelectOption(
+                label="育成枠を1つ増築",
+                description=f"{slot_price} rrc",
+                value="slot"
+            ),
+        ]
+        super().__init__(
+            placeholder="課金内容を選択",
+            min_values=1,
+            max_values=1,
+            options=options
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        value = self.values[0]
+
+        if value == "slot":
+            view = ConfirmPurchaseView(
+                kind="slot",
+                label="育成枠を増築",
+                price=self.slot_price,
+                egg_key=None,
+                slot_price=self.slot_price
+            )
+            await interaction.response.send_message(
+                f"育成枠を **{self.slot_price}** で増築しますか？",
+                ephemeral=True,
+                view=view
+            )
+
+# =========================
 # 購入パネル View
 # =========================
 class EggSelectView(discord.ui.View):
@@ -305,19 +391,11 @@ class EggSelectView(discord.ui.View):
     購入で 1匹登録
     課金で 育成枠増築（確認付き）
     """
-    def __init__(
-            self,
-            egg_price: int,
-            slot_price: int,
-            panel_title: str,
-            panel_body: str
-        ):
-            super().__init__(timeout=None)
-            self.egg_price = int(egg_price)
-            self.slot_price = int(slot_price)
-            self.panel_title = panel_title
-            self.panel_body = panel_body
-            self.index = 0
+    def __init__(self, egg_price: int, slot_price: int):
+        super().__init__(timeout=60)  # ephemeralなら60推奨
+        self.egg_price = int(egg_price)
+        self.slot_price = int(slot_price)
+        self.index = 0
 
     def current(self) -> dict:
         return EGG_CATALOG[self.index]
@@ -326,12 +404,10 @@ class EggSelectView(discord.ui.View):
         egg = self.current()
 
         embed = discord.Embed(
-            title=self.panel_title,
+            title="🥚 たまご購入",
             description=(
-                f"{self.panel_body}\n\n"
                 f"**選択中：{egg['name']}**\n"
-                f"🐣 たまご価格：**{self.egg_price} rrc**\n"
-                f"🧩 育成枠増築：**{self.slot_price} rrc**\n\n"
+                f"🐣 たまご価格：**{self.egg_price} rrc**\n\n"
                 "⬅➡でたまごを切り替えて購入してね。"
             ),
             color=discord.Color.orange()
@@ -339,7 +415,6 @@ class EggSelectView(discord.ui.View):
 
         embed.set_image(url="attachment://egg_icon.png")
         file = discord.File(egg["icon"], filename="egg_icon.png")
-
         return embed, file
 
     async def refresh(self, interaction: discord.Interaction):
@@ -370,23 +445,6 @@ class EggSelectView(discord.ui.View):
         )
         await interaction.response.send_message(
             f"**{egg['name']}** を **{self.egg_price}** で購入しますか？",
-            ephemeral=True,
-            view=view
-        )
-
-    @discord.ui.button(label="課金", style=discord.ButtonStyle.primary)
-    async def charge(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # 増築確認（ephemeral）
-        view = ConfirmPurchaseView(
-            kind="slot",
-            label="育成枠を増築",
-            price=self.slot_price,
-            egg_key=None,
-            slot_price=self.slot_price
-        )
-        await interaction.response.send_message(
-            f"育成枠を **{self.slot_price}** で増築しますか？\n"
-            "（仮：通貨処理は後で連携）",
             ephemeral=True,
             view=view
         )
@@ -637,6 +695,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
