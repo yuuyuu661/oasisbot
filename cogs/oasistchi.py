@@ -16,7 +16,7 @@ DATA_PATH = "data/oasistchi.json"
 # =========================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # oasisbot/cogs
 ASSET_BASE = os.path.join(BASE_DIR, "assets", "oasistchi")
-GAUGE_DIR = os.path.join(ASSET_BASE, "ui", "gauge")
+GAUGE_DIR = os.path.join(ASSET_BASE, "gauge")
 
 EGG_COLORS = [
     ("red", "🔴 あかいたまご"),
@@ -556,6 +556,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
