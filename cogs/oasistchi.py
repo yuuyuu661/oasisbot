@@ -275,7 +275,7 @@ class OasistchiCog(commands.Cog):
         now = now_ts()
 
         for uid, user in data["users"].items():
-            for pet in user["pets"]
+            for pet in user["pets"]:
 
                 # -----------------
                 # うんち抽選
@@ -804,6 +804,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
