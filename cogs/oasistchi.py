@@ -86,8 +86,6 @@ def gauge_emoji(value: int, max_value: int = 100, emoji: str = "😊", steps: in
 def growth_rate_per_hour(stage: str) -> float:
     if stage == "egg":
         return 100.0 / 12.0     # 12時間
-    if stage == "child":
-        return 100.0 / 36.0     # 36時間
     return 0.0
 
 def get_pet_file(pet: dict, state: str) -> discord.File:
@@ -269,7 +267,7 @@ class OasistchiCog(commands.Cog):
                 # -----------------
                 # うんち抽選
                 # -----------------
-                if pet["stage"] in ("egg", "child") and not pet["poop"]:
+                if pet["stage"] == "egg" and not pet["poop"]:
                     if random.random() < 0.3:
                         pet["poop"] = True
 
@@ -768,6 +766,7 @@ class CareView(discord.ui.View):
             "name": adult["name"],
             "growth": 0.0,
             "poop": False,
+            "notified_hatch": False, 
         })
         save_data(data)
 
@@ -789,6 +788,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
