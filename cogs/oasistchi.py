@@ -544,7 +544,7 @@ class CareView(discord.ui.View):
         # -------------------------
         embed = cog.make_status_embed(pet)
         pet_file = get_pet_file(pet, "pet")
-       gauge_file = build_growth_gauge_file(pet["growth"])
+        gauge_file = build_growth_gauge_file(pet["growth"])
 
         await interaction.response.edit_message(
             embed=embed,
@@ -637,6 +637,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
