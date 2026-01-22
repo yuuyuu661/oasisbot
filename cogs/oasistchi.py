@@ -101,6 +101,41 @@ def get_pet_file(pet: dict, state: str) -> discord.File:
     return discord.File(path, filename="pet.gif")
 
 # =========================
+# GIF duration helper
+# =========================
+GIF_DURATION_CACHE: dict[str, float] = {}
+
+def get_gif_duration_seconds(path: str, fallback: float = 2.0) -> float:
+    """
+    GIFの総再生時間（1ループ分）を秒で返す。
+    取得できない場合は fallback を返す。
+    """
+    if path in GIF_DURATION_CACHE:
+        return GIF_DURATION_CACHE[path]
+
+    try:
+        with Image.open(path) as im:
+            total_ms = 0
+            n = getattr(im, "n_frames", 1)
+
+            for i in range(n):
+                im.seek(i)
+                total_ms += int(im.info.get("duration", 100))  # ms（無い時の保険）
+
+            sec = total_ms / 1000.0
+
+            # 安全ガード：短すぎ/長すぎを抑制（好みで調整OK）
+            sec = max(0.8, min(8.0, sec))
+
+            GIF_DURATION_CACHE[path] = sec
+            return sec
+
+    except Exception as e:
+        print(f"[WARN] get_gif_duration_seconds failed: {path} {e!r}")
+        GIF_DURATION_CACHE[path] = fallback
+        return fallback
+
+# =========================
 # Cog
 # =========================
 class OasistchiCog(commands.Cog):
@@ -502,11 +537,14 @@ class CareView(discord.ui.View):
         save_data(data)
 
         cog = interaction.client.get_cog("OasistchiCog")
+        egg = pet.get("egg_type", "red")
 
-        # ① なでなでGIF表示（このinteractionに対する“最初の応答”として編集）
+        # -------------------------
+        # ① pet.gif を表示
+        # -------------------------
         embed = cog.make_status_embed(pet)
         pet_file = get_pet_file(pet, "pet")
-        gauge_file = build_growth_gauge_file(pet["growth"])
+       gauge_file = build_growth_gauge_file(pet["growth"])
 
         await interaction.response.edit_message(
             embed=embed,
@@ -514,10 +552,16 @@ class CareView(discord.ui.View):
             view=self
         )
 
-        # ② 演出
-        await asyncio.sleep(2)
+        # -------------------------
+        # ② GIFの長さだけ待つ（ここが可変）
+        # -------------------------
+        pet_gif_path = os.path.join(ASSET_BASE, "egg", egg, "pet.gif")
+        wait_seconds = get_gif_duration_seconds(pet_gif_path, fallback=2.0)
+        await asyncio.sleep(wait_seconds)
 
-        # ③ idle に戻す（以降は original を編集）
+        # -------------------------
+        # ③ idle に戻す
+        # -------------------------
         embed = cog.make_status_embed(pet)
         pet_file = get_pet_file(pet, "idle")
         gauge_file = build_growth_gauge_file(pet["growth"])
@@ -532,17 +576,60 @@ class CareView(discord.ui.View):
     async def care(self, interaction: discord.Interaction, button: discord.ui.Button):
         data = load_data()
         pet = data["users"][self.uid]["pets"][self.index]
-
         now = now_ts()
 
-        if pet["poop"]:
-            pet["poop"] = False
-            pet["happiness"] = min(100, pet["happiness"] + 5)
-            pet["last_interaction"] = now 
-            save_data(data)
-            await interaction.response.send_message("🧹 きれいにしました！", ephemeral=True)
-        else:
-            await interaction.response.send_message("今はお世話しなくて大丈夫！", ephemeral=True)
+        if not pet.get("poop"):
+            return await interaction.response.send_message(
+                "今はお世話しなくて大丈夫！",
+                ephemeral=True
+            )
+
+        # -------------------------
+        # うんち処理
+        # -------------------------
+        pet["poop"] = False
+        pet["happiness"] = min(100, pet["happiness"] + 5)
+        pet["last_interaction"] = now
+        save_data(data)
+
+        cog = interaction.client.get_cog("OasistchiCog")
+        egg = pet.get("egg_type", "red")
+
+        # -------------------------
+        # ① clean.gif を表示（メインメッセージ編集）
+        # -------------------------
+        embed = cog.make_status_embed(pet)
+        pet_file = get_pet_file(pet, "clean")
+        gauge_file = build_growth_gauge_file(pet["growth"])
+
+        await interaction.response.edit_message(
+            embed=embed,
+            attachments=[pet_file, gauge_file],
+            view=self
+        )
+
+        # （任意）ephemeralで通知したいなら followup を使う
+        await interaction.followup.send("🧹 きれいにしました！", ephemeral=True)
+
+        # -------------------------
+        # ② clean.gif の長さだけ待つ
+        # -------------------------
+        clean_gif_path = os.path.join(ASSET_BASE, "egg", egg, "clean.gif")
+        wait_seconds = get_gif_duration_seconds(clean_gif_path, fallback=2.0)
+        await asyncio.sleep(wait_seconds)
+
+        # -------------------------
+        # ③ idle に戻す
+        # -------------------------
+        embed = cog.make_status_embed(pet)
+        pet_file = get_pet_file(pet, "idle")
+        gauge_file = build_growth_gauge_file(pet["growth"])
+
+        await interaction.edit_original_response(
+            embed=embed,
+            attachments=[pet_file, gauge_file],
+            view=self
+        )
 
 async def setup(bot):
     cog = OasistchiCog(bot)
@@ -550,6 +637,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
