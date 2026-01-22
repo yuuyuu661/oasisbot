@@ -487,52 +487,52 @@ class CareView(discord.ui.View):
         self.index = index
 
     @discord.ui.button(label="なでなで", style=discord.ButtonStyle.primary)
-        async def pet(self, interaction: discord.Interaction, button: discord.ui.Button):
-            data = load_data()
-            pet = data["users"][self.uid]["pets"][self.index]
+    async def pet(self, interaction: discord.Interaction, button: discord.ui.Button):
+        data = load_data()
+        pet = data["users"][self.uid]["pets"][self.index]
 
-            now = now_ts()
-            if now - pet["last_pet"] < 10800:
-                return await interaction.response.send_message(
-                    "まだなでなでできません。（3時間クールタイム）",
-                    ephemeral=True
-                )
-
-            # -------------------------
-            # ステータス更新
-            # -------------------------
-            pet["happiness"] = min(100, pet["happiness"] + 10)
-            pet["growth"] = min(100.0, pet["growth"] + 5.0)
-            pet["last_pet"] = now
-            pet["last_interaction"] = now
-            save_data(data)
-
-           cog = interaction.client.get_cog("OasistchiCog")
-
-            # ① なでなでGIF表示（このinteractionに対する“最初の応答”として編集）
-            embed = cog.make_status_embed(pet)
-            pet_file = get_pet_file(pet, "pet")
-            gauge_file = build_growth_gauge_file(pet["growth"])
-
-            await interaction.response.edit_message(
-                embed=embed,
-                attachments=[pet_file, gauge_file],
-                view=self
+        now = now_ts()
+        if now - pet["last_pet"] < 10800:
+            return await interaction.response.send_message(
+                "まだなでなでできません。（3時間クールタイム）",
+                ephemeral=True
             )
 
-            # ② 演出
-            await asyncio.sleep(2)
+        # -------------------------
+        # ステータス更新
+        # -------------------------
+        pet["happiness"] = min(100, pet["happiness"] + 10)
+        pet["growth"] = min(100.0, pet["growth"] + 5.0)
+        pet["last_pet"] = now
+        pet["last_interaction"] = now
+        save_data(data)
 
-            # ③ idle に戻す（以降は original を編集）
-            embed = cog.make_status_embed(pet)
-            pet_file = get_pet_file(pet, "idle")
-            gauge_file = build_growth_gauge_file(pet["growth"])
+        cog = interaction.client.get_cog("OasistchiCog")
 
-            await interaction.edit_original_response(
-                embed=embed,
-                attachments=[pet_file, gauge_file],
-                view=self
-            )
+        # ① なでなでGIF表示（このinteractionに対する“最初の応答”として編集）
+        embed = cog.make_status_embed(pet)
+        pet_file = get_pet_file(pet, "pet")
+        gauge_file = build_growth_gauge_file(pet["growth"])
+
+        await interaction.response.edit_message(
+            embed=embed,
+            attachments=[pet_file, gauge_file],
+            view=self
+        )
+
+        # ② 演出
+        await asyncio.sleep(2)
+
+        # ③ idle に戻す（以降は original を編集）
+        embed = cog.make_status_embed(pet)
+        pet_file = get_pet_file(pet, "idle")
+        gauge_file = build_growth_gauge_file(pet["growth"])
+
+        await interaction.edit_original_response(
+            embed=embed,
+            attachments=[pet_file, gauge_file],
+            view=self
+        )
 
     @discord.ui.button(label="お世話", style=discord.ButtonStyle.success)
     async def care(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -556,6 +556,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
