@@ -90,17 +90,6 @@ def growth_rate_per_hour(stage: str) -> float:
         return 100.0 / 36.0     # 36時間
     return 0.0
 
-def try_evolve(pet: dict):
-    if pet["stage"] == "egg" and pet["growth"] >= 100.0:
-        pet["stage"] = "child"
-        pet["growth"] = 0.0
-        pet["poop"] = False
-
-    elif pet["stage"] == "child" and pet["growth"] >= 100.0:
-        pet["stage"] = "adult"
-        pet["growth"] = 0.0
-        pet["poop"] = False
-
 def get_pet_file(pet: dict, state: str) -> discord.File:
     """
     state: "idle" | "pet" | "clean" | "poop"
@@ -292,10 +281,6 @@ class OasistchiCog(commands.Cog):
                     mult = 0.5 if pet.get("poop") else 1.0
                     pet["growth"] = min(100.0, pet["growth"] + rate * mult)
 
-                # -----------------
-                # 進化判定
-                # -----------------
-                try_evolve(pet)
                 if (
                     pet["stage"] == "egg"
                     and pet["growth"] >= 100.0
@@ -804,6 +789,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
