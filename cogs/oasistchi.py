@@ -202,12 +202,6 @@ class OasistchiCog(commands.Cog):
             inline=False
         )
 
-        embed.add_field(
-            name="成長ゲージ",
-            value=" ",
-            inline=False
-        )
-
         # ✅ メイン画像：おあしすっち
         embed.set_image(url="attachment://pet.gif")
 
@@ -556,6 +550,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
