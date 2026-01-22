@@ -54,29 +54,20 @@ def now_ts() -> float:
 
 def build_growth_gauge_file(growth: float) -> discord.File:
     """
-    成長率に応じたゲージ画像を返す（合成なし）
+    孵化ゲージ画像を返す（切り捨て）
     growth: 0.0 ～ 100.0
     """
 
-    # -----------------------------
-    # ゲージ本数（四捨五入）
-    # -----------------------------
-    bars = round(growth / 10)
-    bars = max(0, min(10, bars))
-
-    # -----------------------------
-    # パス決定
-    # -----------------------------
-    if bars == 0:
-        filename = "gauge_01.png"
+    if growth >= 100:
+        gauge = 10
     else:
-        filename = f"gauge_{bars:02}.png"
+        gauge = int(growth // 10)
 
+    gauge = max(0, min(10, gauge))
+
+    filename = f"gauge_{gauge:02}.png"
     path = os.path.join(GAUGE_DIR, filename)
 
-    # -----------------------------
-    # discord.File として返す
-    # -----------------------------
     return discord.File(path, filename="growth.png")
 
 def gauge_emoji(value: int, max_value: int = 100, emoji: str = "😊", steps: int = 10):
@@ -565,5 +556,6 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
