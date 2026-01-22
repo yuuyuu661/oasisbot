@@ -34,6 +34,15 @@ EGG_CATALOG = [
     }
     for key, name in EGG_COLORS
 ]
+ADULT_CATALOG = {
+    "red": [
+        {"key": "fire_lion", "name": "🔥 ファイアライオン"},
+        {"key": "red_dragon", "name": "🐉 レッドドラゴン"},
+    ],
+    "blue": [
+        {"key": "aqua_fish", "name": "🐟 アクアフィッシュ"},
+    ],
+}
 
 def load_data():
     if not os.path.exists(DATA_PATH):
@@ -96,8 +105,12 @@ def get_pet_file(pet: dict, state: str) -> discord.File:
     """
     state: "idle" | "pet" | "clean" | "poop"
     """
-    egg = pet.get("egg_type", "red")
-    path = os.path.join(ASSET_BASE, "egg", egg, f"{state}.gif")
+    if pet["stage"] == "adult":
+        key = pet["adult_key"]
+        path = os.path.join(ASSET_BASE, "adult", key, f"{state}.gif")
+    else:
+        egg = pet.get("egg_type", "red")
+        path = os.path.join(ASSET_BASE, "egg", egg, f"{state}.gif")
     return discord.File(path, filename="pet.gif")
 
 # =========================
@@ -261,8 +274,8 @@ class OasistchiCog(commands.Cog):
         data = load_data()
         now = now_ts()
 
-        for user in data["users"].values():
-            for pet in user["pets"]:
+        for uid, user in data["users"].items():
+            for pet in user["pets"]
 
                 # -----------------
                 # うんち抽選
@@ -283,6 +296,17 @@ class OasistchiCog(commands.Cog):
                 # 進化判定
                 # -----------------
                 try_evolve(pet)
+                if (
+                    pet["stage"] == "egg"
+                    and pet["growth"] >= 100.0
+                    and not pet.get("notified_hatch", False)
+                ):
+                    pet["notified_hatch"] = True
+                    try:
+                        user_obj = await self.bot.fetch_user(int(uid))
+                        await user_obj.send("🥚 おあしすっちが孵化しそう！\n`/おあしすっち` で確認してね！")
+                    except:
+                        pass
 
                 # -----------------
                 # 放置ペナルティ（10時間）
@@ -525,6 +549,7 @@ class ConfirmPurchaseView(discord.ui.View):
                 "stage": "egg",
                 "egg_type": self.egg_key or "red",
                 "growth": 0.0,
+                "notified_hatch": False,
                 "happiness": 50,
                 "hunger": 100,
                 "poop": False,
@@ -573,8 +598,16 @@ class CareView(discord.ui.View):
         self.uid = uid
         self.index = index
 
+    def is_owner(self, interaction: discord.Interaction) -> bool:
+        return str(interaction.user.id) == self.uid
+
     @discord.ui.button(label="なでなで", style=discord.ButtonStyle.primary)
     async def pet(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.is_owner(interaction):
+            return await interaction.response.send_message(
+                "❌ このおあしすっちはあなたのものではありません。",
+                ephemeral=True
+            )
         data = load_data()
         pet = data["users"][self.uid]["pets"][self.index]
 
@@ -632,6 +665,11 @@ class CareView(discord.ui.View):
 
     @discord.ui.button(label="お世話", style=discord.ButtonStyle.success)
     async def care(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.is_owner(interaction):
+            return await interaction.response.send_message(
+                "❌ このおあしすっちはあなたのものではありません。",
+                ephemeral=True
+            )
         data = load_data()
         pet = data["users"][self.uid]["pets"][self.index]
         now = now_ts()
@@ -689,12 +727,84 @@ class CareView(discord.ui.View):
             view=self
         )
 
+    @discord.ui.button(label="🔄 更新", style=discord.ButtonStyle.secondary)
+    async def refresh(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.is_owner(interaction):
+            return await interaction.response.send_message(
+                "❌ このおあしすっちはあなたのものではありません。",
+                ephemeral=True
+            )
+
+        data = load_data()
+        pet = data["users"][self.uid]["pets"][self.index]
+        cog = interaction.client.get_cog("OasistchiCog")
+
+        embed = cog.make_status_embed(pet)
+        pet_file = get_pet_file(pet, "idle")
+        gauge_file = build_growth_gauge_file(pet["growth"])
+
+        await interaction.response.edit_message(
+            embed=embed,
+            attachments=[pet_file, gauge_file],
+            view=self
+        )
+
+    @discord.ui.button(label="🐣 孵化", style=discord.ButtonStyle.success)
+    async def hatch(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.is_owner(interaction):
+            return await interaction.response.send_message(
+                "❌ このおあしすっちはあなたのものではありません。",
+                ephemeral=True
+            )
+
+        data = load_data()
+        pet = data["users"][self.uid]["pets"][self.index]
+
+        if pet["stage"] != "egg" or pet["growth"] < 100.0:
+            return await interaction.response.send_message(
+                "まだ孵化できません。",
+                ephemeral=True
+            )
+
+        adult = random.choice(ADULT_CATALOG[pet["egg_type"]])
+
+        hatch_gif = os.path.join(ASSET_BASE, "egg", pet["egg_type"], "hatch.gif")
+        await interaction.response.edit_message(
+            content="✨ 孵化中…！",
+            attachments=[discord.File(hatch_gif, filename="pet.gif")],
+            view=None
+        )
+
+        await asyncio.sleep(get_gif_duration_seconds(hatch_gif, 3.0))
+
+        pet.update({
+            "stage": "adult",
+            "adult_key": adult["key"],
+            "name": adult["name"],
+            "growth": 0.0,
+            "poop": False,
+        })
+        save_data(data)
+
+        cog = interaction.client.get_cog("OasistchiCog")
+        embed = cog.make_status_embed(pet)
+        pet_file = get_pet_file(pet, "idle")
+        gauge_file = build_growth_gauge_file(pet["growth"])
+
+        await interaction.edit_original_response(
+            content=None,
+            embed=embed,
+            attachments=[pet_file, gauge_file],
+            view=self
+        )
+
 async def setup(bot):
     cog = OasistchiCog(bot)
     await bot.add_cog(cog)
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
