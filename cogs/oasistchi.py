@@ -606,6 +606,18 @@ class CareView(discord.ui.View):
         # -------------------------
         pet["happiness"] = min(100, pet["happiness"] + 10)
         pet["growth"] = min(100.0, pet["growth"] + 5.0)
+        if (
+            pet["stage"] == "egg"
+            and pet["growth"] >= 100.0
+            and not pet.get("notified_hatch", False)
+        ):
+            pet["notified_hatch"] = True
+            try:
+                await interaction.user.send(
+                    "🥚 おあしすっちが孵化しそう！\n`/おあしすっち` で確認してね！"
+                )
+            except:
+                pass
         pet["last_pet"] = now
         pet["last_interaction"] = now
         save_data(data)
@@ -788,6 +800,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
