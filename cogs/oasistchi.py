@@ -761,7 +761,20 @@ class CareView(discord.ui.View):
                 ephemeral=True
             )
 
-        adult = random.choice(ADULT_CATALOG[pet["egg_type"]])
+        egg_type = pet["egg_type"]
+
+        candidates = [
+            a for a in ADULT_CATALOG
+            if egg_type in a["groups"]
+        ]
+
+        if not candidates:
+            return await interaction.response.send_message(
+                "このたまごに対応する成体が登録されていません。",
+                ephemeral=True
+            )
+
+        adult = random.choice(candidates)
 
         hatch_gif = os.path.join(ASSET_BASE, "egg", pet["egg_type"], "hatch.gif")
         await interaction.response.edit_message(
@@ -800,6 +813,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
