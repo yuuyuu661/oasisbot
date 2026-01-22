@@ -595,11 +595,11 @@ class CareView(discord.ui.View):
         pet = data["users"][self.uid]["pets"][self.index]
 
         now = now_ts()
-        if now - pet["last_pet"] < 10800:
-            return await interaction.response.send_message(
-                "まだなでなでできません。（3時間クールタイム）",
-                ephemeral=True
-            )
+        # if now - pet["last_pet"] < 10800:
+        #     return await interaction.response.send_message(
+        #         "まだなでなでできません。（3時間クールタイム）",
+        #         ephemeral=True
+        #     )
 
         # -------------------------
         # ステータス更新
@@ -788,6 +788,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
