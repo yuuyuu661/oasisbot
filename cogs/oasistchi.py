@@ -194,7 +194,11 @@ class OasistchiCog(commands.Cog):
         )
 
     def make_status_embed(self, pet: dict):
-        embed = discord.Embed(title="🐣 おあしすっち", color=discord.Color.green())
+        embed = discord.Embed(
+            title="🐣 おあしすっち",
+            color=discord.Color.green()
+        )
+
         embed.add_field(
             name="空腹度",
             value=gauge_emoji(pet.get("hunger", 100), emoji="🍗"),
@@ -208,12 +212,16 @@ class OasistchiCog(commands.Cog):
         )
 
         embed.add_field(
-           name="成長ゲージ",
-           value=" ", 
-           inline=False
+            name="成長ゲージ",
+            value=" ",
+            inline=False
         )
-        embed.set_image(url="attachment://growth.png")
-        embed.set_thumbnail(url="attachment://pet.gif")
+
+        # ✅ メイン画像：おあしすっち
+        embed.set_image(url="attachment://pet.gif")
+
+        # ✅ サムネイル：進化ゲージ
+        embed.set_thumbnail(url="attachment://growth.png")
 
         return embed
 
@@ -557,4 +565,5 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
