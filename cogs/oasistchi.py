@@ -256,9 +256,14 @@ class OasistchiCog(commands.Cog):
         return embed
 
     def get_pet_image(self, pet: dict):
-        egg = pet.get("egg_type", "red")
-        state = "poop" if pet.get("poop") else "idle"
-        path = os.path.join(ASSET_BASE, "egg", egg, f"{state}.gif")
+        if pet["stage"] == "adult":
+            key = pet["adult_key"]
+            path = os.path.join(ASSET_BASE, "adult", key, "idle.gif")
+        else:
+            egg = pet.get("egg_type", "red")
+            state = "poop" if pet.get("poop") else "idle"
+            path = os.path.join(ASSET_BASE, "egg", egg, f"{state}.gif")
+
         return discord.File(path, filename="pet.gif")
 
     # -----------------------------
@@ -821,6 +826,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
