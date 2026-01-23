@@ -639,8 +639,6 @@ class ConfirmPurchaseView(discord.ui.View):
             )
 
         db = bot.db
-        data = load_data()
-        uid = str(user.id)
         gid = str(guild.id)
 
         # -------------------------
@@ -675,7 +673,6 @@ class ConfirmPurchaseView(discord.ui.View):
         # -------------------------
         # 購入内容の反映
         # -------------------------
-        user_data = ensure_user(data, uid)
 
         if self.kind == "egg":
             if len(user_data["pets"]) >= user_data["slots"]:
@@ -686,22 +683,17 @@ class ConfirmPurchaseView(discord.ui.View):
                     view=None
                 )
 
-            user_data["pets"].append({
-                "stage": "egg",
-                "egg_type": self.egg_key or "red",
-                "growth": 0.0,
-                "notified_hatch": False,
-                "happiness": 50,
-                "hunger": 100,
-                "poop": False,
-
-                # 時刻管理を分離
-                "last_pet": 0,
-                "last_interaction": time.time(),  # ユーザー操作用
-                "last_tick": time.time()          # Bot定期処理用
-            })
-
-            save_data(data)
+            await db.create_oasistchi_pet(
+                uid=uid,
+                stage="egg",
+                egg_type=self.egg_key or "red",
+                growth=0.0,
+                happiness=50,
+                hunger=100,
+                poop=False,
+                last_pet=0,
+                last_interaction=now_ts(),
+            )
 
             return await interaction.response.edit_message(
                 content=(
@@ -1069,13 +1061,4 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
-
-
-
-
-
-
-
-
-
 
