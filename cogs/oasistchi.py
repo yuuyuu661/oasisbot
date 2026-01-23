@@ -10,8 +10,6 @@ from io import BytesIO
 import asyncio
 from PIL import Image, ImageSequence
 
-DATA_PATH = "data/oasistchi.json"
-
 # =========================
 # ここだけ環境に合わせて
 # =========================
@@ -52,20 +50,6 @@ ADULT_CATALOG = [
     {"key": "yuina","name": "ゆいな","groups": ["purple"]},
     {"key": "zenten","name": "ぜんてん","groups": ["yellow"]},
 ]
-
-def load_data():
-    if not os.path.exists(DATA_PATH):
-        return {"users": {}}
-    with open(DATA_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def save_data(data):
-    os.makedirs(os.path.dirname(DATA_PATH), exist_ok=True)
-    with open(DATA_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
-def ensure_user(data: dict, uid: str) -> dict:
-    return data["users"].setdefault(uid, {"slots": 1, "pets": []})
 
 def now_ts() -> float:
     return time.time()
@@ -346,34 +330,23 @@ class OasistchiCog(commands.Cog):
     # -----------------------------
     @tasks.loop(minutes=60)
     async def poop_check(self):
-        data = load_data()
-        now = now_ts()
+        pets = await self.bot.db.get_all_oasistchi_pets()
 
-        for uid, user in data["users"].items():
-            for pet in user["pets"]:
-                pet.setdefault("notify", {
-                    "pet": False,
-                    "care": False,
-                    "food": False
-                })
+        now = time.time()
 
-                # -----------------
-                # うんち抽選
-                # -----------------
-                if pet["stage"] == "egg" and not pet["poop"]:
-                    if random.random() < 0.3:
-                        pet["poop"] = True
+        for pet in pets:
+            updates = {}
 
-                # 成体のみ
-                if pet["stage"] == "adult":
+            # うんち抽選
+            if pet["stage"] == "egg" and not pet["poop"]:
+                if random.random() < 0.3:
+                    updates["poop"] = True
 
-                    # 空腹度（2時間 = 120分）
-                    if "last_hunger_tick" not in pet:
-                        pet["last_hunger_tick"] = now
-                    else:
-                        if now - pet["last_hunger_tick"] >= 7200:
-                            pet["hunger"] = max(0, pet["hunger"] - 10)
-                            pet["last_hunger_tick"] = now
+            # 成体の空腹度
+            if pet["stage"] == "adult":
+                if now - pet["last_hunger_tick"] >= 7200:
+                    updates["hunger"] = max(0, pet["hunger"] - 10)
+                    updates["last_hunger_tick"] = now
 
                         # 通知（後述）
                         if pet["hunger"] <= 50 and pet.get("notify", {}).get("food"):
@@ -383,28 +356,20 @@ class OasistchiCog(commands.Cog):
                             except:
                                 pass
 
-                    # 幸福度（空腹50%以下 & 1時間）
-                    if pet["hunger"] <= 50:
-                        if "last_unhappy_tick" not in pet:
-                            pet["last_unhappy_tick"] = now
-                        elif now - pet["last_unhappy_tick"] >= 3600:
-                            pet["happiness"] = max(0, pet["happiness"] - 10)
-                            pet["last_unhappy_tick"] = now
+            # 幸福度
+            if pet["hunger"] <= 50:
+                if now - pet["last_unhappy_tick"] >= 3600:
+                    updates["happiness"] = max(0, pet["happiness"] - 10)
+                    updates["last_unhappy_tick"] = now
 
-                # -----------------
-                # 成長処理（時間経過）
-                # -----------------
-                rate = growth_rate_per_hour(pet["stage"])
-                if rate > 0:
-                    mult = 0.5 if pet.get("poop") else 1.0
-                    pet["growth"] = min(100.0, pet["growth"] + rate * mult)
+            # 成長
+            if pet["stage"] == "egg":
+                rate = 100 / 12
+                mult = 0.5 if pet["poop"] else 1.0
+                updates["growth"] = min(100, pet["growth"] + rate * mult)
 
-                if (
-                    pet["stage"] == "egg"
-                    and pet["growth"] >= 100.0
-                    and not pet.get("notified_hatch", False)
-                ):
-                    pet["notified_hatch"] = True
+            if updates:
+                await self.bot.db.update_oasistchi_pet(pet["id"], updates)
                     try:
                         user_obj = await self.bot.fetch_user(int(uid))
                         await user_obj.send("🥚 おあしすっちが孵化しそう！\n`/おあしすっち` で確認してね！")
@@ -769,10 +734,10 @@ class ConfirmPurchaseView(discord.ui.View):
 # お世話ボタン（既存そのまま）
 # =========================
 class CareView(discord.ui.View):
-    def __init__(self, uid: str, index: int, pet: dict):
+    def __init__(self, uid: str, pet_id: int, pet: dict):
         super().__init__(timeout=None)
         self.uid = uid
-        self.index = index
+        self.pet_id = pet_id
 
         for child in list(self.children):
             label = getattr(child, "label", "")
@@ -880,10 +845,14 @@ class CareView(discord.ui.View):
         # -------------------------
         # うんち処理
         # -------------------------
-        pet["poop"] = False
-        pet["happiness"] = min(100, pet["happiness"] + 5)
-        pet["last_interaction"] = now
-        save_data(data)
+        await db.update_oasistchi_pet(
+            self.pet_id,
+            {
+                "poop": False,
+                "happiness": min(100, pet["happiness"] + 5),
+                "last_interaction": now,
+            }
+        )
 
         cog = interaction.client.get_cog("OasistchiCog")
         egg = pet.get("egg_type", "red")
@@ -952,10 +921,13 @@ class CareView(discord.ui.View):
         await interaction.response.defer()
 
         # ステータス更新
-        pet["hunger"] = 100
-        pet["last_interaction"] = now_ts()
-
-        save_data(data)
+        await db.update_oasistchi_pet(
+            self.pet_id,
+            {
+                "hunger": 100,
+                "last_interaction": now_ts(),
+            }
+        )
 
         cog = interaction.client.get_cog("OasistchiCog")
 
@@ -1060,32 +1032,24 @@ class CareView(discord.ui.View):
         await asyncio.sleep(get_gif_duration_seconds(hatch_gif, 3.0))
         now = now_ts()
 
-        pet.update({
-            "stage": "adult",
-            "adult_key": adult["key"],
-            "name": adult["name"],
-
-            # ステータス初期化
-            "growth": 0.0,
-            "hunger": 100,
-            "happiness": pet.get("happiness", 50),
-            "poop": False,
-            "notified_hatch": False,
-
-            # ⏱ 時間管理（超重要）
-            "last_hunger_tick": now,
-            "last_unhappy_tick": now,
-            "last_interaction": now,
-
-            # 🔔 通知設定（デフォルトOFF）
-            "notify": {
-                "pet": False,
-                "care": False,
-                "food": False,
+        await db.update_oasistchi_pet(
+            self.pet_id,
+            {
+                "stage": "adult",
+                "adult_key": adult["key"],
+                "name": adult["name"],
+                "growth": 0.0,
+                "hunger": 100,
+                "poop": False,
+                "last_hunger_tick": now,
+                "last_unhappy_tick": now,
+                "last_interaction": now,
+                "notify_pet": False,
+                "notify_care": False,
+                "notify_food": False,
             }
-        })
+        )
 
-        save_data(data)
 
         cog = interaction.client.get_cog("OasistchiCog")
         embed = cog.make_status_embed(pet)
@@ -1105,6 +1069,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
