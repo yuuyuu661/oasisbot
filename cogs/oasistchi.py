@@ -274,14 +274,12 @@ class OasistchiCog(commands.Cog):
         index: int | None = None
     ):
         await interaction.response.defer()
-        data = load_data()
+        db = interaction.client.db
         uid = str(interaction.user.id)
 
-        if uid not in data["users"]:
-            return await interaction.response.send_message(
-                "まだおあしすっちを持っていません。",
-                ephemeral=True
-            )
+        pets = await db.get_oasistchi_pets(uid)
+        if not pets:
+            return await interaction.response.send_message("まだ持っていません", ephemeral=True)
 
         pet_index = (index - 1) if index else 0
         pets = data["users"][uid]["pets"]
@@ -1109,6 +1107,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
