@@ -701,14 +701,6 @@ class ConfirmPurchaseView(discord.ui.View):
         # -------------------------
 
         if self.kind == "egg":
-            if len(user_data["pets"]) >= user_data["slots"]:
-                # 差し戻し（返金）
-                await db.add_balance(uid, gid, self.price)
-                return await interaction.response.edit_message(
-                    content="❌ 育成枠が足りません。（返金しました）",
-                    view=None
-                )
-
             await db.create_oasistchi_pet(
                 uid=uid,
                 stage="egg",
@@ -1095,6 +1087,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
