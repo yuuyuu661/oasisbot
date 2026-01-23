@@ -293,11 +293,6 @@ class OasistchiCog(commands.Cog):
                 "その番号のおあしすっちは存在しません。",
                 ephemeral=True
             )
-
-        pet = pets[pet_index]
-        embed = self.make_status_embed(pet)
-
-        pet_file = self.get_pet_image(pet)
         gauge_file = build_growth_gauge_file(pet["growth"])
         view = CareView(uid, pet_index, pet)
         await interaction.followup.send(
@@ -1107,6 +1102,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
