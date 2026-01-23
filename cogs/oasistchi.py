@@ -982,6 +982,7 @@ class CareView(discord.ui.View):
 
         # ③ GIFの長さだけ待つ
         await asyncio.sleep(get_gif_duration_seconds(hatch_gif, 3.0))
+        now = now_ts()
 
         pet.update({
             "stage": "adult",
@@ -1028,4 +1029,5 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
