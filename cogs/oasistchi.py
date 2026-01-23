@@ -286,17 +286,20 @@ class OasistchiCog(commands.Cog):
             return await interaction.followup.send("その番号のおあしすっちは存在しません。", ephemeral=True)
 
         pet = dict(pets[pet_index])  # asyncpg.Record → dict
-        view = CareView(uid, pet_index, pet) 
+        pet = dict(pets[pet_index])
 
         if pet_index >= len(pets):
             return await interaction.response.send_message(
                 "その番号のおあしすっちは存在しません。",
                 ephemeral=True
             )
+        embed = self.make_status_embed(pet)
+        pet_file = self.get_pet_image(pet)
         gauge_file = build_growth_gauge_file(pet["growth"])
         view = CareView(uid, pet_index, pet)
+
         await interaction.followup.send(
-           embed=embed,
+            embed=embed,
             view=view,
             files=[pet_file, gauge_file]
         )
@@ -1102,6 +1105,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
