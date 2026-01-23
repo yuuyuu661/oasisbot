@@ -351,6 +351,11 @@ class OasistchiCog(commands.Cog):
 
         for uid, user in data["users"].items():
             for pet in user["pets"]:
+                pet.setdefault("notify", {
+                    "pet": False,
+                    "care": False,
+                    "food": False
+                })
 
                 # -----------------
                 # うんち抽選
@@ -363,7 +368,6 @@ class OasistchiCog(commands.Cog):
                 if pet["stage"] == "adult":
 
                     # 空腹度（2時間 = 120分）
-                    last_hunger = pet.get("last_hunger_tick", pet["last_tick"])
                     if "last_hunger_tick" not in pet:
                         pet["last_hunger_tick"] = now
                     else:
@@ -983,10 +987,27 @@ class CareView(discord.ui.View):
             "stage": "adult",
             "adult_key": adult["key"],
             "name": adult["name"],
+
+            # ステータス初期化
             "growth": 0.0,
+            "hunger": 100,
+            "happiness": pet.get("happiness", 50),
             "poop": False,
-            "notified_hatch": False, 
+            "notified_hatch": False,
+
+            # ⏱ 時間管理（超重要）
+            "last_hunger_tick": now,
+            "last_unhappy_tick": now,
+            "last_interaction": now,
+
+            # 🔔 通知設定（デフォルトOFF）
+            "notify": {
+                "pet": False,
+                "care": False,
+                "food": False,
+            }
         })
+
         save_data(data)
 
         cog = interaction.client.get_cog("OasistchiCog")
@@ -1007,3 +1028,4 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
