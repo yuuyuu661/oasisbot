@@ -774,6 +774,14 @@ class Database:
             "SELECT * FROM oasistchi_pets"
         )
 
+    async def get_oasistchi_pet(self, pet_id: int):
+        await self._ensure_conn()
+        return await self.conn.fetchrow(
+            "SELECT * FROM oasistchi_pets WHERE id=$1",
+            pet_id
+        )
+
+
 
 
 
