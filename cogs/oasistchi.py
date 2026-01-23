@@ -790,12 +790,15 @@ class CareView(discord.ui.View):
         adult = random.choice(candidates)
 
         hatch_gif = os.path.join(ASSET_BASE, "egg", pet["egg_type"], "hatch.gif")
-        await interaction.response.edit_message(
+        await interaction.response.defer()
+        # ② 孵化GIFを表示
+        await interaction.edit_original_response(
             content="✨ 孵化中…！",
             attachments=[discord.File(hatch_gif, filename="pet.gif")],
             view=None
         )
 
+        # ③ GIFの長さだけ待つ
         await asyncio.sleep(get_gif_duration_seconds(hatch_gif, 3.0))
 
         pet.update({
@@ -826,6 +829,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
