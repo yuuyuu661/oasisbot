@@ -830,8 +830,8 @@ class CareView(discord.ui.View):
                 "❌ このおあしすっちはあなたのものではありません。",
                 ephemeral=True
             )
-        data = load_data()
-        pet = data["users"][self.uid]["pets"][self.index]
+        db = interaction.client.db
+        pet = await db.get_oasistchi_pet(self.pet_id)
         now = now_ts()
 
         if not pet.get("poop"):
@@ -843,17 +843,20 @@ class CareView(discord.ui.View):
         # -------------------------
         # うんち処理
         # -------------------------
+        new_happiness = min(100, pet["happiness"] + 5)
+
         await db.update_oasistchi_pet(
             self.pet_id,
             {
                 "poop": False,
-                "happiness": min(100, pet["happiness"] + 5),
+                "happiness": new_happiness,
                 "last_interaction": now,
             }
         )
 
         cog = interaction.client.get_cog("OasistchiCog")
         egg = pet.get("egg_type", "red")
+        pet = await db.get_oasistchi_pet(self.pet_id)
 
         # -------------------------
         # ① clean.gif を表示（メインメッセージ編集）
@@ -1067,6 +1070,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
