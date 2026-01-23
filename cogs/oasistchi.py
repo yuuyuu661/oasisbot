@@ -351,6 +351,7 @@ class OasistchiCog(commands.Cog):
             # 通知（後述）
             if pet["hunger"] <= 50 and pet.get("notify", {}).get("food"):
                 try:
+                    uid = pet["user_id"]
                     user_obj = await self.bot.fetch_user(int(uid))
                     await user_obj.send("🍖 おあしすっちがおなかすいてるみたい…")
                 except:
@@ -383,6 +384,7 @@ class OasistchiCog(commands.Cog):
                     uid = str(pet["user_id"])  # ← DB列名に合わせる
 
                     try:
+                        uid = pet["user_id"]
                         user_obj = await self.bot.fetch_user(int(uid))
                         await user_obj.send(
                             "🥚 おあしすっちが孵化しそう！\n`/おあしすっち` で確認してね！"
@@ -1083,6 +1085,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
