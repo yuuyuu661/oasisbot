@@ -357,6 +357,35 @@ class OasistchiPanelRootView(discord.ui.View):
             ephemeral=True
         )
 
+    @discord.ui.button(label="📘 図鑑", style=discord.ButtonStyle.secondary)
+    async def open_dex(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+
+        data = load_data()
+        uid = str(interaction.user.id)
+
+        if uid not in data["users"]:
+            return await interaction.followup.send(
+                "まだおあしすっちを持っていません。",
+                ephemeral=True
+            )
+
+        owned = get_owned_adults(data, uid)
+        image = build_dex_tile_image(ADULT_CATALOG, owned)
+
+        embed = discord.Embed(
+            title="📘 おあしすっち図鑑",
+            description=f"所持数：{len(owned)} / {len(ADULT_CATALOG)}",
+            color=discord.Color.blurple()
+        )
+        embed.set_image(url="attachment://dex.png")
+
+        await interaction.followup.send(
+            embed=embed,
+            file=discord.File(image, filename="dex.png"),
+            ephemeral=True
+        )
+
 # =========================
 # プルダウン View
 # =========================
@@ -829,6 +858,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
