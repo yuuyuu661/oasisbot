@@ -664,6 +664,7 @@ class ConfirmPurchaseView(discord.ui.View):
         settings = await db.get_settings()
         unit = settings["currency_unit"]
 
+        uid = str(interaction.user.id)
         row = await db.get_user(uid, gid)
         balance = row["balance"]
 
@@ -1087,6 +1088,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
