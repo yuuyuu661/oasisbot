@@ -708,10 +708,70 @@ class CareView(discord.ui.View):
                 "❌ このおあしすっちはあなたのものではありません。",
                 ephemeral=True
             )
+
+        await interaction.response.defer()
         data = load_data()
         pet = data["users"][self.uid]["pets"][self.index]
-
         now = now_ts()
+
+        # ④ クールタイム判定（defer後は followup を使う）
+        if now - pet.get("last_pet", 0) < 10800:
+            await interaction.followup.send(
+                "まだなでなでできません。（3時間クールタイム）",
+                ephemeral=True
+            )
+            return
+
+        # ⑤ ステータス更新
+        pet["happiness"] = min(100, pet.get("happiness", 50) + 10)
+        pet["growth"] = min(100.0, pet.get("growth", 0.0) + 5.0)
+        pet["last_pet"] = now
+        pet["last_interaction"] = now
+
+        # （任意）孵化通知（満タンになった瞬間だけ）
+        if (
+            pet.get("stage") == "egg"
+            and pet["growth"] >= 100.0
+            and not pet.get("notified_hatch", False)
+        ):
+            pet["notified_hatch"] = True
+            try:
+                await interaction.user.send("🥚 おあしすっちが孵化しそう！\n`/おあしすっち` で確認してね！")
+            except:
+                pass
+
+        save_data(data)
+
+        # ⑥ いったん pet.gif を表示（元メッセージ編集）
+        cog = interaction.client.get_cog("OasistchiCog")
+        egg = pet.get("egg_type", "red")
+
+        embed = cog.make_status_embed(pet)
+        pet_file = get_pet_file(pet, "pet")
+        gauge_file = build_growth_gauge_file(pet["growth"])
+
+        # defer後なので edit_original_response を使う
+        await interaction.edit_original_response(
+            embed=embed,
+            attachments=[pet_file, gauge_file],
+            view=self
+        )
+
+        # ⑦ GIF時間待つ
+        pet_gif_path = os.path.join(ASSET_BASE, "egg", egg, "pet.gif")
+        wait_seconds = get_gif_duration_seconds(pet_gif_path, fallback=2.0)
+        await asyncio.sleep(wait_seconds)
+
+        # ⑧ idle に戻す（また元メッセージ編集）
+        embed = cog.make_status_embed(pet)
+        pet_file = get_pet_file(pet, "idle")
+        gauge_file = build_growth_gauge_file(pet["growth"])
+
+        await interaction.edit_original_response(
+            embed=embed,
+            attachments=[pet_file, gauge_file],
+            view=self
+        )
         # if now - pet["last_pet"] < 10800:
         #     return await interaction.response.send_message(
         #         "まだなでなでできません。（3時間クールタイム）",
@@ -933,6 +993,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
