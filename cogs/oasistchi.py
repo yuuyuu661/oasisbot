@@ -647,30 +647,6 @@ class ConfirmPurchaseView(discord.ui.View):
         bot = interaction.client
         guild = interaction.guild
         user = interaction.user
-        class ConfirmPurchaseView(discord.ui.View):
-    def __init__(self, kind: str, label: str, price: int, egg_key: str | None, slot_price: int):
-        super().__init__(timeout=60)
-        self.kind = kind            # "egg" or "slot"
-        self.label = label
-        self.price = int(price)
-        self.egg_key = egg_key
-        self.slot_price = slot_price
-
-    @discord.ui.button(label="購入する", style=discord.ButtonStyle.green)
-    async def ok(self, interaction: discord.Interaction, button: discord.ui.Button):
-        bot = interaction.client
-        guild = interaction.guild
-        user = interaction.user
-        uid = str(user.id)  
-
-        if guild is None:
-            return await interaction.response.edit_message(
-                content="❌ サーバー内でのみ購入できます。",
-                view=None
-            )
-
-        db = bot.db
-        gid = str(guild.id)
 
         if guild is None:
             return await interaction.response.edit_message(
@@ -1108,6 +1084,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
