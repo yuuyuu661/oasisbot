@@ -528,10 +528,10 @@ class EggSelectView(discord.ui.View):
         egg = self.current()
 
         embed = discord.Embed(
-            title="🥚 たまご購入",
+            title="たまご購入",
             description=(
                 f"**選択中：{egg['name']}**\n"
-                f"🐣 たまご価格：**{self.egg_price} rrc**\n\n"
+                f"たまご価格：**{self.egg_price} rrc**\n\n"
                 "⬅➡でたまごを切り替えて購入してね。"
             ),
             color=discord.Color.orange()
@@ -666,7 +666,7 @@ class ConfirmPurchaseView(discord.ui.View):
                 content=(
                     f"✅ **たまごを購入しました！**\n"
                    f"残高: **{balance - self.price:,} {unit}**\n"
-                    f"`/おあしすっち` で確認できます 🥚"
+                    f"`/おあしすっち` で確認できます"
                 ),
                 view=None
             )
@@ -715,12 +715,12 @@ class CareView(discord.ui.View):
         now = now_ts()
 
         # ④ クールタイム判定（defer後は followup を使う）
-        if now - pet.get("last_pet", 0) < 10800:
-            await interaction.followup.send(
-                "まだなでなでできません。（3時間クールタイム）",
-                ephemeral=True
-            )
-            return
+        # if now - pet.get("last_pet", 0) < 10800:
+        #     await interaction.followup.send(
+        #         "まだなでなでできません。（3時間クールタイム）",
+        #         ephemeral=True
+        #     )
+        #     return
 
         # ⑤ ステータス更新
         pet["happiness"] = min(100, pet.get("happiness", 50) + 10)
@@ -736,7 +736,7 @@ class CareView(discord.ui.View):
         ):
             pet["notified_hatch"] = True
             try:
-                await interaction.user.send("🥚 おあしすっちが孵化しそう！\n`/おあしすっち` で確認してね！")
+                await interaction.user.send("おあしすっちが孵化しそう！\n`/おあしすっち` で確認してね！")
             except:
                 pass
 
@@ -772,11 +772,6 @@ class CareView(discord.ui.View):
             attachments=[pet_file, gauge_file],
             view=self
         )
-        # if now - pet["last_pet"] < 10800:
-        #     return await interaction.response.send_message(
-        #         "まだなでなでできません。（3時間クールタイム）",
-        #         ephemeral=True
-        #     )
 
         # -------------------------
         # ステータス更新
@@ -791,7 +786,7 @@ class CareView(discord.ui.View):
             pet["notified_hatch"] = True
             try:
                 await interaction.user.send(
-                    "🥚 おあしすっちが孵化しそう！\n`/おあしすっち` で確認してね！"
+                    "おあしすっちが孵化しそう！\n`/おあしすっち` で確認してね！"
                 )
             except:
                 pass
@@ -993,6 +988,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
