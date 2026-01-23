@@ -773,63 +773,6 @@ class CareView(discord.ui.View):
             view=self
         )
 
-        # -------------------------
-        # ステータス更新
-        # -------------------------
-        pet["happiness"] = min(100, pet["happiness"] + 10)
-        pet["growth"] = min(100.0, pet["growth"] + 5.0)
-        if (
-            pet["stage"] == "egg"
-            and pet["growth"] >= 100.0
-            and not pet.get("notified_hatch", False)
-        ):
-            pet["notified_hatch"] = True
-            try:
-                await interaction.user.send(
-                    "おあしすっちが孵化しそう！\n`/おあしすっち` で確認してね！"
-                )
-            except:
-                pass
-        pet["last_pet"] = now
-        pet["last_interaction"] = now
-        save_data(data)
-
-        cog = interaction.client.get_cog("OasistchiCog")
-        egg = pet.get("egg_type", "red")
-
-        # -------------------------
-        # ① pet.gif を表示
-        # -------------------------
-        embed = cog.make_status_embed(pet)
-        pet_file = get_pet_file(pet, "pet")
-        gauge_file = build_growth_gauge_file(pet["growth"])
-
-        await interaction.response.edit_message(
-            embed=embed,
-            attachments=[pet_file, gauge_file],
-            view=self
-        )
-
-        # -------------------------
-        # ② GIFの長さだけ待つ（ここが可変）
-        # -------------------------
-        pet_gif_path = os.path.join(ASSET_BASE, "egg", egg, "pet.gif")
-        wait_seconds = get_gif_duration_seconds(pet_gif_path, fallback=2.0)
-        await asyncio.sleep(wait_seconds)
-
-        # -------------------------
-        # ③ idle に戻す
-        # -------------------------
-        embed = cog.make_status_embed(pet)
-        pet_file = get_pet_file(pet, "idle")
-        gauge_file = build_growth_gauge_file(pet["growth"])
-
-        await interaction.edit_original_response(
-            embed=embed,
-            attachments=[pet_file, gauge_file],
-            view=self
-        )
-
     @discord.ui.button(label="お世話", style=discord.ButtonStyle.success)
     async def care(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not self.is_owner(interaction):
@@ -988,6 +931,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
