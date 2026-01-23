@@ -198,7 +198,12 @@ def build_dex_tile_image(adults: list[dict], owned: set[str]):
         x = (i % cols) * (tile + pad)
         y = (i // cols) * (tile + pad)
 
-        path = f"assets/oasistchi/adult/{a['key']}/idle.gif"
+        path = os.path.join(
+            ASSET_BASE,
+            "adult",
+            a["key"],
+            "idle.gif"
+        )
         img = load_idle_frame(path)
 
         if a["key"] not in owned:
@@ -928,6 +933,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
