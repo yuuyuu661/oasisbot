@@ -647,6 +647,7 @@ class ConfirmPurchaseView(discord.ui.View):
         bot = interaction.client
         guild = interaction.guild
         user = interaction.user
+        uid = str(user.id) 
 
         if guild is None:
             return await interaction.response.edit_message(
@@ -676,7 +677,17 @@ class ConfirmPurchaseView(discord.ui.View):
             )
 
         # 残高減算
-        await db.remove_balance(uid, gid, self.price)
+        try:
+            settings = await db.get_settings()
+            unit = settings["currency_unit"]
+
+            row = await db.get_user(uid, gid)
+            balance = row["balance"]
+
+            if balance < self.price:
+                return await interaction.response.edit_message(...)
+
+            await db.remove_balance(uid, gid, self.price)
 
         except Exception as e:
             print("purchase error:", repr(e))
@@ -1084,6 +1095,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
