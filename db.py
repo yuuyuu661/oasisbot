@@ -765,5 +765,15 @@ class Database:
 
         await self.conn.execute(sql, *vals)
 
+    # ----------------------------------------
+    # おあしすっち：全ペット取得（poop_check用）
+    # ----------------------------------------
+    async def get_all_oasistchi_pets(self):
+        await self._ensure_conn()
+        return await self.conn.fetch(
+            "SELECT * FROM oasistchi_pets"
+        )
+
+
 
 
