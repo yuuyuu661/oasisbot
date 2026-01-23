@@ -388,8 +388,6 @@ class OasistchiCog(commands.Cog):
                 # -----------------
                 pet["last_tick"] = now
 
-        save_data(data)
-
 # =========================
 # ボタンView
 # =========================
@@ -902,9 +900,9 @@ class CareView(discord.ui.View):
                 ephemeral=True
             )
 
-        data = load_data()
-        pet = data["users"][self.uid]["pets"][self.index]
-
+        db = interaction.client.db
+        pet = await db.get_oasistchi_pet(self.pet_id)
+        
         # 成体のみ
         if pet["stage"] != "adult":
             return await interaction.response.send_message(
@@ -974,8 +972,7 @@ class CareView(discord.ui.View):
                 ephemeral=True
             )
 
-        data = load_data()
-        pet = data["users"][self.uid]["pets"][self.index]
+        pet = await interaction.client.db.get_oasistchi_pet(self.pet_id)
         cog = interaction.client.get_cog("OasistchiCog")
 
         embed = cog.make_status_embed(pet)
@@ -996,8 +993,8 @@ class CareView(discord.ui.View):
                 ephemeral=True
             )
 
-        data = load_data()
-        pet = data["users"][self.uid]["pets"][self.index]
+        db = interaction.client.db
+        pet = await db.get_oasistchi_pet(self.pet_id)
 
         if pet["stage"] != "egg" or pet["growth"] < 100.0:
             return await interaction.response.send_message(
@@ -1070,6 +1067,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
