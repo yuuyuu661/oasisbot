@@ -702,7 +702,7 @@ class ConfirmPurchaseView(discord.ui.View):
         # -------------------------
 
         if self.kind == "egg":
-            await db.await db.add_oasistchi_egg(
+            await db.add_oasistchi_egg(
                 uid=uid,
                 stage="egg",
                 egg_type=self.egg_key or "red",
@@ -1088,6 +1088,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
