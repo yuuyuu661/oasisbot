@@ -146,6 +146,47 @@ class Database:
                 expire_at TIMESTAMP
             );
         """)
+        # ==================================================
+        # おあしすっち（OASISTCHI）テーブル
+        # ==================================================
+
+        # ユーザーごとの育成枠
+        await self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS oasistchi_users (
+                user_id TEXT PRIMARY KEY,
+                slots INTEGER NOT NULL DEFAULT 1
+            );
+        """)
+
+        # おあしすっち本体
+        await self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS oasistchi_pets (
+                id SERIAL PRIMARY KEY,
+                user_id TEXT NOT NULL,
+
+                stage TEXT NOT NULL,              -- egg / adult
+                egg_type TEXT,
+                adult_key TEXT,
+                name TEXT,
+
+                growth REAL DEFAULT 0,
+                hunger INTEGER DEFAULT 100,
+                happiness INTEGER DEFAULT 50,
+                poop BOOLEAN DEFAULT FALSE,
+
+               notified_hatch BOOLEAN DEFAULT FALSE,
+
+                last_pet REAL DEFAULT 0,
+                last_interaction REAL DEFAULT 0,
+                last_tick REAL DEFAULT 0,
+                last_hunger_tick REAL DEFAULT 0,
+                last_unhappy_tick REAL DEFAULT 0,
+
+                notify_pet BOOLEAN DEFAULT FALSE,
+                notify_care BOOLEAN DEFAULT FALSE,
+                notify_food BOOLEAN DEFAULT FALSE
+            );
+        """)
 
         # 初期設定が無ければ作成
         exists = await self.conn.execute("""
@@ -642,6 +683,7 @@ class Database:
             )
             WHERE guild_id = $1
         """, guild_id, rank)
+
 
 
 
