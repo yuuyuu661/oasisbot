@@ -35,21 +35,21 @@ EGG_CATALOG = [
     for key, name in EGG_COLORS
 ]
 ADULT_CATALOG = [
-    {
-        "key": "fire_lion",
-        "name": "🔥 ファイアライオン",
-        "groups": ["red"]
-    },
-    {
-        "key": "thunder_dragon",
-        "name": "⚡ サンダードラゴン",
-        "groups": ["blue", "yellow"]
-    },
-    {
-        "key": "aqua_fish",
-        "name": "🐟 アクアフィッシュ",
-        "groups": ["blue"]
-    },
+    {"key": "aroni","name": "あろにぃ","groups": ["red"]},
+    {"key": "cyan","name": "ちゃん","groups": ["blue"]},
+    {"key": "eru","name": "エル","groups": ["green"]},
+    {"key": "inpure","name": "いんぷれ","groups": ["purple"]},
+    {"key": "kirigiri","name": "きりぎり","groups": ["yellow"]},
+    {"key": "kiza","name": "きっざにあ","groups": ["red"]},
+    {"key": "konkuri","name": "こんくり","groups": ["blue"]},
+    {"key": "kurisu","name": "クリス","groups": ["green"]},
+    {"key": "misui","name": "みすい","groups": ["purple"]},
+    {"key": "nino","name": "にの","groups": ["yellow"]},
+    {"key": "numaru","name": "ぬまるん","groups": ["red"]},
+    {"key": "saotome","name": "さおとめ","groups": ["blue"]},
+    {"key": "sato","name": "さとー","groups": ["green"]},
+    {"key": "yuina","name": "ゆいな","groups": ["purple"]},
+    {"key": "zenten","name": "ぜんてん","groups": ["yellow"]},
 ]
 
 def load_data():
@@ -821,6 +821,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
