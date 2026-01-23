@@ -330,6 +330,7 @@ class OasistchiCog(commands.Cog):
     # -----------------------------
     @tasks.loop(minutes=60)
     async def poop_check(self):
+        db = self.bot.db 
         pets = await self.bot.db.get_all_oasistchi_pets()
 
         now = time.time()
@@ -1084,6 +1085,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
