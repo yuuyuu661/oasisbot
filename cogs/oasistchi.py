@@ -702,29 +702,24 @@ class ConfirmPurchaseView(discord.ui.View):
         # -------------------------
 
         if self.kind == "egg":
+            uid = str(interaction.user.id)
+
             await db.add_oasistchi_egg(
-                uid=uid,
-                stage="egg",
-                egg_type=self.egg_key or "red",
-                growth=0.0,
-                happiness=50,
-                hunger=100,
-                poop=False,
-                last_pet=0,
-                last_interaction=now_ts(),
+                uid,
+                self.egg_key or "red"
             )
 
             return await interaction.response.edit_message(
                 content=(
                     f"✅ **たまごを購入しました！**\n"
-                   f"残高: **{balance - self.price:,} {unit}**\n"
+                    f"残高: **{balance - self.price:,} {unit}**\n"
                     f"`/おあしすっち` で確認できます"
                 ),
                 view=None
             )
 
         if self.kind == "slot":
-            await db.increment_oasistchi_slot(uid, +1)
+            await db.add_oasistchi_slot(uid, 1)
 
             return await interaction.response.edit_message(
                 content=(
@@ -1088,6 +1083,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
