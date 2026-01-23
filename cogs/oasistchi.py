@@ -280,7 +280,7 @@ class OasistchiCog(commands.Cog):
         embed = self.make_status_embed(pet)
         pet_file = self.get_pet_image(pet)
         gauge_file = build_growth_gauge_file(pet["growth"])
-        view = CareView(uid, pet_index, pet)
+        view = CareView(uid, pet["id"], pet)
 
         await interaction.followup.send(
             embed=embed,
@@ -370,7 +370,7 @@ class OasistchiCog(commands.Cog):
                 updates["growth"] = min(100, pet["growth"] + rate * mult)
 
             if updates:
-                await self.bot.db.update_oasistchi_pet(pet["id"], updates)
+                await db.update_oasistchi_pet(pet["id"], **updates)
 
                 # -----------------
                 # 孵化通知（成長100%到達時）
@@ -720,6 +720,7 @@ class ConfirmPurchaseView(discord.ui.View):
 
         if self.kind == "slot":
             await db.add_oasistchi_slot(uid, 1)
+            user_row = await db.get_oasistchi_user(uid)
 
             return await interaction.response.edit_message(
                 content=(
@@ -1083,6 +1084,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
