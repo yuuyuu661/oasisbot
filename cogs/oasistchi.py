@@ -753,8 +753,8 @@ class CareView(discord.ui.View):
             )
 
         await interaction.response.defer()
-        data = load_data()
-        pet = data["users"][self.uid]["pets"][self.index]
+        db = interaction.client.db
+        pet = await db.get_oasistchi_pet(self.pet_id)
         now = now_ts()
 
         # ④ クールタイム判定（defer後は followup を使う）
@@ -766,24 +766,31 @@ class CareView(discord.ui.View):
         #     return
 
         # ⑤ ステータス更新
-        pet["happiness"] = min(100, pet.get("happiness", 50) + 10)
-        pet["growth"] = min(100.0, pet.get("growth", 0.0) + 5.0)
-        pet["last_pet"] = now
-        pet["last_interaction"] = now
+        new_happiness = min(100, pet["happiness"] + 10)
+        new_growth = min(100.0, pet["growth"] + 5.0)
+
+        await db.update_oasistchi_pet(
+            self.pet_id,
+            {
+                "happiness": new_happiness,
+                "growth": new_growth,
+                "last_pet": now,
+                "last_interaction": now,
+            }
+        )
 
         # （任意）孵化通知（満タンになった瞬間だけ）
-        if (
-            pet.get("stage") == "egg"
-            and pet["growth"] >= 100.0
-            and not pet.get("notified_hatch", False)
-        ):
-            pet["notified_hatch"] = True
+        if pet["stage"] == "egg" and new_growth >= 100.0 and not pet["notified_hatch"]:
+            await db.update_oasistchi_pet(
+                self.pet_id,
+                {"notified_hatch": True}
+            )
             try:
-                await interaction.user.send("おあしすっちが孵化しそう！\n`/おあしすっち` で確認してね！")
+                await interaction.user.send(
+                    "🥚 おあしすっちが孵化しそう！\n`/おあしすっち` で確認してね！"
+                )
             except:
                 pass
-
-        save_data(data)
 
         # ⑥ いったん pet.gif を表示（元メッセージ編集）
         cog = interaction.client.get_cog("OasistchiCog")
@@ -1060,5 +1067,6 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
