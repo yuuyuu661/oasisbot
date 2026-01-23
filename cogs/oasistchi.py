@@ -359,6 +359,34 @@ class OasistchiCog(commands.Cog):
                     if random.random() < 0.3:
                         pet["poop"] = True
 
+                # 成体のみ
+                if pet["stage"] == "adult":
+
+                    # 空腹度（2時間 = 120分）
+                    last_hunger = pet.get("last_hunger_tick", pet["last_tick"])
+                    if "last_hunger_tick" not in pet:
+                        pet["last_hunger_tick"] = now
+                    else:
+                        if now - pet["last_hunger_tick"] >= 7200:
+                            pet["hunger"] = max(0, pet["hunger"] - 10)
+                            pet["last_hunger_tick"] = now
+
+                        # 通知（後述）
+                        if pet["hunger"] <= 50 and pet.get("notify", {}).get("food"):
+                            try:
+                                user_obj = await self.bot.fetch_user(int(uid))
+                                await user_obj.send("🍖 おあしすっちがおなかすいてるみたい…")
+                            except:
+                                pass
+
+                    # 幸福度（空腹50%以下 & 1時間）
+                    if pet["hunger"] <= 50:
+                        if "last_unhappy_tick" not in pet:
+                            pet["last_unhappy_tick"] = now
+                        elif now - pet["last_unhappy_tick"] >= 3600:
+                            pet["happiness"] = max(0, pet["happiness"] - 10)
+                            pet["last_unhappy_tick"] = now
+
                 # -----------------
                 # 成長処理（時間経過）
                 # -----------------
@@ -461,6 +489,15 @@ class OasistchiPanelRootView(discord.ui.View):
             ephemeral=True
         )
 
+    @discord.ui.button(label="🔔 通知設定", style=discord.ButtonStyle.secondary)
+    async def open_notify(self, interaction, button):
+        view = NotifySelectView()
+        await interaction.response.send_message(
+            "通知設定を選んでください。",
+           view=view,
+            ephemeral=True
+        )
+
 # =========================
 # プルダウン View
 # =========================
@@ -506,6 +543,45 @@ class ChargeSelect(discord.ui.Select):
                 view=view
             )
 
+class NotifySelectView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=60)
+        self.add_item(NotifySelect())
+
+class NotifySelect(discord.ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="なでなで・お世話・ごはん通知オン", value="on"),
+            discord.SelectOption(label="なでなで・お世話・ごはん通知オフ", value="off"),
+        ]
+        super().__init__(
+            placeholder="通知設定を選択",
+            min_values=1,
+            max_values=1,
+            options=options
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        data = load_data()
+        uid = str(interaction.user.id)
+
+        if uid not in data["users"]:
+            return await interaction.response.send_message("おあしすっちを持っていません。", ephemeral=True)
+
+        on = self.values[0] == "on"
+
+        for pet in data["users"][uid]["pets"]:
+            pet.setdefault("notify", {})
+            pet["notify"]["pet"] = on
+            pet["notify"]["care"] = on
+            pet["notify"]["food"] = on
+
+        save_data(data)
+
+        await interaction.response.send_message(
+            f"🔔 通知を **{'オン' if on else 'オフ'}** にしました。",
+            ephemeral=True
+        )
 # =========================
 # 購入パネル View
 # =========================
@@ -931,6 +1007,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
