@@ -297,7 +297,7 @@ class OasistchiCog(commands.Cog):
 
         pet_file = self.get_pet_image(pet)
         gauge_file = build_growth_gauge_file(pet["growth"])
-        view = CareView(uid, pet_index)
+        view = CareView(uid, pet_index, pet)
         await interaction.followup.send(
            embed=embed,
             view=view,
@@ -773,10 +773,15 @@ class ConfirmPurchaseView(discord.ui.View):
 # お世話ボタン（既存そのまま）
 # =========================
 class CareView(discord.ui.View):
-    def __init__(self, uid: str, index: int):
+    def __init__(self, uid: str, index: int, pet: dict):
         super().__init__(timeout=None)
         self.uid = uid
         self.index = index
+
+        if pet["stage"] == "adult":
+            for child in list(self.children):
+                if getattr(child, "label", "") == "🐣 孵化":
+                    self.remove_item(child)
 
     def is_owner(self, interaction: discord.Interaction) -> bool:
         return str(interaction.user.id) == self.uid
@@ -917,6 +922,75 @@ class CareView(discord.ui.View):
             view=self
         )
 
+    @discord.ui.button(label="🍖 ごはん", style=discord.ButtonStyle.success)
+    async def feed(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.is_owner(interaction):
+            return await interaction.response.send_message(
+                "❌ このおあしすっちはあなたのものではありません。",
+                ephemeral=True
+            )
+
+        data = load_data()
+        pet = data["users"][self.uid]["pets"][self.index]
+
+        # 成体のみ
+        if pet["stage"] != "adult":
+            return await interaction.response.send_message(
+                "まだごはんは食べられません。",
+                ephemeral=True
+            )
+
+        # おなかいっぱい判定
+        if pet.get("hunger", 100) >= 100:
+            return await interaction.response.send_message(
+                "🍖 いまはおなかいっぱいみたい。",
+                ephemeral=True
+            )
+
+        await interaction.response.defer()
+
+        # ステータス更新
+        pet["hunger"] = 100
+        pet["last_interaction"] = now_ts()
+
+        save_data(data)
+
+        cog = interaction.client.get_cog("OasistchiCog")
+
+        # eat.gif 表示
+        embed = cog.make_status_embed(pet)
+        pet_file = get_pet_file(pet, "eat")
+        gauge_file = build_growth_gauge_file(pet["growth"])
+
+        await interaction.edit_original_response(
+            embed=embed,
+            attachments=[pet_file, gauge_file],
+            view=self
+        )
+
+        # GIF再生時間待ち
+        eat_path = os.path.join(
+            ASSET_BASE, "adult", pet["adult_key"], "eat.gif"
+        )
+        await asyncio.sleep(get_gif_duration_seconds(eat_path, 2.0))
+
+        # idle に戻す
+        embed = cog.make_status_embed(pet)
+        pet_file = get_pet_file(pet, "idle")
+
+        await interaction.edit_original_response(
+            embed=embed,
+            attachments=[pet_file, gauge_file],
+            view=self
+        )
+
+        # 🔔 通知（任意）
+        if pet.get("notify", {}).get("food"):
+            try:
+                await interaction.user.send("🍖 ごはんを食べて元気いっぱい！")
+            except:
+                pass
+
     @discord.ui.button(label="🔄 更新", style=discord.ButtonStyle.secondary)
     async def refresh(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not self.is_owner(interaction):
@@ -1029,5 +1103,6 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
