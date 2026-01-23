@@ -34,15 +34,23 @@ EGG_CATALOG = [
     }
     for key, name in EGG_COLORS
 ]
-ADULT_CATALOG = {
-    "red": [
-        {"key": "fire_lion", "name": "🔥 ファイアライオン"},
-        {"key": "red_dragon", "name": "🐉 レッドドラゴン"},
-    ],
-    "blue": [
-        {"key": "aqua_fish", "name": "🐟 アクアフィッシュ"},
-    ],
-}
+ADULT_CATALOG = [
+    {
+        "key": "fire_lion",
+        "name": "🔥 ファイアライオン",
+        "groups": ["red"]
+    },
+    {
+        "key": "thunder_dragon",
+        "name": "⚡ サンダードラゴン",
+        "groups": ["blue", "yellow"]
+    },
+    {
+        "key": "aqua_fish",
+        "name": "🐟 アクアフィッシュ",
+        "groups": ["blue"]
+    },
+]
 
 def load_data():
     if not os.path.exists(DATA_PATH):
@@ -813,6 +821,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
