@@ -778,10 +778,16 @@ class CareView(discord.ui.View):
         self.uid = uid
         self.index = index
 
-        if pet["stage"] == "adult":
-            for child in list(self.children):
-                if getattr(child, "label", "") == "🐣 孵化":
-                    self.remove_item(child)
+        for child in list(self.children):
+            label = getattr(child, "label", "")
+
+            # 🥚 たまご → ごはんを消す
+            if pet["stage"] == "egg" and label == "🍖 ごはん":
+                self.remove_item(child)
+
+            # 🧬 成体 → 孵化を消す
+            if pet["stage"] == "adult" and label == "🐣 孵化":
+                self.remove_item(child)
 
     def is_owner(self, interaction: discord.Interaction) -> bool:
         return str(interaction.user.id) == self.uid
@@ -1103,6 +1109,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
