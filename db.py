@@ -684,6 +684,86 @@ class Database:
             WHERE guild_id = $1
         """, guild_id, rank)
 
+    # -------------------------------
+    # おあしすっち：ユーザー
+    # -------------------------------
+    async def get_oasistchi_user(self, user_id: str):
+        await self._ensure_conn()
+        row = await self.conn.fetchrow(
+            "SELECT * FROM oasistchi_users WHERE user_id=$1",
+            user_id
+        )
+        if not row:
+            await self.conn.execute(
+                "INSERT INTO oasistchi_users (user_id, slots) VALUES ($1, 1)",
+                user_id
+            )
+            row = await self.conn.fetchrow(
+                "SELECT * FROM oasistchi_users WHERE user_id=$1",
+                user_id
+            )
+        return row
+
+
+    async def add_oasistchi_slot(self, user_id: str, amount: int = 1):
+        await self.get_oasistchi_user(user_id)
+        await self.conn.execute(
+            "UPDATE oasistchi_users SET slots = slots + $2 WHERE user_id=$1",
+            user_id, amount
+        )
+
+    # -------------------------------
+    # おあしすっち：取得
+    # -------------------------------
+    async def get_oasistchi_pets(self, user_id: str):
+        await self._ensure_conn()
+        return await self.conn.fetch(
+            "SELECT * FROM oasistchi_pets WHERE user_id=$1 ORDER BY id ASC",
+            user_id
+        )
+
+
+    # -------------------------------
+    # おあしすっち：追加（たまご購入）
+    # -------------------------------
+    async def add_oasistchi_egg(self, user_id: str, egg_type: str):
+        await self._ensure_conn()
+        await self.conn.execute("""
+            INSERT INTO oasistchi_pets (
+                user_id, stage, egg_type,
+                growth, hunger, happiness, poop,
+                last_interaction, last_tick
+            ) VALUES (
+                $1, 'egg', $2,
+                0, 100, 50, FALSE,
+                EXTRACT(EPOCH FROM NOW()),
+                EXTRACT(EPOCH FROM NOW())
+            )
+        """, user_id, egg_type)
+
+    # -------------------------------
+    # おあしすっち：更新
+    # -------------------------------
+    async def update_oasistchi_pet(self, pet_id: int, **fields):
+        await self._ensure_conn()
+
+        cols = []
+        vals = []
+        idx = 1
+
+        for k, v in fields.items():
+            cols.append(f"{k} = ${idx}")
+            vals.append(v)
+            idx += 1
+
+        sql = f"""
+            UPDATE oasistchi_pets
+            SET {', '.join(cols)}
+            WHERE id = ${idx}
+        """
+        vals.append(pet_id)
+
+        await self.conn.execute(sql, *vals)
 
 
 
