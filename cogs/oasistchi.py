@@ -8,6 +8,7 @@ import random
 from PIL import Image
 from io import BytesIO
 import asyncio
+from PIL import Image, ImageSequence
 
 DATA_PATH = "data/oasistchi.json"
 
@@ -142,6 +143,75 @@ def get_gif_duration_seconds(path: str, fallback: float = 2.0) -> float:
         print(f"[WARN] get_gif_duration_seconds failed: {path} {e!r}")
         GIF_DURATION_CACHE[path] = fallback
         return fallback
+
+# =========================
+# 図鑑（Dex）関連
+# =========================
+# -------------------------
+# 所持判定
+# -------------------------
+def get_owned_adults(data: dict, uid: str) -> set[str]:
+    owned = set()
+    for pet in data["users"].get(uid, {}).get("pets", []):
+        if pet.get("stage") == "adult":
+            owned.add(pet["adult_key"])
+    return owned
+
+# -------------------------
+# idle.gif → 代表フレーム
+# -------------------------
+def load_idle_frame(path: str, size=(96, 96)) -> Image.Image:
+    with Image.open(path) as im:
+        frame = next(ImageSequence.Iterator(im)).convert("RGBA")
+        return frame.resize(size)
+
+# -------------------------
+# 黒塗り（シルエット化）
+# -------------------------
+def make_silhouette(img: Image.Image) -> Image.Image:
+    sil = img.copy()
+    px = sil.load()
+
+    for y in range(sil.height):
+        for x in range(sil.width):
+            r, g, b, a = px[x, y]
+            if a > 0:
+                px[x, y] = (0, 0, 0, a)
+
+    return sil
+
+# -------------------------
+# タイル画像生成（核心）
+# -------------------------
+def build_dex_tile_image(adults: list[dict], owned: set[str]):
+    cols = 5
+    tile = 96
+    pad = 16
+
+    rows = (len(adults) + cols - 1) // cols
+    w = cols * tile + (cols - 1) * pad
+    h = rows * tile + (rows - 1) * pad
+
+    canvas = Image.new("RGBA", (w, h), (30, 30, 30, 255))
+
+    for i, a in enumerate(adults):
+        x = (i % cols) * (tile + pad)
+        y = (i // cols) * (tile + pad)
+
+        path = f"assets/oasistchi/adult/{a['key']}/idle.gif"
+        img = load_idle_frame(path)
+
+        if a["key"] not in owned:
+            img = make_silhouette(img)
+
+        canvas.paste(img, (x, y), img)
+
+    from io import BytesIO
+    buf = BytesIO()
+    canvas.save(buf, "PNG")
+    buf.seek(0)
+    return buf
+
 
 # =========================
 # Cog
@@ -858,6 +928,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
