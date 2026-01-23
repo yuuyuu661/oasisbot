@@ -369,11 +369,10 @@ class OasistchiCog(commands.Cog):
                 updates["growth"] = min(100, pet["growth"] + rate * mult)
 
             if updates:
-                # まずDB更新
                 await self.bot.db.update_oasistchi_pet(pet["id"], updates)
 
                 # -----------------
-                # 孵化通知（卵＆growthが100到達した瞬間だけ）
+                # 孵化通知（成長100%到達時）
                 # -----------------
                 if (
                     pet["stage"] == "egg"
@@ -381,23 +380,29 @@ class OasistchiCog(commands.Cog):
                     and updates.get("growth", 0) >= 100
                     and not pet.get("notified_hatch", False)
                 ):
-                    uid = str(pet["uid"]) if "uid" in pet else str(pet["user_id"])  # DB列名に合わせて
+                    uid = str(pet["user_id"])  # ← DB列名に合わせる
+
                     try:
                         user_obj = await self.bot.fetch_user(int(uid))
-                        await user_obj.send("おあしすっちが孵化しそう！\n`/おあしすっち` で確認してね！")
+                        await user_obj.send(
+                            "🥚 おあしすっちが孵化しそう！\n`/おあしすっち` で確認してね！"
+                        )
                     except:
                         pass
 
-                    # notified_hatch をDB側でも立てる（列がある前提）
-                    await self.bot.db.update_oasistchi_pet(pet["id"], {"notified_hatch": True})
+                    await self.bot.db.update_oasistchi_pet(
+                        pet["id"], {"notified_hatch": True}
+                    )
 
-    # -----------------
-    # 放置ペナルティ（10時間）※DBに書き戻す
-    # -----------------
-    last_interaction = pet.get("last_interaction", now)
-    if now - last_interaction > 36000:
-        new_happiness = max(0, pet["happiness"] - 10)
-        await self.bot.db.update_oasistchi_pet(pet["id"], {"happiness": new_happiness})
+                # -----------------
+                # 放置ペナルティ（10時間）
+                # -----------------
+                last_interaction = pet.get("last_interaction", now)
+                if now - last_interaction > 36000:
+                    await self.bot.db.update_oasistchi_pet(
+                        pet["id"],
+                        {"happiness": max(0, pet["happiness"] - 10)}
+                    )
 
 # =========================
 # ボタンView
@@ -1078,6 +1083,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
