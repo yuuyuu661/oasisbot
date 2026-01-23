@@ -1087,20 +1087,3 @@ async def setup(bot):
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
