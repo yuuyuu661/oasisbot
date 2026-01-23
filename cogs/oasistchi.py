@@ -348,13 +348,13 @@ class OasistchiCog(commands.Cog):
                     updates["hunger"] = max(0, pet["hunger"] - 10)
                     updates["last_hunger_tick"] = now
 
-                        # 通知（後述）
-                        if pet["hunger"] <= 50 and pet.get("notify", {}).get("food"):
-                            try:
-                                user_obj = await self.bot.fetch_user(int(uid))
-                                await user_obj.send("🍖 おあしすっちがおなかすいてるみたい…")
-                            except:
-                                pass
+            # 通知（後述）
+            if pet["hunger"] <= 50 and pet.get("notify", {}).get("food"):
+                try:
+                    user_obj = await self.bot.fetch_user(int(uid))
+                    await user_obj.send("🍖 おあしすっちがおなかすいてるみたい…")
+                except:
+                    pass
 
             # 幸福度
             if pet["hunger"] <= 50:
@@ -1069,6 +1069,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
