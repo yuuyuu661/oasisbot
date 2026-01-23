@@ -705,8 +705,7 @@ class ConfirmPurchaseView(discord.ui.View):
             )
 
         if self.kind == "slot":
-            user_data["slots"] += 1
-            save_data(data)
+            await db.increment_oasistchi_slot(uid, +1)
 
             return await interaction.response.edit_message(
                 content=(
@@ -1061,4 +1060,5 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
