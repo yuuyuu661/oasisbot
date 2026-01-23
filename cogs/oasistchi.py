@@ -279,10 +279,14 @@ class OasistchiCog(commands.Cog):
 
         pets = await db.get_oasistchi_pets(uid)
         if not pets:
-            return await interaction.response.send_message("まだ持っていません", ephemeral=True)
+            return await interaction.followup.send("まだ持っていません", ephemeral=True)
 
         pet_index = (index - 1) if index else 0
-        pets = data["users"][uid]["pets"]
+        if pet_index >= len(pets):
+            return await interaction.followup.send("その番号のおあしすっちは存在しません。", ephemeral=True)
+
+        pet = dict(pets[pet_index])  # asyncpg.Record → dict
+        view = CareView(uid, pet_index, pet) 
 
         if pet_index >= len(pets):
             return await interaction.response.send_message(
@@ -466,16 +470,15 @@ class OasistchiPanelRootView(discord.ui.View):
     async def open_dex(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
 
-        data = load_data()
+        db = interaction.client.db
         uid = str(interaction.user.id)
 
-        if uid not in data["users"]:
-            return await interaction.followup.send(
-                "まだおあしすっちを持っていません。",
-                ephemeral=True
-            )
+        owned_keys = await db.get_oasistchi_owned_adult_keys(uid)  # ←DBメソッド
+        if owned_keys is None:
+            owned_keys = []
 
-        owned = get_owned_adults(data, uid)
+        owned = set(owned_keys)
+
         image = build_dex_tile_image(ADULT_CATALOG, owned)
 
         embed = discord.Embed(
@@ -564,21 +567,18 @@ class NotifySelect(discord.ui.Select):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        data = load_data()
+        db = interaction.client.db
         uid = str(interaction.user.id)
-
-        if uid not in data["users"]:
-            return await interaction.response.send_message("おあしすっちを持っていません。", ephemeral=True)
 
         on = self.values[0] == "on"
 
-        for pet in data["users"][uid]["pets"]:
-            pet.setdefault("notify", {})
-            pet["notify"]["pet"] = on
-            pet["notify"]["care"] = on
-            pet["notify"]["food"] = on
+        # pets取得（存在チェック）
+        pets = await db.get_oasistchi_pets(uid)
+        if not pets:
+            return await interaction.response.send_message("おあしすっちを持っていません。", ephemeral=True)
 
-        save_data(data)
+        # 全ペットの通知を一括更新（DBメソッド作る）
+        await db.set_oasistchi_notify_all(uid, on)
 
         await interaction.response.send_message(
             f"🔔 通知を **{'オン' if on else 'オフ'}** にしました。",
@@ -1107,6 +1107,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
