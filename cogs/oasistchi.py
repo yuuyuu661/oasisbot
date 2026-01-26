@@ -1065,12 +1065,55 @@ class CareView(discord.ui.View):
             view=self
         )
 
+# =========================
+# お別れビュー
+# =========================
+
+    @discord.ui.button(label="💔 お別れ", style=discord.ButtonStyle.danger)
+    async def farewell(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.is_owner(interaction):
+           return await interaction.response.send_message(
+                "❌ このおあしすっちはあなたのものではありません。",
+                ephemeral=True
+            )
+
+        await interaction.response.send_message(
+            "本当にお別れしますか？\nこの操作は取り消せません。",
+            ephemeral=True,
+            view=FarewellConfirmView(self.pet_id)
+        )
+
+
+class FarewellConfirmView(discord.ui.View):
+    def __init__(self, pet_id: int):
+        super().__init__(timeout=30)
+        self.pet_id = pet_id
+
+    @discord.ui.button(label="はい、お別れする", style=discord.ButtonStyle.danger)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        db = interaction.client.db
+
+        await db.delete_oasistchi_pet(self.pet_id)
+
+        await interaction.response.edit_message(
+            content="🌱 おあしすっちは旅立っていきました…",
+            view=None
+        )
+
+    @discord.ui.button(label="やっぱりやめる", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.edit_message(
+            content="キャンセルしました。",
+            view=None
+        )
+
 async def setup(bot):
     cog = OasistchiCog(bot)
     await bot.add_cog(cog)
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
