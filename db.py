@@ -854,6 +854,12 @@ class Database:
             user_id, on
         )
 
+    async def delete_oasistchi_pet(self, pet_id: int):
+        await self._ensure_conn()
+        await self.conn.execute(
+            "DELETE FROM oasistchi_pets WHERE id=$1",
+            pet_id
+        )
 
 
 
