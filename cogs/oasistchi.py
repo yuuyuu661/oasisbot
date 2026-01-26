@@ -11,6 +11,10 @@ import asyncio
 from PIL import Image, ImageSequence
 from datetime import datetime, timezone, timedelta
 
+def today_jst_str() -> str:
+    JST = timezone(timedelta(hours=9))
+    return datetime.now(JST).strftime("%Y-%m-%d")
+
 # =========================
 # ここだけ環境に合わせて
 # =========================
@@ -1258,6 +1262,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
