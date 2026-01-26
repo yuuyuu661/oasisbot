@@ -117,19 +117,24 @@ def get_pet_file(pet: dict, state: str) -> discord.File:
 def calc_effective_stats(pet: dict):
     """
     レース用 実効ステータス計算
-    ・幸福度による減衰
+    ・幸福度による減衰（0〜100%）
     ・根性（最大10%）判定込み
     """
 
-    happiness = pet.get("happiness", 100)
+    # 幸福度を安全に 0〜100 に丸める
+    happiness = max(0, min(100, pet.get("happiness", 100)))
     rate = happiness / 100.0
 
-    speed = pet["speed"] * rate
-    stamina = pet["stamina"] * rate
-    power = pet["power"] * rate
+    base_speed = pet["speed"]
+    base_stamina = pet["stamina"]
+    base_power = pet["power"]
 
-    # 🔥 根性判定
-    guts_chance = happiness // 10  # 0〜10%
+    speed = base_speed * rate
+    stamina = base_stamina * rate
+    power = base_power * rate
+
+    # 🔥 根性判定（幸福度10%ごとに1%）
+    guts_chance = happiness // 10  # 0〜10 (%)
     guts = False
 
     if random.randint(1, 100) <= guts_chance:
@@ -139,11 +144,12 @@ def calc_effective_stats(pet: dict):
         guts = True
 
     return {
-        "speed": speed,
-        "stamina": stamina,
-        "power": power,
+        "speed": int(speed),
+        "stamina": int(stamina),
+        "power": int(power),
         "guts": guts,
-        "rate": rate,
+        "rate": rate,              # デバッグ・表示用
+        "guts_chance": guts_chance # ログ・演出用
     }
 
 def generate_initial_stats():
@@ -1342,6 +1348,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
