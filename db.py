@@ -276,6 +276,22 @@ class Database:
                     f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
                 )
 
+        # --------------------------------------------------
+        # おあしすっち：ステータス用カラム補完
+        # --------------------------------------------------
+        ADD_STATUS_COLUMNS = {
+            "speed": "INTEGER DEFAULT 0",
+            "stamina": "INTEGER DEFAULT 0",
+            "power": "INTEGER DEFAULT 0",
+        }
+
+        for col, col_type in ADD_STATUS_COLUMNS.items():
+            if col not in existing_cols:
+                print(f"🛠 oasistchi_pets に {col} カラムを追加します…")
+                await self.conn.execute(
+                    f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
+                )
+
         # 初期設定が無ければ作成
         exists = await self.conn.execute("""
             INSERT INTO settings
@@ -986,6 +1002,7 @@ class Database:
             pet_id,
             user_id
         )
+
 
 
 
