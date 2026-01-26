@@ -354,6 +354,15 @@ class OasistchiCog(commands.Cog):
             value=gauge_emoji(pet["happiness"], emoji="😊"),
             inline=False
         )
+        embed.add_field(
+            name="ステータス",
+            value=(
+                f"🏃 スピード：**{pet.get('speed', 0)}**\n"
+                f"🫀 スタミナ：**{pet.get('stamina', 0)}**\n"
+                f"💥 パワー：**{pet.get('power', 0)}**"
+            ),
+            inline=False
+        )
 
         # ✅ メイン画像：おあしすっち
         embed.set_image(url="attachment://pet.gif")
@@ -1314,6 +1323,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
