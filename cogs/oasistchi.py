@@ -787,19 +787,17 @@ class CareView(discord.ui.View):
 
         await db.update_oasistchi_pet(
             self.pet_id,
-            {
-                "happiness": new_happiness,
-                "growth": new_growth,
-                "last_pet": now,
-                "last_interaction": now,
-            }
+            happiness=new_happiness,
+            growth=new_growth,
+            last_pet=now,
+            last_interaction=now,
         )
 
         # （任意）孵化通知（満タンになった瞬間だけ）
         if pet["stage"] == "egg" and new_growth >= 100.0 and not pet.get("notified_hatch", False):
-            await db.update_oasistchi_pet(
-                self.pet_id,
-                {"notified_hatch": True}
+            await self.bot.db.update_oasistchi_pet(
+                pet["id"],
+                notified_hatch=True
             )
             try:
                 await interaction.user.send(
@@ -863,11 +861,9 @@ class CareView(discord.ui.View):
 
         await db.update_oasistchi_pet(
             self.pet_id,
-            {
-                "poop": False,
-                "happiness": new_happiness,
-                "last_interaction": now,
-            }
+            poop=False,
+            happiness=new_happiness,
+            last_interaction=now,
         )
 
         cog = interaction.client.get_cog("OasistchiCog")
@@ -940,10 +936,8 @@ class CareView(discord.ui.View):
         # ステータス更新
         await db.update_oasistchi_pet(
             self.pet_id,
-            {
-                "hunger": 100,
-                "last_interaction": now_ts(),
-            }
+            hunger=100,
+            last_interaction=now_ts(),
         )
 
         cog = interaction.client.get_cog("OasistchiCog")
@@ -1050,20 +1044,18 @@ class CareView(discord.ui.View):
 
         await db.update_oasistchi_pet(
             self.pet_id,
-            {
-                "stage": "adult",
-                "adult_key": adult["key"],
-                "name": adult["name"],
-                "growth": 0.0,
-                "hunger": 100,
-                "poop": False,
-                "last_hunger_tick": now,
-                "last_unhappy_tick": now,
-                "last_interaction": now,
-                "notify_pet": False,
-                "notify_care": False,
-                "notify_food": False,
-            }
+            stage="adult",
+            adult_key=adult["key"],
+            name=adult["name"],
+            growth=0.0,
+            hunger=100,
+            poop=False,
+            last_hunger_tick=now,
+            last_unhappy_tick=now,
+           last_interaction=now,
+            notify_pet=False,
+            notify_care=False,
+            notify_food=False,
         )
 
 
@@ -1085,5 +1077,6 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
