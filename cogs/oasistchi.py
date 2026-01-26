@@ -130,6 +130,17 @@ def calc_effective_stats(pet: dict):
         "rate": rate,
     }
 
+def generate_initial_stats():
+    """
+    孵化時ステータス生成
+    各ステータス 30〜50
+    """
+    return {
+        "speed": random.randint(30, 50),
+        "stamina": random.randint(30, 50),
+        "power": random.randint(30, 50),
+    }
+
 # =========================
 # GIF duration helper
 # =========================
@@ -1128,6 +1139,11 @@ class CareView(discord.ui.View):
             stage="adult",
             adult_key=adult["key"],
             name=adult["name"],
+            
+            speed=stats["speed"],
+            stamina=stats["stamina"],
+            power=stats["power"],
+            
             growth=0.0,
             hunger=100,
             poop=False,
@@ -1298,6 +1314,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
