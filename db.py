@@ -252,6 +252,29 @@ class Database:
         );
         """)
 
+        # --------------------------------------------------
+        # おあしすっち：レース用カラム補完
+        # --------------------------------------------------
+        col_check = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'oasistchi_pets';
+        """)
+
+        existing_cols = {row["column_name"] for row in col_check}
+
+        ADD_COLUMNS = {
+            "raced_today": "BOOLEAN DEFAULT FALSE",
+            "race_candidate": "BOOLEAN DEFAULT FALSE",
+        }
+
+        for col, col_type in ADD_COLUMNS.items():
+            if col not in existing_cols:
+                print(f"🛠 oasistchi_pets に {col} カラムを追加します…")
+                await self.conn.execute(
+                    f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
+                )
+
         # 初期設定が無ければ作成
         exists = await self.conn.execute("""
             INSERT INTO settings
@@ -947,6 +970,7 @@ class Database:
             """,
             race_date, schedule_id
         )
+
 
 
 
