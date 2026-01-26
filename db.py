@@ -971,6 +971,17 @@ class Database:
             race_date, schedule_id
         )
 
+    async def mark_pet_race_candidate(self, pet_id: int, user_id: int):
+      await self.conn.execute(
+            """
+            UPDATE oasistchi_pets
+            SET race_candidate = TRUE
+            WHERE id = $1 AND owner_id = $2
+            """,
+            pet_id,
+            user_id
+        )
+
 
 
 
