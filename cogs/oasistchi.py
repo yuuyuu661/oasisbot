@@ -706,6 +706,19 @@ class ConfirmPurchaseView(discord.ui.View):
         if self.kind == "egg":
             uid = str(interaction.user.id)
 
+            # 育成枠チェック
+            pets = await db.get_oasistchi_pets(uid)
+            user_row = await db.get_oasistchi_user(uid)
+
+            if len(pets) >= user_row["slots"]:
+                return await interaction.response.edit_message(
+                    content=(
+                        "❌ 育成枠がいっぱいです。\n"
+                        "「お別れ」するか、課金で枠を拡張してください。"
+                    ),
+                    view=None
+                )
+
             await db.add_oasistchi_egg(
                 uid,
                 self.egg_key or "red"
@@ -721,22 +734,24 @@ class ConfirmPurchaseView(discord.ui.View):
             )
 
         if self.kind == "slot":
-            await db.add_oasistchi_slot(uid, 1)
             user_row = await db.get_oasistchi_user(uid)
 
+            if user_row["slots"] >= 5:
+                return await interaction.response.edit_message(
+                    content="❌ 育成枠は最大 **5枠** までです。",
+                    view=None
+                )
+
+            await db.add_oasistchi_slot(uid, 1)
+
+            user_row = await db.get_oasistchi_user(uid)
             return await interaction.response.edit_message(
                 content=(
                     f"✅ **育成枠を1つ増築しました！**\n"
-                    f"現在の育成枠: **{user_row['slots']}**\n"
-                    f"残高: **{balance - self.price:,} {unit}**"
+                    f"現在の育成枠: **{user_row['slots']} / 5**"
                 ),
                 view=None
             )
-
-        return await interaction.response.edit_message(
-            content="❌ 不明な購入種別です。",
-            view=None
-        )
 
 # =========================
 # お世話ボタン（既存そのまま）
@@ -1113,6 +1128,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
