@@ -214,6 +214,10 @@ class OasistchiCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.poop_check.start()
+    async def cog_load(self):
+        # Bot & DB が完全に立ち上がるのを待つ
+        await self.bot.wait_until_ready()
+        await asyncio.sleep(3)  # ← ここ重要（init_db完了待ち）
         self.race_daily_reset.start()
 
     # -----------------------------
@@ -1262,6 +1266,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
