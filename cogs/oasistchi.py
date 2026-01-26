@@ -98,6 +98,38 @@ def get_pet_file(pet: dict, state: str) -> discord.File:
         path = os.path.join(ASSET_BASE, "egg", egg, f"{state}.gif")
     return discord.File(path, filename="pet.gif")
 
+def calc_effective_stats(pet: dict):
+    """
+    レース用 実効ステータス計算
+    ・幸福度による減衰
+    ・根性（最大10%）判定込み
+    """
+
+    happiness = pet.get("happiness", 100)
+    rate = happiness / 100.0
+
+    speed = pet["speed"] * rate
+    stamina = pet["stamina"] * rate
+    power = pet["power"] * rate
+
+    # 🔥 根性判定
+    guts_chance = happiness // 10  # 0〜10%
+    guts = False
+
+    if random.randint(1, 100) <= guts_chance:
+        speed *= 1.1
+        stamina *= 1.1
+        power *= 1.1
+        guts = True
+
+    return {
+        "speed": speed,
+        "stamina": stamina,
+        "power": power,
+        "guts": guts,
+        "rate": rate,
+    }
+
 # =========================
 # GIF duration helper
 # =========================
@@ -1266,6 +1298,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
