@@ -105,6 +105,7 @@ class Database:
             "log_salary": "TEXT",
             "log_hotel": "TEXT",
             "log_backup": "TEXT",
+            "oasistchi_race_reset_date": "DATE",
         }
 
         for col, col_type in ADD_COLUMNS.items():
@@ -981,6 +982,7 @@ class Database:
             pet_id,
             user_id
         )
+
 
 
 
