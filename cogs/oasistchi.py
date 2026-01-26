@@ -1142,7 +1142,14 @@ class CareView(discord.ui.View):
         # ③ GIFの長さだけ待つ
         await asyncio.sleep(get_gif_duration_seconds(hatch_gif, 3.0))
         now = now_ts()
-
+        # -------------------------
+        # ステータス初期値生成（孵化時のみ）
+        # -------------------------
+        stats = {
+            "speed": random.randint(30, 50),
+            "stamina": random.randint(30, 50),
+            "power": random.randint(30, 50),
+        }
         await db.update_oasistchi_pet(
             self.pet_id,
             stage="adult",
@@ -1323,6 +1330,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
