@@ -727,7 +727,7 @@ class ConfirmPurchaseView(discord.ui.View):
             return await interaction.response.edit_message(
                 content=(
                     f"✅ **育成枠を1つ増築しました！**\n"
-                    f"現在の育成枠: **{user_data['slots']}**\n"
+                    f"現在の育成枠: **{user_row['slots']}**\n"
                     f"残高: **{balance - self.price:,} {unit}**"
                 ),
                 view=None
@@ -1059,6 +1059,10 @@ class CareView(discord.ui.View):
             notify_care=False,
             notify_food=False,
         )
+        await db.add_oasistchi_dex(
+             self.uid,
+             adult["key"]
+         )
 
 
         cog = interaction.client.get_cog("OasistchiCog")
@@ -1079,6 +1083,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
