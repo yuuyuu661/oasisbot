@@ -9,6 +9,7 @@ from PIL import Image
 from io import BytesIO
 import asyncio
 from PIL import Image, ImageSequence
+from datetime import datetime, timezone, timedelta
 
 # =========================
 # ここだけ環境に合わせて
@@ -209,6 +210,7 @@ class OasistchiCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.poop_check.start()
+        self.race_daily_reset.start()
 
     # -----------------------------
     # 管理者：パネル設置
@@ -408,6 +410,33 @@ class OasistchiCog(commands.Cog):
                         happiness=max(0, pet["happiness"] - 10)
                     )
 
+    # -----------------------------
+    # レース日付
+    # -----------------------------
+    @tasks.loop(minutes=60)
+    async def race_daily_reset(self):
+        db = self.bot.db
+
+        settings = await db.get_settings()
+        today = today_jst_str()
+        last = settings.get("oasistchi_race_reset_date")
+
+        # すでに今日リセット済み
+        if last == today:
+            return
+
+        print("🏁 おあしすっち レース日付リセット実行")
+
+        # raced_today を全リセット
+        await db.conn.execute("""
+            UPDATE oasistchi_pets
+            SET raced_today = FALSE;
+        """)
+
+        # 日付保存
+        await db.update_settings(
+            oasistchi_race_reset_date=today
+        )
 # =========================
 # ボタンView
 # =========================
@@ -1229,6 +1258,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
