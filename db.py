@@ -374,7 +374,11 @@ class Database:
     #   Settings
     # ------------------------------------------------------
     async def get_settings(self):
-        return await self.conn.fetchrow("SELECT * FROM settings WHERE id = 1")
+        await self._ensure_conn()
+        async with self._lock:
+            return await self.conn.fetchrow(
+                "SELECT * FROM settings WHERE id = 1"
+            )
 
     async def update_settings(self, **kwargs):
         columns = []
@@ -982,6 +986,7 @@ class Database:
             pet_id,
             user_id
         )
+
 
 
 
