@@ -458,6 +458,40 @@ class OasistchiPanelRootView(discord.ui.View):
             ephemeral=True
         )
 
+    @discord.ui.button(label="🏁 レース予定", style=discord.ButtonStyle.primary)
+    async def open_race_schedule(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button
+    ):
+        await interaction.response.defer(ephemeral=True)
+
+        db = interaction.client.db
+
+        schedules = await db.get_race_schedules()
+        if not schedules:
+            return await interaction.followup.send(
+                "本日のレース予定はありません。",
+                ephemeral=True
+            )
+
+        embed = discord.Embed(
+            title="🏁 本日のレース予定",
+            description="参加費：**50,000 rrc**\n同一ペットは1日1回まで",
+            color=discord.Color.gold()
+        )
+
+        for s in schedules:
+            embed.add_field(
+            name=    f"第{s['race_no']}レース",
+                value=f"🕒 {s['race_time'].strftime('%H:%M')}",
+                inline=False
+            )
+
+        embed.set_footer(text="⏱ レース30分前からエントリー可能")
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
 # =========================
 # プルダウン View
 # =========================
@@ -1130,6 +1164,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
