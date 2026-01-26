@@ -393,7 +393,7 @@ class OasistchiCog(commands.Cog):
                     except:
                         pass
 
-                    await self.bot.db.update_oasistchi_pet(
+                    await db.update_oasistchi_pet(
                         pet["id"],
                         notified_hatch=True
                     )
@@ -405,7 +405,7 @@ class OasistchiCog(commands.Cog):
                 if now - last_interaction > 36000:
                     await self.bot.db.update_oasistchi_pet(
                         pet["id"],
-                        {"happiness": max(0, pet["happiness"] - 10)}
+                        happiness=max(0, pet["happiness"] - 10)
                     )
 
 # =========================
@@ -744,11 +744,11 @@ class ConfirmPurchaseView(discord.ui.View):
 
             await db.add_oasistchi_slot(uid, 1)
 
-            user_row = await db.get_oasistchi_user(uid)
             return await interaction.response.edit_message(
                 content=(
                     f"✅ **育成枠を1つ増築しました！**\n"
-                    f"現在の育成枠: **{user_row['slots']} / 5**"
+                    f"現在の育成枠: **{user_row['slots']}**\n"
+                    f"残高: **{balance - self.price:,} {unit}**"
                 ),
                 view=None
             )
@@ -1128,6 +1128,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
