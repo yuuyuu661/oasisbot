@@ -447,33 +447,7 @@ class OasistchiPanelRootView(discord.ui.View):
             ephemeral=True
         )
 
-    @discord.ui.button(label="📘 図鑑", style=discord.ButtonStyle.secondary)
-    async def open_dex(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer(ephemeral=True)
 
-        db = interaction.client.db
-        uid = str(interaction.user.id)
-
-        owned_keys = await db.get_oasistchi_owned_adult_keys(uid)  # ←DBメソッド
-        if owned_keys is None:
-            owned_keys = []
-
-        owned = set(owned_keys)
-
-        image = build_dex_tile_image(ADULT_CATALOG, owned)
-
-        embed = discord.Embed(
-            title="📘 おあしすっち図鑑",
-            description=f"所持数：{len(owned)} / {len(ADULT_CATALOG)}",
-            color=discord.Color.blurple()
-        )
-        embed.set_image(url="attachment://dex.png")
-
-        await interaction.followup.send(
-            embed=embed,
-            file=discord.File(image, filename="dex.png"),
-            ephemeral=True
-        )
 
     @discord.ui.button(label="🔔 通知設定", style=discord.ButtonStyle.secondary)
     async def open_notify(self, interaction, button):
@@ -1080,6 +1054,34 @@ class CareView(discord.ui.View):
             view=self
         )
 
+    @discord.ui.button(label="📘 図鑑", style=discord.ButtonStyle.secondary)
+    async def open_dex(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+
+        db = interaction.client.db
+        uid = str(interaction.user.id)
+
+        owned_keys = await db.get_oasistchi_owned_adult_keys(uid)  # ←DBメソッド
+        if owned_keys is None:
+            owned_keys = []
+
+        owned = set(owned_keys)
+
+        image = build_dex_tile_image(ADULT_CATALOG, owned)
+
+        embed = discord.Embed(
+            title="📘 おあしすっち図鑑",
+            description=f"所持数：{len(owned)} / {len(ADULT_CATALOG)}",
+            color=discord.Color.blurple()
+        )
+        embed.set_image(url="attachment://dex.png")
+
+        await interaction.followup.send(
+            embed=embed,
+            file=discord.File(image, filename="dex.png"),
+            ephemeral=True
+        )
+
 # =========================
 # お別れビュー
 # =========================
@@ -1128,6 +1130,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
