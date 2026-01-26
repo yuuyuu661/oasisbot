@@ -210,6 +210,48 @@ class Database:
             );
         """)
 
+        # =========================
+        # レース関連テーブル
+        # =========================
+        await self.conn.execute("""
+        CREATE TABLE IF NOT EXISTS race_schedules (
+            id SERIAL PRIMARY KEY,
+            race_no INTEGER NOT NULL,
+            race_time TIME NOT NULL,
+            entry_open_minutes INTEGER NOT NULL,
+            max_entries INTEGER NOT NULL DEFAULT 8,
+            entry_fee INTEGER NOT NULL DEFAULT 50000,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)
+
+        await self.conn.execute("""
+        CREATE TABLE IF NOT EXISTS race_entries (
+            id SERIAL PRIMARY KEY,
+            race_date DATE NOT NULL,
+            schedule_id INTEGER NOT NULL,
+            user_id TEXT NOT NULL,
+            pet_id INTEGER NOT NULL,
+            paid BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE (race_date, schedule_id, pet_id)
+        );
+        """)
+
+        await self.conn.execute("""
+        CREATE TABLE IF NOT EXISTS race_results (
+            id SERIAL PRIMARY KEY,
+            race_date DATE NOT NULL,
+            schedule_id INTEGER NOT NULL,
+            user_id TEXT NOT NULL,
+            pet_id INTEGER NOT NULL,
+            position INTEGER NOT NULL,
+            reward INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE (race_date, schedule_id, pet_id)
+        );
+        """)
+
         # 初期設定が無ければ作成
         exists = await self.conn.execute("""
             INSERT INTO settings
@@ -859,6 +901,51 @@ class Database:
         await self.conn.execute(
             "DELETE FROM oasistchi_pets WHERE id=$1",
             pet_id
+        )
+    async def get_race_schedules(self):
+        return await self.conn.fetch(
+            "SELECT * FROM race_schedules ORDER BY race_time"
+        )
+
+    async def add_race_entry(self, race_date, schedule_id, user_id, pet_id):
+        await self.conn.execute(
+            """
+            INSERT INTO race_entries (race_date, schedule_id, user_id, pet_id)
+            VALUES ($1, $2, $3, $4)
+            """,
+            race_date, schedule_id, user_id, pet_id
+        )
+
+    async def get_race_entries(self, race_date, schedule_id):
+        return await self.conn.fetch(
+            """
+            SELECT * FROM race_entries
+            WHERE race_date = $1 AND schedule_id = $2
+            ORDER BY created_at
+            """,
+            race_date, schedule_id
+        )
+
+    async def save_race_result(
+        self, race_date, schedule_id, user_id, pet_id, position, reward
+    ):
+        await self.conn.execute(
+            """
+            INSERT INTO race_results
+            (race_date, schedule_id, user_id, pet_id, position, reward)
+            VALUES ($1,$2,$3,$4,$5,$6)
+            """,
+            race_date, schedule_id, user_id, pet_id, position, reward
+        )
+
+    async def get_race_results(self, race_date, schedule_id):
+        return await self.conn.fetch(
+            """
+            SELECT * FROM race_results
+            WHERE race_date = $1 AND schedule_id = $2
+            ORDER BY position
+            """,
+            race_date, schedule_id
         )
 
 
