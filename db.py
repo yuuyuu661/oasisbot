@@ -188,6 +188,28 @@ class Database:
             );
         """)
 
+        # ==================================================
+        # おあしすっち：図鑑 / 通知（永続化）
+        # ==================================================
+
+        # 図鑑（成体履歴）
+        await self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS oasistchi_dex (
+                user_id TEXT NOT NULL,
+                adult_key TEXT NOT NULL,
+                obtained_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, adult_key)
+            );
+        """)
+
+        # 通知設定
+        await self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS oasistchi_notify (
+                user_id TEXT PRIMARY KEY,
+                notify_all BOOLEAN NOT NULL DEFAULT TRUE
+            );
+        """)
+
         # 初期設定が無ければ作成
         exists = await self.conn.execute("""
             INSERT INTO settings
@@ -779,6 +801,57 @@ class Database:
         return await self.conn.fetchrow(
             "SELECT * FROM oasistchi_pets WHERE id=$1",
             pet_id
+        )
+
+    # -------------------------------
+    # おあしすっち：図鑑（取得）
+    # -------------------------------
+    async def get_oasistchi_owned_adult_keys(self, user_id: str) -> set[str]:
+        await self._ensure_conn()
+        rows = await self.conn.fetch(
+            "SELECT adult_key FROM oasistchi_dex WHERE user_id=$1",
+            user_id
+        )
+        return {r["adult_key"] for r in rows}
+
+    # -------------------------------
+    # おあしすっち：図鑑（追加）
+    # -------------------------------
+    async def add_oasistchi_dex(self, user_id: str, adult_key: str):
+        await self._ensure_conn()
+        await self.conn.execute(
+            """
+            INSERT INTO oasistchi_dex (user_id, adult_key)
+            VALUES ($1, $2)
+            ON CONFLICT DO NOTHING
+            """,
+            user_id, adult_key
+        )
+
+    # -------------------------------
+    # おあしすっち：通知設定（取得）
+    # -------------------------------
+    async def get_oasistchi_notify_all(self, user_id: str) -> bool:
+        await self._ensure_conn()
+        row = await self.conn.fetchrow(
+            "SELECT notify_all FROM oasistchi_notify WHERE user_id=$1",
+            user_id
+        )
+        return row["notify_all"] if row else True
+
+    # -------------------------------
+    # おあしすっち：通知設定（更新）
+    # -------------------------------
+    async def set_oasistchi_notify_all(self, user_id: str, on: bool):
+        await self._ensure_conn()
+        await self.conn.execute(
+            """
+            INSERT INTO oasistchi_notify (user_id, notify_all)
+            VALUES ($1, $2)
+            ON CONFLICT (user_id)
+            DO UPDATE SET notify_all = EXCLUDED.notify_all
+            """,
+            user_id, on
         )
 
 
