@@ -795,19 +795,6 @@ class CareView(discord.ui.View):
         )
         pet = await db.get_oasistchi_pet(self.pet_id)
 
-        # （任意）孵化通知（満タンになった瞬間だけ）
-        if pet["stage"] == "egg" and new_growth >= 100.0 and not pet.get("notified_hatch", False):
-            await self.bot.db.update_oasistchi_pet(
-                pet["id"],
-                notified_hatch=True
-            )
-            try:
-                await interaction.user.send(
-                    "🥚 おあしすっちが孵化しそう！\n`/おあしすっち` で確認してね！"
-                )
-            except:
-                pass
-
         # ⑥ いったん pet.gif を表示（元メッセージ編集）
         cog = interaction.client.get_cog("OasistchiCog")
         egg = pet.get("egg_type", "red")
@@ -1059,6 +1046,7 @@ class CareView(discord.ui.View):
             notify_care=False,
             notify_food=False,
         )
+        pet = await db.get_oasistchi_pet(self.pet_id)
         await db.add_oasistchi_dex(
              self.uid,
              adult["key"]
@@ -1083,6 +1071,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
