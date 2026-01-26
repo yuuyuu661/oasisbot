@@ -394,7 +394,8 @@ class OasistchiCog(commands.Cog):
                         pass
 
                     await self.bot.db.update_oasistchi_pet(
-                        pet["id"], {"notified_hatch": True}
+                        pet["id"],
+                        notified_hatch=True
                     )
 
                 # -----------------
@@ -792,6 +793,7 @@ class CareView(discord.ui.View):
             last_pet=now,
             last_interaction=now,
         )
+        pet = await db.get_oasistchi_pet(self.pet_id)
 
         # （任意）孵化通知（満タンになった瞬間だけ）
         if pet["stage"] == "egg" and new_growth >= 100.0 and not pet.get("notified_hatch", False):
@@ -1077,6 +1079,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
