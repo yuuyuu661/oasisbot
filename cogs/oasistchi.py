@@ -39,7 +39,6 @@ EGG_CATALOG = [
     for key, name in EGG_COLORS
 ]
 ADULT_CATALOG = [
-    {"key": "aroni","name": "あろにぃ","groups": ["red"]},
     {"key": "cyan","name": "ちゃん","groups": ["blue"]},
     {"key": "eru","name": "エル","groups": ["green"]},
     {"key": "inpure","name": "いんぷれ","groups": ["purple"]},
@@ -54,6 +53,22 @@ ADULT_CATALOG = [
     {"key": "sato","name": "さとー","groups": ["green"]},
     {"key": "yuina","name": "ゆいな","groups": ["purple"]},
     {"key": "zenten","name": "ぜんてん","groups": ["yellow"]},
+    {"key": "eng","name": "えんじぇる","groups": ["red"]},
+    {"key": "yama","name": "やまだ","groups": ["blue"]},
+    {"key": "kono","name": "この","groups": ["green"]},
+    {"key": "hiro","name": "ヒロ","groups": ["purple"]},
+    {"key": "mio","name": "mio","groups": ["yellow"]},
+    {"key": "bul","name": "おいら","groups": ["red"]},
+    {"key": "yabo","name": "やぼう","groups": ["blue"]},
+    {"key": "hana","name": "はなこ","groups": ["green"]},
+    {"key": "inu","name": "いぬ","groups": ["purple"]},
+    {"key": "saku","name": "さく","groups": ["yellow"]},
+    {"key": "ouki","name": "おうき","groups": ["red"]},
+    {"key": "aka","name": "あかり","groups": ["blue"]},
+    {"key": "shiba","name": "しば","groups": ["green"]},
+    {"key": "ero","name": "えろこ","groups": ["purple"]},
+    {"key": "gero","name": "ゲロ","groups": ["yellow"]},
+    {"key": "san","name": "サンダー","groups": ["red"]},  
 ]
 
 def now_ts() -> float:
@@ -1145,11 +1160,7 @@ class CareView(discord.ui.View):
         # -------------------------
         # ステータス初期値生成（孵化時のみ）
         # -------------------------
-        stats = {
-            "speed": random.randint(30, 50),
-            "stamina": random.randint(30, 50),
-            "power": random.randint(30, 50),
-        }
+        stats = generate_initial_stats()
         await db.update_oasistchi_pet(
             self.pet_id,
             stage="adult",
@@ -1330,6 +1341,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
