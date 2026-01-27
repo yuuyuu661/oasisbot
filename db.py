@@ -266,6 +266,16 @@ class Database:
 
         existing_cols = {row["column_name"] for row in col_check}
 
+        # --------------------------------------------------
+        # おあしすっち：特訓回数カラム補完（★今回の修正点）
+        # --------------------------------------------------
+        if "training_count" not in existing_cols:
+            print("🛠 oasistchi_pets に training_count カラムを追加します…")
+            await self.conn.execute("""
+                ALTER TABLE oasistchi_pets
+                ADD COLUMN training_count INTEGER NOT NULL DEFAULT 0;
+            """)
+
         ADD_COLUMNS = {
             "raced_today": "BOOLEAN DEFAULT FALSE",
             "race_candidate": "BOOLEAN DEFAULT FALSE",
@@ -1030,6 +1040,7 @@ class Database:
             pet_id,
             user_id
         )
+
 
 
 
