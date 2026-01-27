@@ -348,7 +348,7 @@ class OasistchiCog(commands.Cog):
         interaction: discord.Interaction,
         index: int | None = None
     ):
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
         db = interaction.client.db
         uid = str(interaction.user.id)
 
@@ -1437,6 +1437,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
