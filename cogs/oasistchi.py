@@ -964,6 +964,8 @@ class CareView(discord.ui.View):
         new_happiness = min(100, pet["happiness"] + 10)
         new_growth = min(100.0, pet["growth"] + 5.0)
 
+        current_value = pet[f"train_{stat}"]
+
         await db.update_oasistchi_pet(
             self.pet_id,
             happiness=new_happiness,
@@ -1433,6 +1435,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
