@@ -399,7 +399,7 @@ class OasistchiCog(commands.Cog):
             inline=False
         )
 
-        # ---------- ステータス ----------
+        # 🧬 成体のみステータス表示
         if pet["stage"] == "adult":
             stats_text = "\n".join([
                 format_status(pet["base_speed"], pet["train_speed"], "🏃", "スピード"),
@@ -407,11 +407,17 @@ class OasistchiCog(commands.Cog):
                 format_status(pet["base_power"], pet["train_power"], "💥", "パワー"),
             ])
 
-        embed.add_field(
-            name="📊 ステータス",
-            value=stats_text,
-            inline=False
-        )
+            embed.add_field(
+                name="📊 ステータス",
+                value=stats_text,
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="📊 ステータス",
+                value="🥚 孵化するとステータスが確認できます",
+                inline=False
+            )
 
         embed.set_image(url="attachment://pet.gif")
         embed.set_thumbnail(url="attachment://growth.png")
@@ -908,16 +914,16 @@ class CareView(discord.ui.View):
         for child in list(self.children):
             label = getattr(child, "label", "")
 
-            # 🥚 たまご → ごはんを消す
+            # 🥚 たまごのときに隠す
             if pet["stage"] == "egg" and label in {
                 "🍖 ごはん",
                 "🏁 レース参加",
                 "💔 お別れ",
-                "🏋️ 特訓",     
+                "🏋️ 特訓",      # ← 特訓ボタン想定
             }:
                 self.remove_item(child)
 
-            # 🧬 成体 → 孵化を消す
+            # 🧬 成体のとき孵化は隠す
             if pet["stage"] == "adult" and label == "🐣 孵化":
                 self.remove_item(child)
 
@@ -1404,6 +1410,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
