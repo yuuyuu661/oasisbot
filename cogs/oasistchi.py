@@ -1417,9 +1417,11 @@ class TrainingSelect(discord.ui.Select):
             )
 
         # DB反映
+        current_value = pet.get(f"train_{stat}", 0)
+
         await db.update_oasistchi_pet(
             self.pet_id,
-            **{f"train_{stat}": current + gain},
+            **{f"train_{stat}": current_value + gain},
             training_count=pet.get("training_count", 0) + 1,
             last_interaction=now_ts()
         )
@@ -1435,6 +1437,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
