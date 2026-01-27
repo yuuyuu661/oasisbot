@@ -39,7 +39,6 @@ EGG_CATALOG = [
     for key, name in EGG_COLORS
 ]
 ADULT_CATALOG = [
-    {"key": "aroni","name": "あろにぃ","groups": ["red"]},
     {"key": "cyan","name": "ちゃん","groups": ["blue"]},
     {"key": "eru","name": "エル","groups": ["green"]},
     {"key": "inpure","name": "いんぷれ","groups": ["purple"]},
@@ -1410,6 +1409,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
