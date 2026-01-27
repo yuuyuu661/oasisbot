@@ -1387,7 +1387,7 @@ class TrainingSelect(discord.ui.Select):
 
         if pet["training_count"] >= 30:
             return await interaction.response.send_message(
-                "🏋️ このおあしすっちはもう十分に特訓したようだ…\n"
+                "🏋️ このおあしすっちはもう十分に特訓したようだ…",
                 ephemeral=True
             )
         
@@ -1424,6 +1424,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
