@@ -419,6 +419,11 @@ class OasistchiCog(commands.Cog):
                 "パワー"
             ),
         ])
+        embed.add_field(
+            name="📊 ステータス",
+            value=stats_text,
+            inline=False
+        )
         desc = "\n".join([
             format_status(pet["base_speed"], pet["train_speed"], "🏃", "スピード"),
             format_status(pet["base_stamina"], pet["train_stamina"], "🫀", "スタミナ"),
@@ -1462,6 +1467,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
