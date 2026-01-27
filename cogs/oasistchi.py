@@ -381,8 +381,10 @@ class OasistchiCog(commands.Cog):
         )
 
     def make_status_embed(self, pet: dict):
+        name = pet.get("name", "おあしすっち")
+
         embed = discord.Embed(
-            title="🐣 おあしすっち",
+            title=f"🐣 {name}",
             color=discord.Color.green()
         )
 
@@ -1435,6 +1437,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
