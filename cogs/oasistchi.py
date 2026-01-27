@@ -355,20 +355,20 @@ class OasistchiCog(commands.Cog):
 
         pets = await db.get_oasistchi_pets(uid)
         if not pets:
-            return await interaction.followup.send("まだ持っていません", ephemeral=True)
+            return await interaction.followup.send(
+                "まだおあしすっちを持っていません。",
+                ephemeral=True
+            )
 
         pet_index = (index - 1) if index else 0
-        if pet_index >= len(pets):
-            return await interaction.followup.send("その番号のおあしすっちは存在しません。", ephemeral=True)
-
-        pet = dict(pets[pet_index])  # asyncpg.Record → dict
-        pet = dict(pets[pet_index])
-
-        if pet_index >= len(pets):
-            return await interaction.response.send_message(
+        if pet_index < 0 or pet_index >= len(pets):
+            return await interaction.followup.send(
                 "その番号のおあしすっちは存在しません。",
                 ephemeral=True
             )
+
+        pet = dict(pets[pet_index])
+
         embed = self.make_status_embed(pet)
         pet_file = self.get_pet_image(pet)
         gauge_file = build_growth_gauge_file(pet["growth"])
@@ -394,46 +394,24 @@ class OasistchiCog(commands.Cog):
 
         embed.add_field(
             name="幸福度",
-            value=gauge_emoji(pet["happiness"], emoji="😊"),
+            value=gauge_emoji(pet.get("happiness", 100), emoji="😊"),
             inline=False
         )
 
-            # ---------- ステータス ----------
+        # ---------- ステータス ----------
         stats_text = "\n".join([
-            format_status(
-                pet["base_speed"],
-                pet["train_speed"],
-                "🏃",
-                "スピード"
-            ),
-            format_status(
-                pet["base_stamina"],
-                pet["train_stamina"],
-                "🫀",
-                "スタミナ"
-            ),
-            format_status(
-                pet["base_power"],
-                pet["train_power"],
-                "💥",
-                "パワー"
-            ),
-        ])
-        embed.add_field(
-            name="📊 ステータス",
-            value=stats_text,
-            inline=False
-        )
-        desc = "\n".join([
             format_status(pet["base_speed"], pet["train_speed"], "🏃", "スピード"),
             format_status(pet["base_stamina"], pet["train_stamina"], "🫀", "スタミナ"),
             format_status(pet["base_power"], pet["train_power"], "💥", "パワー"),
         ])
 
-        # ✅ メイン画像：おあしすっち
-        embed.set_image(url="attachment://pet.gif")
+        embed.add_field(
+            name="📊 ステータス",
+            value=stats_text,
+            inline=False
+        )
 
-        # ✅ サムネイル：進化ゲージ
+        embed.set_image(url="attachment://pet.gif")
         embed.set_thumbnail(url="attachment://growth.png")
 
         return embed
@@ -1467,6 +1445,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
