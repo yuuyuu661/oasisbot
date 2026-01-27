@@ -397,6 +397,28 @@ class OasistchiCog(commands.Cog):
             value=gauge_emoji(pet["happiness"], emoji="😊"),
             inline=False
         )
+
+            # ---------- ステータス ----------
+        stats_text = "\n".join([
+            format_status(
+                pet["base_speed"],
+                pet["train_speed"],
+                "🏃",
+                "スピード"
+            ),
+            format_status(
+                pet["base_stamina"],
+                pet["train_stamina"],
+                "🫀",
+                "スタミナ"
+            ),
+            format_status(
+                pet["base_power"],
+                pet["train_power"],
+                "💥",
+                "パワー"
+            ),
+        ])
         desc = "\n".join([
             format_status(pet["base_speed"], pet["train_speed"], "🏃", "スピード"),
             format_status(pet["base_stamina"], pet["train_stamina"], "🫀", "スタミナ"),
@@ -1440,6 +1462,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
