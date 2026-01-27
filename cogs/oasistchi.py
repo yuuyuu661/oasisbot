@@ -1237,6 +1237,8 @@ class CareView(discord.ui.View):
             train_speed=0,
             train_stamina=0,
             train_power=0,
+            
+            training_count=0,
 
             growth=0.0,
             hunger=100,
@@ -1409,6 +1411,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
