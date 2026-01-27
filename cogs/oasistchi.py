@@ -377,7 +377,7 @@ class OasistchiCog(commands.Cog):
         await interaction.followup.send(
             embed=embed,
             view=view,
-            files=[pet_file, gauge_file]
+            files=[pet_file, gauge_file],
             ephemeral=True
         )
 
@@ -1404,6 +1404,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
