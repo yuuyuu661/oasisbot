@@ -163,6 +163,20 @@ def generate_initial_stats():
         "power": random.randint(30, 50),
     }
 
+def format_status(base: int, train: int, emoji: str, name: str):
+    total = base + train
+    return f"{emoji} {name} {total}({base}+{train})"
+
+def do_training(current_total: int):
+    if current_total >= 100:
+        return 0, "これ以上成長できない…"
+
+    gain, text = random.choice(TRAIN_RESULTS)
+    if current_total + gain > 100:
+        gain = 100 - current_total
+
+    return gain, text
+
 # =========================
 # GIF duration helper
 # =========================
@@ -376,15 +390,11 @@ class OasistchiCog(commands.Cog):
             value=gauge_emoji(pet["happiness"], emoji="😊"),
             inline=False
         )
-        embed.add_field(
-            name="ステータス",
-            value=(
-                f"🏃 スピード：**{pet.get('speed', 0)}**\n"
-                f"🫀 スタミナ：**{pet.get('stamina', 0)}**\n"
-                f"💥 パワー：**{pet.get('power', 0)}**"
-            ),
-            inline=False
-        )
+        desc = "\n".join([
+            format_status(pet["base_speed"], pet["train_speed"], "🏃", "スピード"),
+            format_status(pet["base_stamina"], pet["train_stamina"], "🫀", "スタミナ"),
+            format_status(pet["base_power"], pet["train_power"], "💥", "パワー"),
+        ])
 
         # ✅ メイン画像：おあしすっち
         embed.set_image(url="attachment://pet.gif")
@@ -1173,20 +1183,21 @@ class CareView(discord.ui.View):
             stage="adult",
             adult_key=adult["key"],
             name=adult["name"],
-            
-            speed=stats["speed"],
-            stamina=stats["stamina"],
-            power=stats["power"],
-            
+
+            base_speed=stats["speed"],
+            base_stamina=stats["stamina"],
+            base_power=stats["power"],
+
+            train_speed=0,
+            train_stamina=0,
+            train_power=0,
+
             growth=0.0,
             hunger=100,
             poop=False,
             last_hunger_tick=now,
             last_unhappy_tick=now,
-           last_interaction=now,
-            notify_pet=False,
-            notify_care=False,
-            notify_food=False,
+            last_interaction=now,
         )
         pet = await db.get_oasistchi_pet(self.pet_id)
         await db.add_oasistchi_dex(
@@ -1348,6 +1359,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
