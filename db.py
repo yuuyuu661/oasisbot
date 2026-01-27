@@ -185,7 +185,7 @@ class Database:
 
                 notify_pet BOOLEAN DEFAULT FALSE,
                 notify_care BOOLEAN DEFAULT FALSE,
-                notify_food BOOLEAN DEFAULT FALSE
+                notify_food BOOLEAN DEFAULT FALSE,
 
                 training_count INTEGER DEFAULT 0
             );
@@ -1030,6 +1030,7 @@ class Database:
             pet_id,
             user_id
         )
+
 
 
 
