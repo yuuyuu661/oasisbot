@@ -1395,9 +1395,13 @@ class TrainingSelect(discord.ui.Select):
         stat = self.values[0]
 
         # 現在の特訓合計
-        current = pet[f"train_{stat}"]
+        current_total = (
+            pet["train_speed"]
+            + pet["train_stamina"]
+            + pet["train_power"]
+        )
 
-        gain, text = do_training(current)
+        gain, text = do_training(current_total)
 
         if gain <= 0:
             return await interaction.response.send_message(
@@ -1424,6 +1428,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
