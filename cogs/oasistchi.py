@@ -184,9 +184,6 @@ def do_training(current_total: int):
 
     return gain, text
 
-def do_training(current_total: int):
-    gain, text = random.choice(TRAIN_RESULTS)
-
 # =========================
 # GIF duration helper
 # =========================
@@ -1118,7 +1115,29 @@ class CareView(discord.ui.View):
                 await interaction.user.send("🍖 ごはんを食べて元気いっぱい！")
             except:
                 pass
+    @discord.ui.button(label="🧠 特訓", style=discord.ButtonStyle.primary)
+    async def training(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.is_owner(interaction):
+            return await interaction.response.send_message(
+                "❌ このおあしすっちはあなたのものではありません。",
+                ephemeral=True
+            )
 
+        pet = await interaction.client.db.get_oasistchi_pet(self.pet_id)
+
+        # 成体のみ
+        if pet["stage"] != "adult":
+            return await interaction.response.send_message(
+                "❌ 特訓できるのは成体のみです。",
+                ephemeral=True
+            )
+
+        view = TrainingSelectView(self.pet_id)
+        await interaction.response.send_message(
+            "どのステータスを特訓しますか？",
+            view=view,
+            ephemeral=True
+        )
     @discord.ui.button(label="🔄 更新", style=discord.ButtonStyle.secondary)
     async def refresh(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not self.is_owner(interaction):
@@ -1363,12 +1382,65 @@ class FarewellConfirmView(discord.ui.View):
             view=None
         )
 
+class TrainingSelectView(discord.ui.View):
+    def __init__(self, pet_id: int):
+        super().__init__(timeout=60)
+        self.pet_id = pet_id
+        self.add_item(TrainingSelect(pet_id))
+
+class TrainingSelect(discord.ui.Select):
+    def __init__(self, pet_id: int):
+        self.pet_id = pet_id
+
+        options = [
+            discord.SelectOption(label="🏃 スピード", value="speed"),
+            discord.SelectOption(label="🫀 スタミナ", value="stamina"),
+            discord.SelectOption(label="💥 パワー", value="power"),
+        ]
+
+        super().__init__(
+            placeholder="特訓するステータスを選択",
+            min_values=1,
+            max_values=1,
+            options=options
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        db = interaction.client.db
+        pet = await db.get_oasistchi_pet(self.pet_id)
+
+        stat = self.values[0]
+
+        # 現在の特訓合計
+        current = pet[f"train_{stat}"]
+
+        gain, text = do_training(current)
+
+        if gain <= 0:
+            return await interaction.response.send_message(
+                "❌ これ以上このステータスは成長できません。",
+                ephemeral=True
+            )
+
+        # DB反映
+        await db.update_oasistchi_pet(
+            self.pet_id,
+            **{f"train_{stat}": current + gain},
+            last_interaction=now_ts()
+        )
+
+        await interaction.response.send_message(
+            f"{text}\n**{stat.upper()} +{gain}**",
+            ephemeral=True
+        )
+
 async def setup(bot):
     cog = OasistchiCog(bot)
     await bot.add_cog(cog)
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
