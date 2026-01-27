@@ -417,6 +417,11 @@ class OasistchiCog(commands.Cog):
                 value="🥚 孵化するとステータスが確認できます",
                 inline=False
             )
+            embed.add_field(
+                name="🏋️ 特訓回数",
+                value=f"{pet['training_count']} / 30",
+                inline=False
+            )
 
         embed.set_image(url="attachment://pet.gif")
         embed.set_thumbnail(url="attachment://growth.png")
@@ -1380,6 +1385,13 @@ class TrainingSelect(discord.ui.Select):
         db = interaction.client.db
         pet = await db.get_oasistchi_pet(self.pet_id)
 
+        if pet["training_count"] >= 30:
+            return await interaction.response.send_message(
+                "🏋️ このおあしすっちはもう十分に特訓したようだ…\n"
+                ephemeral=True
+            )
+        
+
         stat = self.values[0]
 
         # 現在の特訓合計
@@ -1397,6 +1409,7 @@ class TrainingSelect(discord.ui.Select):
         await db.update_oasistchi_pet(
             self.pet_id,
             **{f"train_{stat}": current + gain},
+            training_count=pet["training_count"] + 1,
             last_interaction=now_ts()
         )
 
@@ -1411,6 +1424,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
