@@ -378,6 +378,7 @@ class OasistchiCog(commands.Cog):
             embed=embed,
             view=view,
             files=[pet_file, gauge_file]
+            ephemeral=True
         )
 
     def make_status_embed(self, pet: dict):
@@ -399,11 +400,12 @@ class OasistchiCog(commands.Cog):
         )
 
         # ---------- ステータス ----------
-        stats_text = "\n".join([
-            format_status(pet["base_speed"], pet["train_speed"], "🏃", "スピード"),
-            format_status(pet["base_stamina"], pet["train_stamina"], "🫀", "スタミナ"),
-            format_status(pet["base_power"], pet["train_power"], "💥", "パワー"),
-        ])
+        if pet["stage"] == "adult":
+            stats_text = "\n".join([
+                format_status(pet["base_speed"], pet["train_speed"], "🏃", "スピード"),
+                format_status(pet["base_stamina"], pet["train_stamina"], "🫀", "スタミナ"),
+                format_status(pet["base_power"], pet["train_power"], "💥", "パワー"),
+            ])
 
         embed.add_field(
             name="📊 ステータス",
@@ -907,7 +909,12 @@ class CareView(discord.ui.View):
             label = getattr(child, "label", "")
 
             # 🥚 たまご → ごはんを消す
-            if pet["stage"] == "egg" and label == "🍖 ごはん":
+            if pet["stage"] == "egg" and label in {
+                "🍖 ごはん",
+                "🏁 レース参加",
+                "💔 お別れ",
+                "🏋️ 特訓",     
+            }:
                 self.remove_item(child)
 
             # 🧬 成体 → 孵化を消す
@@ -1292,56 +1299,8 @@ class CareView(discord.ui.View):
                 ephemeral=True
             )
 
-        await interaction.response.defer(ephemeral=True)
-
-        db = interaction.client.db
-        uid = interaction.user.id
-
-        pet = await db.get_oasistchi_pet(self.pet_id)
-
-        # 成体チェック
-        if pet["stage"] != "adult":
-            return await interaction.followup.send(
-                "❌ レースに参加できるのは成体のみです。",
-                ephemeral=True
-            )
-
-        # 本日すでに出走済みチェック
-        if pet["raced_today"]:
-            return await interaction.followup.send(
-                "⚠️ このおあしすっちは本日すでにレースに出走しています。",
-                ephemeral=True
-            )
-
-        # 参加費チェック
-        settings = await db.get_settings()
-        unit = settings["currency_unit"]
-
-        balance = await db.get_user_balance(uid, interaction.guild.id)
-        if balance < 50_000:
-            return await interaction.followup.send(
-                f"❌ 残高不足です。（必要：50,000 {unit}）",
-                ephemeral=True
-            )
-
-        # 仮エントリー登録
-        await db.mark_pet_race_candidate(
-            pet_id=self.pet_id,
-            user_id=uid
-        )
-
-        race_url = (
-            f"https://your-race-site.example.com/"
-            f"?uid={uid}&pet={self.pet_id}"
-        )
-
-        await interaction.followup.send(
-            content=(
-                "🏁 **レース参加準備完了！**\n\n"
-                "以下のサイトからエントリーしてください。\n"
-                f"🔗 {race_url}\n\n"
-                "※ レース開始時刻になるとエントリーは締め切られます"
-            ),
+        return await interaction.response.send_message(
+            "🚧 現在開発中です。\nアップデートをお待ちください！",
             ephemeral=True
         )
 
@@ -1445,6 +1404,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
