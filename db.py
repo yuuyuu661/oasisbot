@@ -276,6 +276,32 @@ class Database:
                     f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
                 )
 
+
+        # --------------------------------------------------
+        # おあしすっち：ステータス（特訓用）カラム補完
+        # --------------------------------------------------
+        col_check = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'oasistchi_pets';
+        """)
+
+        existing_cols = {row["column_name"] for row in col_check}
+
+        ADD_COLUMNS = {
+            "base_speed": "INTEGER DEFAULT 0",
+            "base_stamina": "INTEGER DEFAULT 0",
+            "base_power": "INTEGER DEFAULT 0",
+            "train_speed": "INTEGER DEFAULT 0",
+            "train_stamina": "INTEGER DEFAULT 0",
+            "train_power": "INTEGER DEFAULT 0",
+        }
+
+        for col, col_type in ADD_COLUMNS.items():
+            if col not in existing_cols:
+                await self.conn.execute(
+                    f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
+                )
         # --------------------------------------------------
         # おあしすっち：ステータス用カラム補完
         # --------------------------------------------------
@@ -1002,6 +1028,7 @@ class Database:
             pet_id,
             user_id
         )
+
 
 
 
