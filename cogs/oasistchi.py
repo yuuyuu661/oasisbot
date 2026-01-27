@@ -72,6 +72,13 @@ ADULT_CATALOG = [
     {"key": "san","name": "サンダー","groups": ["red"]},  
 ]
 
+TRAIN_RESULTS = [
+    (1, "今回はダメかも..."),
+    (2, "今回はまあまあ..."),
+    (3, "今回はかなりいい！"),
+    (4, "今回はすばらしい！"),
+    (5, "今回は大成功だ！！！"),
+]
 def now_ts() -> float:
     return time.time()
 
@@ -125,9 +132,9 @@ def calc_effective_stats(pet: dict):
     happiness = max(0, min(100, pet.get("happiness", 100)))
     rate = happiness / 100.0
 
-    base_speed = pet["speed"]
-    base_stamina = pet["stamina"]
-    base_power = pet["power"]
+    base_speed = pet["base_speed"] + pet["train_speed"]
+    base_stamina = pet["base_stamina"] + pet["train_stamina"]
+    base_power = pet["base_power"] + pet["train_power"]
 
     speed = base_speed * rate
     stamina = base_stamina * rate
@@ -176,6 +183,9 @@ def do_training(current_total: int):
         gain = 100 - current_total
 
     return gain, text
+
+def do_training(current_total: int):
+    gain, text = random.choice(TRAIN_RESULTS)
 
 # =========================
 # GIF duration helper
@@ -1359,6 +1369,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
