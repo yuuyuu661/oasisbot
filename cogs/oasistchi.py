@@ -305,34 +305,49 @@ class OasistchiCog(commands.Cog):
     # =========================
     async def process_time_tick(self, pet: dict):
         now = time.time()
-        updates = {}
         db = self.bot.db
+        updates: dict = {}
+
+        uid = str(pet["user_id"])
+        notify = await db.get_oasistchi_notify_settings(uid)  # Noneなら通知しない（孵化以外）
+
+        # 送信トリガー
+        trigger_hatch = False
+        trigger_poop = False
+        trigger_hunger = False
+        trigger_pet_ready = False
+
+        # =========================
+        # 予測値（updates反映後の値）で判定したいので helper
+        # =========================
+        def get_new(key, default=None):
+            return updates.get(key, pet.get(key, default))
 
         # -------------------
-        # 空腹度（成体・2時間ごと -10）
+        # 空腹度（2時間ごと / adult）
         # -------------------
         if pet["stage"] == "adult":
             elapsed = now - pet.get("last_hunger_tick", now)
             ticks = int(elapsed // 7200)
-
             if ticks > 0:
-                new_hunger = max(0, pet["hunger"] - ticks * 10)
+                new_hunger = max(0, pet.get("hunger", 100) - ticks * 10)
                 updates["hunger"] = new_hunger
                 updates["last_hunger_tick"] = now
 
         # -------------------
-        # うんち（1時間ごと・卵のみ）
+        # うんち（1時間ごと）
         # -------------------
         elapsed = now - pet.get("last_poop_tick", 0)
         if elapsed >= 3600:
             updates["last_poop_tick"] = now
 
-            if pet["stage"] == "egg" and not pet["poop"]:
+            # 卵のうんち抽選（例：30%）
+            if pet["stage"] == "egg" and not pet.get("poop", False):
                 if random.random() < 0.3:
                     updates["poop"] = True
 
         # -------------------
-        # 孵化成長（卵・1時間単位）
+        # 孵化成長（1時間単位）
         # -------------------
         if pet["stage"] == "egg":
             elapsed = now - pet.get("last_growth_tick", now)
@@ -340,75 +355,89 @@ class OasistchiCog(commands.Cog):
 
             if hours > 0:
                 rate = 100 / 12
-                mult = 0.5 if pet["poop"] else 1.0
+                mult = 0.5 if get_new("poop", False) else 1.0
                 gain = rate * hours * mult
 
-                new_growth = min(100, pet["growth"] + gain)
-                updates["growth"] = new_growth
+                before = pet.get("growth", 0.0)
+                after = min(100.0, before + gain)
+
+                updates["growth"] = after
                 updates["last_growth_tick"] = now
 
-        # -------------------
-        # 幸福度低下（空腹50以下・1時間ごと）
-        # -------------------
-        hunger_after = updates.get("hunger", pet.get("hunger", 100))
-        if hunger_after <= 50:
-            elapsed = now - pet.get("last_unhappy_tick", now)
-            ticks = int(elapsed // 3600)
+            # 孵化到達（通知はON/OFF関係なく必ず）
+            if before < 100.0 and after >= 100.0 and not pet.get("notified_hatch", False):
+                trigger_hatch = True
+                updates["notified_hatch"] = True
 
-            if ticks > 0:
-                updates["happiness"] = max(0, pet["happiness"] - ticks * 10)
-                updates["last_unhappy_tick"] = now
+        # =========================
+        # ここから通知系（状態変化ベース）
+        # =========================
 
-                # 🔔 空腹通知（1回だけ）
-                notify_all = await db.get_oasistchi_notify_all(pet["user_id"])
-                if notify_all:
-                    try:
-                        user = await self.bot.fetch_user(int(pet["user_id"]))
-                        await user.send("🍖 おあしすっちがおなかすいてるみたい…")
-                    except:
-                        pass
+        # (1) 💩 うんち通知：poop が False→True になった瞬間（通知設定がある人だけ）
+        poop_before = pet.get("poop", False)
+        poop_after = bool(get_new("poop", poop_before))
 
-        # -------------------
-        # 放置ペナルティ（10時間）
-        # -------------------
-        last_interaction = pet.get("last_interaction", now)
-        idle_ticks = int((now - last_interaction) // 36000)
+        if poop_after and not poop_before:
+            # うんち発生
+            if not pet.get("poop_alerted", False):
+                trigger_poop = True
+                updates["poop_alerted"] = True
 
-        if idle_ticks > 0:
-            updates["happiness"] = max(
-                0,
-                updates.get("happiness", pet["happiness"]) - idle_ticks * 10
-            )
-            updates["last_interaction"] = now  # 二重減算防止
+        # お世話で poop=False に戻ったら、次回また通知できるよう解除
+        if (not poop_after) and pet.get("poop_alerted", False):
+            updates["poop_alerted"] = False
 
-        # -------------------
-        # DB反映
-        # -------------------
+        # (2) 🍖 空腹通知：hunger が 50以下になった瞬間（通知設定がある人だけ）
+        if pet["stage"] == "adult":
+            hunger_after = int(get_new("hunger", pet.get("hunger", 100)))
+
+            if hunger_after <= 50 and not pet.get("hunger_alerted", False):
+                trigger_hunger = True
+                updates["hunger_alerted"] = True
+
+            if hunger_after > 50 and pet.get("hunger_alerted", False):
+                updates["hunger_alerted"] = False
+
+        # (3) 🤚 なでなで通知：3時間CTが明けた瞬間（通知設定がある人だけ）
+        if pet["stage"] == "adult":
+            last_pet = float(pet.get("last_pet", 0))
+            if last_pet > 0 and (now - last_pet) >= 10800:
+                # まだこの last_pet に対して通知してないなら通知
+                if float(pet.get("pet_ready_alerted_for", 0)) < last_pet:
+                    trigger_pet_ready = True
+                    updates["pet_ready_alerted_for"] = last_pet
+
+        # =========================
+        # DB更新
+        # =========================
         if updates:
             await db.update_oasistchi_pet(pet["id"], **updates)
 
-            # -------------------
-            # 孵化直前通知（100% 到達時）
-            # -------------------
-            if (
-                pet["stage"] == "egg"
-                and pet.get("growth", 0) < 100
-                and updates.get("growth", 0) >= 100
-                and not pet.get("notified_hatch", False)
-            ):
-                try:
-                    user = await self.bot.fetch_user(int(pet["user_id"]))
-                    await user.send("🥚 おあしすっちが孵化しそう！ `/おあしすっち` で確認してね！")
-                except:
-                    pass
+        # =========================
+        # DM通知（DB更新後に送る）
+        # =========================
+        # fetch_user は失敗することがあるので try/except
+        async def safe_dm(text: str):
+            try:
+                user_obj = await self.bot.fetch_user(int(uid))
+                await user_obj.send(text)
+            except:
+                pass
 
-                await db.update_oasistchi_pet(
-                    pet["id"],
-                    notified_hatch=True
-                )
+        # A) 孵化通知：常に送る（1回のみ）
+        if trigger_hatch:
+            await safe_dm("おあしすっちが孵化できるよ！\n`/おあしすっち` で確認してね！")
 
-        if updates:
-            await self.bot.db.update_oasistchi_pet(pet["id"], **updates)
+        # B) ON/OFF系：設定がある人だけ
+        if notify is not None:
+            if trigger_poop and notify.get("notify_poop", False):
+                await safe_dm("💩 おあしすっちがうんちした！\n`/おあしすっち` でお世話してね！")
+
+            if trigger_hunger and notify.get("notify_food", False):
+                await safe_dm("🍖 おあしすっちがおなかすいてるみたい…\n`/おあしすっち` でごはんをあげてね！")
+
+            if trigger_pet_ready and notify.get("notify_pet_ready", False):
+                await safe_dm("🤚 なでなでできるようになったよ！\n`/おあしすっち` でなでなでしてね！")
 
     # -----------------------------
     # 管理者：パネル設置
@@ -1476,6 +1505,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
