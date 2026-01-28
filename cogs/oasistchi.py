@@ -556,6 +556,9 @@ class OasistchiCog(commands.Cog):
                 format_status(pet["base_stamina"], pet["train_stamina"], "🫀", "スタミナ"),
                 format_status(pet["base_power"], pet["train_power"], "💥", "パワー"),
             ])
+            training_count = pet.get("training_count", 0)
+
+            stats_text += f"\n\n🏋️ 特訓回数：{training_count} / 30"
 
             embed.add_field(
                 name="📊 ステータス",
@@ -1523,6 +1526,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
