@@ -647,7 +647,7 @@ class OasistchiPanelRootView(discord.ui.View):
         self.egg_price = egg_price
         self.slot_price = slot_price
 
-    @discord.ui.button(label="🥚 たまご購入", style=discord.ButtonStyle.green)
+    @discord.ui.button(label="🥚 たまご購入", style=discord.ButtonStyle.green,custom_id="oasistchi:open_buy")
     async def open_buy(self, interaction: discord.Interaction, button: discord.ui.Button):
         view = EggSelectView(
             egg_price=self.egg_price,
@@ -662,7 +662,7 @@ class OasistchiPanelRootView(discord.ui.View):
             ephemeral=True
         )
 
-    @discord.ui.button(label="💳 課金", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="💳 課金", style=discord.ButtonStyle.primary,custom_id="oasistchi:open_charge")
     async def open_charge(self, interaction: discord.Interaction, button: discord.ui.Button):
         view = ChargeSelectView(slot_price=self.slot_price)
 
@@ -674,7 +674,7 @@ class OasistchiPanelRootView(discord.ui.View):
 
 
 
-    @discord.ui.button(label="🔔 通知設定", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="🔔 通知設定", style=discord.ButtonStyle.secondary,custom_id="oasistchi:open_notify")
     async def open_notify(self, interaction, button):
         view = NotifySelectView()
         await interaction.response.send_message(
@@ -683,7 +683,7 @@ class OasistchiPanelRootView(discord.ui.View):
             ephemeral=True
         )
 
-    @discord.ui.button(label="🏁 レース予定", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="🏁 レース予定", style=discord.ButtonStyle.primary,custom_id="oasistchi:open_race_schedule")
     async def open_race_schedule(
         self,
         interaction: discord.Interaction,
@@ -1503,9 +1503,17 @@ class TrainingSelect(discord.ui.Select):
 async def setup(bot):
     cog = OasistchiCog(bot)
     await bot.add_cog(cog)
+    bot.add_view(
+        OasistchiPanelRootView(
+            egg_price=0,   # ダミー値でOK
+            slot_price=0   # ダミー値でOK
+        )
+    )
+
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
