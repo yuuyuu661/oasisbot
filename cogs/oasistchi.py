@@ -301,6 +301,52 @@ class OasistchiCog(commands.Cog):
         self.poop_check.start()
         self.race_daily_reset.start()
 
+    # 共通：時間差分処理
+    # =========================
+    async def process_time_tick(self, pet: dict):
+        now = time.time()
+        updates = {}
+
+        # -------------------
+        # 空腹度（2時間ごと）
+        # -------------------
+        if pet["stage"] == "adult":
+            elapsed = now - pet.get("last_hunger_tick", now)
+            ticks = int(elapsed // 7200)
+
+            if ticks > 0:
+                updates["hunger"] = max(0, pet["hunger"] - ticks * 10)
+                updates["last_hunger_tick"] = now
+
+        # -------------------
+        # うんち（1時間ごと）
+        # -------------------
+        elapsed = now - pet.get("last_poop_tick", 0)
+        if elapsed >= 3600:
+            updates["last_poop_tick"] = now
+
+            if pet["stage"] == "egg" and not pet["poop"]:
+                if random.random() < 0.3:
+                    updates["poop"] = True
+
+        # -------------------
+        # 孵化成長（1時間単位）
+        # -------------------
+        if pet["stage"] == "egg":
+            elapsed = now - pet.get("last_growth_tick", now)
+            hours = int(elapsed // 3600)
+
+            if hours > 0:
+                rate = 100 / 12
+                mult = 0.5 if pet["poop"] else 1.0
+                gain = rate * hours * mult
+
+                updates["growth"] = min(100, pet["growth"] + gain)
+                updates["last_growth_tick"] = now
+
+        if updates:
+            await self.bot.db.update_oasistchi_pet(pet["id"], **updates)
+
     # -----------------------------
     # 管理者：パネル設置
     # -----------------------------
@@ -367,6 +413,11 @@ class OasistchiCog(commands.Cog):
             )
 
         pet = dict(pets[pet_index])
+
+        await self.process_time_tick(pet)
+
+        # 最新状態を取り直す
+        pet = await db.get_oasistchi_pet(pet["id"])
 
         embed = self.make_status_embed(pet)
         pet_file = self.get_pet_image(pet)
@@ -449,17 +500,16 @@ class OasistchiCog(commands.Cog):
     # -----------------------------
     # うんち抽選（60分）
     # -----------------------------
-    @tasks.loop(minutes=60)
+    @tasks.loop(minutes=10)
     async def poop_check(self):
         if not self.bot.is_ready():
             return
-        db = self.bot.db 
-        pets = await self.bot.db.get_all_oasistchi_pets()
 
-        now = time.time()
+        db = self.bot.db
+        pets = await db.get_all_oasistchi_pets()
 
         for pet in pets:
-            updates = {}
+            await self.process_time_tick(pet)
 
             # うんち抽選
             elapsed = now - pet.get("last_poop_tick", 0)
@@ -1453,6 +1503,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
