@@ -350,6 +350,9 @@ class OasistchiCog(commands.Cog):
         # 孵化成長（1時間単位）
         # -------------------
         if pet["stage"] == "egg":
+            before = pet.get("growth", 0.0)
+            after = before
+
             elapsed = now - pet.get("last_growth_tick", now)
             hours = int(elapsed // 3600)
 
@@ -358,13 +361,11 @@ class OasistchiCog(commands.Cog):
                 mult = 0.5 if get_new("poop", False) else 1.0
                 gain = rate * hours * mult
 
-                before = pet.get("growth", 0.0)
                 after = min(100.0, before + gain)
-
                 updates["growth"] = after
                 updates["last_growth_tick"] = now
 
-            # 孵化到達（通知はON/OFF関係なく必ず）
+            # 孵化通知（1回のみ・ON/OFF無関係）
             if before < 100.0 and after >= 100.0 and not pet.get("notified_hatch", False):
                 trigger_hatch = True
                 updates["notified_hatch"] = True
@@ -1505,6 +1506,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
