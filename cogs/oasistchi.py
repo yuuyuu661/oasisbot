@@ -462,14 +462,23 @@ class OasistchiCog(commands.Cog):
             updates = {}
 
             # うんち抽選
-            if pet["stage"] == "egg" and not pet["poop"]:
-                if random.random() < 0.3:
-                    updates["poop"] = True
+            elapsed = now - pet.get("last_poop_tick", 0)
+            ticks = int(elapsed // 3600)
 
-            # 成体の空腹度
+            if ticks > 0:
+                updates["last_poop_tick"] = now
+
+                if pet["stage"] == "egg" and not pet["poop"]:
+                    if random.random() < 0.3:
+                        updates["poop"] = True
+
+            # 成体の空腹度（2時間ごとに -10）
             if pet["stage"] == "adult":
-                if now - pet["last_hunger_tick"] >= 7200:
-                    updates["hunger"] = max(0, pet["hunger"] - 10)
+                elapsed = now - pet.get("last_hunger_tick", now)
+                ticks = int(elapsed // 7200)
+
+                if ticks > 0:
+                    updates["hunger"] = max(0, pet["hunger"] - ticks * 10)
                     updates["last_hunger_tick"] = now
 
             # 通知（後述）
@@ -489,9 +498,16 @@ class OasistchiCog(commands.Cog):
 
             # 成長
             if pet["stage"] == "egg":
-                rate = 100 / 12
-                mult = 0.5 if pet["poop"] else 1.0
-                updates["growth"] = min(100, pet["growth"] + rate * mult)
+                elapsed = now - pet.get("last_growth_tick", now)
+                hours = int(elapsed // 3600)
+
+                if hours > 0:
+                    rate = 100 / 12
+                    mult = 0.5 if pet["poop"] else 1.0
+
+                    gain = rate * hours * mult
+                    updates["growth"] = min(100, pet["growth"] + gain)
+                    updates["last_growth_tick"] = now
 
             if updates:
                 await db.update_oasistchi_pet(pet["id"], **updates)
@@ -1437,6 +1453,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
