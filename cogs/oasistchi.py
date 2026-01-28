@@ -1416,7 +1416,23 @@ class FarewellConfirmView(discord.ui.View):
             view=None
         )
 
-    @discord"🏋️ このおあしすっちはもう十分に特訓したようだ…",
+    @discord.ui.button(label="やっぱりやめる", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.edit_message(
+            content="キャンセルしました。",
+            view=None
+        )
+
+class TrainingSelectView(discord.ui.View):
+    def __init__(self, pet_id: int):
+        super().__init__(timeout=60)
+        self.pet_id = pet_id
+        self.add_item(TrainingSelect(pet_id))
+
+class TrainingSelect(discord.ui.Select):
+    def __init__(self, pet_id: int):
+        self.pet_id = pet_id
+
         options = [
             discord.SelectOption(label="🏃 スピード", value="speed"),
             discord.SelectOption(label="🫀 スタミナ", value="stamina"),
@@ -1461,6 +1477,7 @@ class FarewellConfirmView(discord.ui.View):
             ephemeral=True
         )
 
+
 class OasisBot(commands.Bot):
     async def setup_hook(self):
         # 永続Viewを登録
@@ -1484,6 +1501,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
