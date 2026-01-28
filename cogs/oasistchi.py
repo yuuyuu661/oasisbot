@@ -173,15 +173,6 @@ def format_status(base: int, train: int, emoji: str, name: str):
     total = base + train
     return f"{emoji} {name} {total}({base}+{train})"
 
-def do_training(current_total: int):
-    if current_total >= 100:
-        return 0, "これ以上成長できない…"
-
-    gain, text = random.choice(TRAIN_RESULTS)
-    if current_total + gain > 100:
-        gain = 100 - current_total
-
-    return gain, text
 
 # =========================
 # GIF duration helper
@@ -569,11 +560,6 @@ class OasistchiCog(commands.Cog):
             embed.add_field(
                 name="📊 ステータス",
                 value="🥚 孵化するとステータスが確認できます",
-                inline=False
-            )
-            embed.add_field(
-                name="🏋️ 特訓回数",
-                value=f"{pet['training_count']} / 30",
                 inline=False
             )
 
@@ -1526,6 +1512,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
