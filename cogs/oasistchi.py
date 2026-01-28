@@ -1488,6 +1488,84 @@ class OasisBot(commands.Bot):
             )
         )
 
+class TrainingView(discord.ui.View):
+    def __init__(self, pet_id: int):
+        super().__init__(timeout=60)
+        self.pet_id = pet_id
+        self.selected_stat: str | None = None
+
+        self.add_item(TrainingSelect(self))
+        self.add_item(TrainingConfirmButton(self))
+
+class TrainingSelect(discord.ui.Select):
+    def __init__(self, view: TrainingView):
+        self.view_ref = view
+
+        options = [
+            discord.SelectOption(label="🏃 スピード", value="speed"),
+            discord.SelectOption(label="🫀 スタミナ", value="stamina"),
+            discord.SelectOption(label="💥 パワー", value="power"),
+        ]
+
+        super().__init__(
+            placeholder="特訓するステータスを選択",
+            min_values=1,
+            max_values=1,
+            options=options
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        self.view_ref.selected_stat = self.values[0]
+
+        await interaction.response.send_message(
+            f"✅ **{self.values[0]}** を特訓対象に選びました。\n"
+            "下の「決定」ボタンを押してください。",
+            ephemeral=True
+        )
+
+class TrainingConfirmButton(discord.ui.Button):
+    def __init__(self, view: TrainingView):
+        super().__init__(
+            label="🏋️ 決定",
+            style=discord.ButtonStyle.success
+        )
+        self.view_ref = view
+
+    async def callback(self, interaction: discord.Interaction):
+        if not self.view_ref.selected_stat:
+            return await interaction.response.send_message(
+                "❌ 先に特訓するステータスを選んでください。",
+                ephemeral=True
+            )
+
+        db = interaction.client.db
+        pet = await db.get_oasistchi_pet(self.view_ref.pet_id)
+
+        # 特訓回数制限
+        if pet.get("training_count", 0) >= 30:
+            return await interaction.response.send_message(
+                "🏋️ このおあしすっちはもう十分に特訓したようだ…",
+                ephemeral=True
+            )
+
+        stat = self.view_ref.selected_stat
+        gain, text = random.choice(TRAIN_RESULTS)
+
+        await db.update_oasistchi_pet(
+            self.view_ref.pet_id,
+            **{
+                f"train_{stat}": pet.get(f"train_{stat}", 0) + gain,
+                "training_count": pet.get("training_count", 0) + 1,
+            }
+        )
+
+        await interaction.response.send_message(
+            f"{text}\n"
+            f"**{stat} +{gain}**\n"
+            f"🏋️ 特訓回数：{pet.get('training_count', 0) + 1} / 30",
+            ephemeral=True
+        )
+
 async def setup(bot):
     cog = OasistchiCog(bot)
     await bot.add_cog(cog)
@@ -1501,61 +1579,6 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
