@@ -933,19 +933,22 @@ class Database:
     # おあしすっち：追加（たまご購入）
     # -------------------------------
     async def add_oasistchi_egg(self, user_id: str, egg_type: str):
-        await self._ensure_conn()
+        now = time.time()
         await self.conn.execute("""
             INSERT INTO oasistchi_pets (
                 user_id, stage, egg_type,
                 growth, hunger, happiness, poop,
-                last_interaction, last_tick
+                last_interaction,
+                last_growth_tick,
+                last_poop_tick
             ) VALUES (
                 $1, 'egg', $2,
                 0, 100, 50, FALSE,
-                EXTRACT(EPOCH FROM NOW()),
-                EXTRACT(EPOCH FROM NOW())
+                $3,
+                $3,
+                $3
             )
-        """, user_id, egg_type)
+        """, user_id, egg_type, now)
 
     # -------------------------------
     # おあしすっち：更新
@@ -1114,6 +1117,7 @@ class Database:
             user_id
         )
         return dict(row) if row else None
+
 
 
 
