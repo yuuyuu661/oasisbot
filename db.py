@@ -2,6 +2,7 @@ import os
 import asyncpg
 from dotenv import load_dotenv
 import asyncio
+import time
 
 load_dotenv()
 
@@ -1117,6 +1118,7 @@ class Database:
             user_id
         )
         return dict(row) if row else None
+
 
 
 
