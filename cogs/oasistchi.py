@@ -1416,23 +1416,7 @@ class FarewellConfirmView(discord.ui.View):
             view=None
         )
 
-    @discord.ui.button(label="やっぱりやめる", style=discord.ButtonStyle.secondary)
-    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.edit_message(
-            content="キャンセルしました。",
-            view=None
-        )
-
-class TrainingSelectView(discord.ui.View):
-    def __init__(self, pet_id: int):
-        super().__init__(timeout=60)
-        self.pet_id = pet_id
-        self.add_item(TrainingSelect(pet_id))
-
-class TrainingSelect(discord.ui.Select):
-    def __init__(self, pet_id: int):
-        self.pet_id = pet_id
-
+    @discord"🏋️ このおあしすっちはもう十分に特訓したようだ…",
         options = [
             discord.SelectOption(label="🏃 スピード", value="speed"),
             discord.SelectOption(label="🫀 スタミナ", value="stamina"),
@@ -1450,42 +1434,30 @@ class TrainingSelect(discord.ui.Select):
         db = interaction.client.db
         pet = await db.get_oasistchi_pet(self.pet_id)
 
+        # 🏋️ 特訓回数制限（30回）
         if pet.get("training_count", 0) >= 30:
             return await interaction.response.send_message(
                 "🏋️ このおあしすっちはもう十分に特訓したようだ…",
                 ephemeral=True
             )
-        
 
         stat = self.values[0]
 
-        # 現在の特訓合計
-        current_total = (
-            pet["train_speed"]
-            + pet["train_stamina"]
-            + pet["train_power"]
-        )
-
-        gain, text = do_training(current_total)
-
-        if gain <= 0:
-            return await interaction.response.send_message(
-                "❌ これ以上このステータスは成長できません。",
-                ephemeral=True
-            )
+        # 🎲 特訓結果抽選（上限なし）
+        gain, text = random.choice(TRAIN_RESULTS)
 
         # DB反映
-        current_value = pet.get(f"train_{stat}", 0)
-
         await db.update_oasistchi_pet(
             self.pet_id,
-            **{f"train_{stat}": current_value + gain},
-            training_count=pet.get("training_count", 0) + 1,
-            last_interaction=now_ts()
+            **{
+                f"train_{stat}": pet.get(f"train_{stat}", 0) + gain,
+                "training_count": pet.get("training_count", 0) + 1,
+            }
         )
 
         await interaction.response.send_message(
-            f"{text}\n**{stat.upper()} +{gain}**",
+            f"{text}\n**{stat} +{gain}**\n"
+            f"🏋️ 特訓回数：{pet.get('training_count', 0) + 1} / 30",
             ephemeral=True
         )
 
@@ -1512,6 +1484,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
