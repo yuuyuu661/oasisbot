@@ -209,9 +209,28 @@ class Database:
         await self.conn.execute("""
             CREATE TABLE IF NOT EXISTS oasistchi_notify (
                 user_id TEXT PRIMARY KEY,
-                notify_all BOOLEAN NOT NULL DEFAULT TRUE
+                notify_poop BOOLEAN NOT NULL DEFAULT TRUE,
+                notify_food BOOLEAN NOT NULL DEFAULT TRUE,
+                notify_pet_ready BOOLEAN NOT NULL DEFAULT TRUE
             );
         """)
+
+        # 既存DBにカラム補完（すでにテーブルがある場合）
+        col_check = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'oasistchi_notify';
+        """)
+        existing_cols = {row["column_name"] for row in col_check}
+
+        NOTIFY_COLUMNS = {
+            "notify_poop": "BOOLEAN NOT NULL DEFAULT TRUE",
+            "notify_food": "BOOLEAN NOT NULL DEFAULT TRUE",
+            "notify_pet_ready": "BOOLEAN NOT NULL DEFAULT TRUE",
+        }
+        for col, col_type in NOTIFY_COLUMNS.items():
+            if col not in existing_cols:
+                await self.conn.execute(f"ALTER TABLE oasistchi_notify ADD COLUMN {col} {col_type};")
 
         # =========================
         # レース関連テーブル
@@ -354,6 +373,23 @@ class Database:
                 await self.conn.execute(
                     f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
                 )
+
+        col_check = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'oasistchi_pets';
+        """)
+        existing_cols = {row["column_name"] for row in col_check}
+
+        ALERT_COLUMNS = {
+            "poop_alerted": "BOOLEAN NOT NULL DEFAULT FALSE",
+            "hunger_alerted": "BOOLEAN NOT NULL DEFAULT FALSE",
+            "pet_ready_alerted_for": "REAL NOT NULL DEFAULT 0",
+        }
+        for col, col_type in ALERT_COLUMNS.items():
+            if col not in existing_cols:
+                print(f"🛠 oasistchi_pets に {col} カラムを追加します…")
+                await self.conn.execute(f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};")
         # 初期設定が無ければ作成
         exists = await self.conn.execute("""
             INSERT INTO settings
@@ -992,15 +1028,20 @@ class Database:
     # -------------------------------
     async def set_oasistchi_notify_all(self, user_id: str, on: bool):
         await self._ensure_conn()
-        await self.conn.execute(
-            """
-            INSERT INTO oasistchi_notify (user_id, notify_all)
-            VALUES ($1, $2)
-            ON CONFLICT (user_id)
-            DO UPDATE SET notify_all = EXCLUDED.notify_all
-            """,
-            user_id, on
-        )
+
+        if on:
+            await self.conn.execute("""
+                INSERT INTO oasistchi_notify (user_id, notify_poop, notify_food, notify_pet_ready)
+                VALUES ($1, TRUE, TRUE, TRUE)
+                ON CONFLICT (user_id)
+                DO UPDATE SET
+                    notify_poop=TRUE,
+                    notify_food=TRUE,
+                    notify_pet_ready=TRUE
+            """, user_id)
+        else:
+            # 設定してない状態＝通知なし
+            await self.conn.execute("DELETE FROM oasistchi_notify WHERE user_id=$1", user_id)
 
     async def delete_oasistchi_pet(self, pet_id: int):
         await self._ensure_conn()
@@ -1066,6 +1107,13 @@ class Database:
         )
 
 
+    async def get_oasistchi_notify_settings(self, user_id: str) -> dict | None:
+        await self._ensure_conn()
+        row = await self.conn.fetchrow(
+            "SELECT notify_poop, notify_food, notify_pet_ready FROM oasistchi_notify WHERE user_id=$1",
+            user_id
+        )
+        return dict(row) if row else None
 
 
 
