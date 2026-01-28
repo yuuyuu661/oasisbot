@@ -1500,6 +1500,16 @@ class TrainingSelect(discord.ui.Select):
             ephemeral=True
         )
 
+class OasisBot(commands.Bot):
+    async def setup_hook(self):
+        # 永続Viewを登録
+        self.add_view(
+            OasistchiPanelRootView(
+                egg_price=0,   # ← 実際の値は使われない
+                slot_price=0
+            )
+        )
+
 async def setup(bot):
     cog = OasistchiCog(bot)
     await bot.add_cog(cog)
@@ -1513,6 +1523,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
