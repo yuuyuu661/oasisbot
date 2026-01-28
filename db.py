@@ -330,6 +330,30 @@ class Database:
                     f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
                 )
 
+        # --------------------------------------------------
+        # おあしすっち：時間管理用カラム補完
+        # --------------------------------------------------
+        col_check = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'oasistchi_pets';
+        """)
+
+        existing_cols = {row["column_name"] for row in col_check}
+
+        TIME_COLUMNS = {
+            "last_poop_tick": "REAL DEFAULT 0",
+            "last_growth_tick": "REAL DEFAULT 0",
+            "last_hunger_tick": "REAL DEFAULT 0",
+            "last_unhappy_tick": "REAL DEFAULT 0",
+        }
+
+        for col, col_type in TIME_COLUMNS.items():
+            if col not in existing_cols:
+                print(f"🛠 oasistchi_pets に {col} カラムを追加します…")
+                await self.conn.execute(
+                    f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
+                )
         # 初期設定が無ければ作成
         exists = await self.conn.execute("""
             INSERT INTO settings
@@ -1040,6 +1064,7 @@ class Database:
             pet_id,
             user_id
         )
+
 
 
 
