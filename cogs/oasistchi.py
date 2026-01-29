@@ -711,9 +711,7 @@ class OasistchiCog(commands.Cog):
                 ephemeral=True
             )
 
-        pet = None
-
-        # 名前指定がある場合
+        # pet は「引数の pet_id」のまま使う
         if pet is not None:
             pet = await db.get_oasistchi_pet(pet)
             if not pet:
@@ -1873,6 +1871,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
