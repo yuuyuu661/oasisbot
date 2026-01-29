@@ -281,11 +281,11 @@ class Database:
         now = time.time()
 
         # うんち：次回チェック時刻が無い個体
-        await self.conn.execute("""
-            UPDATE oasistchi_pets
-            SET next_poop_check_at = $1
-            WHERE next_poop_check_at = 0;
-        """, now + 3600)
+       #  await self.conn.execute("""
+       #      UPDATE oasistchi_pets
+       #      SET next_poop_check_at = $1
+       #      WHERE next_poop_check_at = 0;
+      #   """, now + 3600)
 
         # なでなで：last_pet があるのに pet_ready_at が無い個体
         await self.conn.execute("""
@@ -1162,6 +1162,7 @@ class Database:
             user_id
         )
         return dict(row) if row else None
+
 
 
 
