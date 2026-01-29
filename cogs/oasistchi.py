@@ -1175,7 +1175,7 @@ class ConfirmPurchaseView(discord.ui.View):
 
             if len(pets) >= user_row["slots"]:
                 return await interaction.response.edit_message(
-                    "❌ 育成枠がいっぱいです。",
+                    content="❌ 育成枠がいっぱいです。",
                     view=None
                 )
 
@@ -1200,7 +1200,7 @@ class ConfirmPurchaseView(discord.ui.View):
 
             if current_slots >= 10:
                 return await interaction.response.edit_message(
-                    "❌ 育成枠は最大 **10枠** までです。",
+                    content="❌ 育成枠は最大 **10枠** までです。",
                     view=None
                 )
 
@@ -1208,8 +1208,10 @@ class ConfirmPurchaseView(discord.ui.View):
 
             if balance < price:
                 return await interaction.response.edit_message(
-                    f"❌ 残高が足りません。\n"
-                    f"現在: **{balance:,} {unit}** / 必要: **{price:,} {unit}**",
+                    content=(
+                        f"❌ 残高が足りません。\n"
+                        f"現在: **{balance:,} {unit}** / 必要: **{price:,} {unit}**"
+                    ),
                     view=None
                 )
 
@@ -1221,21 +1223,6 @@ class ConfirmPurchaseView(discord.ui.View):
                 content=(
                     f"✅ **育成枠を1つ増築しました！**\n"
                     f"現在の育成枠: **{current_slots + 1} / 10**\n"
-                    f"消費: **{price:,} {unit}**"
-                ),
-                view=None
-            )
-
-            # 支払い
-            await db.remove_balance(uid, gid, price)
-
-            # 枠追加
-            await db.add_oasistchi_slot(uid, 1)
-
-            return await interaction.response.edit_message(
-                content=(
-                    f"✅ **育成枠を1つ増築しました！**\n"
-                    f"現在の育成枠: **{current_slots + 1}** / 10\n"
                     f"消費: **{price:,} {unit}**"
                 ),
                 view=None
@@ -1845,6 +1832,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
