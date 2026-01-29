@@ -722,7 +722,7 @@ class ChargeSelect(discord.ui.Select):
         self.slot_price = slot_price
         options = [
             discord.SelectOption(
-                label="育成枠を1つ増築",
+                label="育成枠を1つ増築,6枠以降は200,000rrc",
                 description=f"{slot_price} rrc",
                 value="slot"
             ),
@@ -1607,6 +1607,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
