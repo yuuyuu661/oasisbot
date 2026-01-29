@@ -998,11 +998,14 @@ class Database:
                 next_poop_check_at
             ) VALUES (
                 $1, 'egg', $2,
-                0, 100, 50, FALSE,
-                $3,
-                $3,
-                $3,
-                $3 + 3600
+                0::REAL,          -- ← 明示
+                100,
+                50,
+                FALSE,
+                $3::REAL,
+                $3::REAL,
+                $3::REAL,
+                ($3 + 3600)::REAL
             )
         """, user_id, egg_type, now)
 
@@ -1173,6 +1176,7 @@ class Database:
             user_id
         )
         return dict(row) if row else None
+
 
 
 
