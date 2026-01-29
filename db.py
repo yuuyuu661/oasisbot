@@ -274,7 +274,25 @@ class Database:
             UNIQUE (race_date, schedule_id, pet_id)
         );
         """)
+        
+        # --------------------------------------------------
+        # おあしすっち：通知時刻の正規化（既存データ救済）
+        # --------------------------------------------------
+        now = time.time()
 
+        # うんち：次回チェック時刻が無い個体
+        await self.conn.execute("""
+            UPDATE oasistchi_pets
+            SET next_poop_check_at = $1
+            WHERE next_poop_check_at = 0;
+        """, now + 3600)
+
+        # なでなで：last_pet があるのに pet_ready_at が無い個体
+        await self.conn.execute("""
+            UPDATE oasistchi_pets
+            SET pet_ready_at = last_pet + 10800
+            WHERE last_pet > 0 AND pet_ready_at = 0;
+        """)
         # --------------------------------------------------
         # おあしすっち：レース用カラム補完
         # --------------------------------------------------
@@ -369,6 +387,30 @@ class Database:
         }
 
         for col, col_type in TIME_COLUMNS.items():
+            if col not in existing_cols:
+                print(f"🛠 oasistchi_pets に {col} カラムを追加します…")
+                await self.conn.execute(
+                    f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
+                )
+
+        # --------------------------------------------------
+        # おあしすっち：通知予定時刻カラム（★再起動耐性）
+        # --------------------------------------------------
+        col_check = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'oasistchi_pets';
+        """)
+        existing_cols = {row["column_name"] for row in col_check}
+
+        NOTIFY_TIME_COLUMNS = {
+            "next_poop_check_at": "REAL DEFAULT 0",
+            "poop_notified_at": "REAL DEFAULT 0",
+            "pet_ready_at": "REAL DEFAULT 0",
+            "pet_ready_notified_at": "REAL DEFAULT 0",
+        }
+
+        for col, col_type in NOTIFY_TIME_COLUMNS.items():
             if col not in existing_cols:
                 print(f"🛠 oasistchi_pets に {col} カラムを追加します…")
                 await self.conn.execute(
@@ -941,13 +983,15 @@ class Database:
                 growth, hunger, happiness, poop,
                 last_interaction,
                 last_growth_tick,
-                last_poop_tick
+                last_poop_tick,
+                next_poop_check_at
             ) VALUES (
                 $1, 'egg', $2,
                 0, 100, 50, FALSE,
                 $3,
                 $3,
-                $3
+                $3,
+                $3 + 3600
             )
         """, user_id, egg_type, now)
 
@@ -1118,6 +1162,7 @@ class Database:
             user_id
         )
         return dict(row) if row else None
+
 
 
 
