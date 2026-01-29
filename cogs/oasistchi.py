@@ -698,7 +698,7 @@ class OasistchiCog(commands.Cog):
     async def oasistchi(
         self,
         interaction: discord.Interaction,
-        pet: int | None = None
+        pet: str | None = None
     ):
         await interaction.response.defer(ephemeral=True)
         db = interaction.client.db
@@ -711,15 +711,26 @@ class OasistchiCog(commands.Cog):
                 ephemeral=True
             )
 
-        # pet は「引数の pet_id」のまま使う
+        # pet は autocomplete 経由の「文字列ID」のみ許可
         if pet is not None:
-            pet = await db.get_oasistchi_pet(pet)
-            if not pet:
+            # 手入力は完全拒否
+            if not pet.isdigit():
                 return await interaction.followup.send(
-                    "指定されたおあしすっちが見つかりません。",
+                    "❌ プルダウンから選択してください。",
+                    ephemeral=True
+                )
+
+            pet_id = int(pet)
+            pet = await db.get_oasistchi_pet(pet_id)
+
+            # 存在しない or 所有者が違う
+            if not pet or str(pet["user_id"]) != uid:
+                return await interaction.followup.send(
+                    "❌ プルダウンから正しく選択してください。",
                     ephemeral=True
                 )
         else:
+            # 未指定時は先頭の自分のペット
             pet = dict(pets[0])
 
 
@@ -841,7 +852,7 @@ class OasistchiCog(commands.Cog):
                 choices.append(
                     app_commands.Choice(
                         name=display,
-                        value=int(pet["id"])   # ← 中身は常に pet_id（超重要）
+                        value=str(pet["id"])   # ← 中身は常に pet_id（超重要）
                     )
                 )
 
@@ -1836,6 +1847,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
