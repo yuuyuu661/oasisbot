@@ -551,6 +551,7 @@ class OasistchiCog(commands.Cog):
         name: str | None = None
     ):
         await interaction.response.defer(ephemeral=True)
+        
 
         db = interaction.client.db
         uid = str(interaction.user.id)
@@ -584,6 +585,8 @@ class OasistchiCog(commands.Cog):
                 )
         else:
             pet = adults[0]
+            # ---- レース前コンディション ----
+            condition, condition_emoji, face_count = get_race_condition(pet.get("happiness", 0))
 
         # ---- レース計算 ----
         stats = calc_effective_stats(pet)
@@ -594,6 +597,11 @@ class OasistchiCog(commands.Cog):
             title="🏁 レースデバッグ",
             description=f"**{pet['name']}**",
             color=discord.Color.orange()
+        )
+        embed.add_field(
+            name="🧠 レース前コンディション",
+            value=f"{condition_emoji} **{condition}**（😊×{face_count}）",
+            inline=False
         )
 
         embed.add_field(
@@ -1855,6 +1863,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
