@@ -473,10 +473,11 @@ class OasistchiCog(commands.Cog):
     # ユーザー：おあしすっち表示（既存）
     # -----------------------------
     @app_commands.command(name="おあしすっち")
+    @app_commands.describe(name="表示したいおあしすっち")
     async def oasistchi(
         self,
         interaction: discord.Interaction,
-        index: int | None = None
+        name: str | None = None
     ):
         await interaction.response.defer(ephemeral=True)
         db = interaction.client.db
@@ -578,6 +579,34 @@ class OasistchiCog(commands.Cog):
             path = os.path.join(ASSET_BASE, "egg", egg, f"{state}.gif")
 
         return discord.File(path, filename="pet.gif")
+
+    @oasistchi.autocomplete("name")
+    async def oasistchi_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str
+    ):
+        db = interaction.client.db
+        uid = str(interaction.user.id)
+
+        pets = await db.get_oasistchi_pets(uid)
+        if not pets:
+            return []
+
+        choices = []
+        for pet in pets:
+            pet_name = pet.get("name") or "たまご"
+
+            # 入力途中の文字でフィルタ
+            if current.lower() in pet_name.lower():
+                choices.append(
+                    app_commands.Choice(
+                        name=pet_name,
+                        value=pet_name
+                    )
+                )
+
+        return choices[:25] 
 
     # -----------------------------
     # うんち抽選（60分）
@@ -1607,6 +1636,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
