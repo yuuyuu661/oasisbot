@@ -606,6 +606,61 @@ class OasistchiCog(commands.Cog):
         embed.set_footer(text="※ デバッグ用。結果は保存されません。")
 
         await interaction.followup.send(embed=embed, ephemeral=True)
+
+    # =========================
+    # 仮想レース（順位確認）
+    # =========================
+    @app_commands.command(name="race_sim", description="成体おあしすっちで仮想レースを行います（デバッグ）")
+    async def race_sim(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
+        db = interaction.client.db
+        uid = str(interaction.user.id)
+
+        pets = await db.get_oasistchi_pets(uid)
+        if not pets:
+            return await interaction.followup.send(
+                "おあしすっちを持っていません。",
+                ephemeral=True
+            )
+
+        # 成体のみ
+        adults = [dict(p) for p in pets if p["stage"] == "adult"]
+
+        if len(adults) < 2:
+            return await interaction.followup.send(
+                "仮想レースには成体が2体以上必要です。",
+                ephemeral=True
+            )
+
+        # ---- 順位決定 ----
+        results = decide_race_order(adults)
+
+        # ---- 表示 ----
+        embed = discord.Embed(
+            title="🏁 仮想レース結果（デバッグ）",
+            description="※ 実際のレース結果には影響しません",
+            color=discord.Color.gold()
+        )
+
+        lines = []
+        for i, r in enumerate(results, start=1):
+            guts_mark = "🔥" if r["stats"]["guts"] else ""
+            lines.append(
+                f"**{i}位** {r['name']} {guts_mark}\n"
+                f"　🏃 {r['stats']['speed']} / 🫀 {r['stats']['stamina']} / 💥 {r['stats']['power']}\n"
+                f"　🏁 スコア：{r['score']:.2f}"
+            )
+
+        embed.add_field(
+            name="順位",
+            value="\n".join(lines),
+            inline=False
+        )
+
+        embed.set_footer(text="幸福度・根性・乱数すべて含めた仮想結果です")
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
     # -----------------------------
     # ユーザー：おあしすっち表示（既存）
     # -----------------------------
@@ -1782,6 +1837,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
