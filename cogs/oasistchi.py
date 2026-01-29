@@ -302,7 +302,41 @@ def get_pet_display_name(pet: dict) -> str:
 
     return "🥚 たまご"
 
+# -------------------------
+# レーススコア計算
+# -------------------------
 
+def calc_race_score(stats: dict) -> float:
+    """
+    スピード重視、スタミナ補正、パワー少し
+    """
+    return (
+        stats["speed"] * 1.0 +
+        stats["stamina"] * 0.6 +
+        stats["power"] * 0.4 +
+        random.uniform(-5, 5)  # ブレ
+    )
+
+# -------------------------
+# 順位決定
+# -------------------------
+def decide_race_order(pets: list[dict]):
+    results = []
+
+    for pet in pets:
+        stats = calc_effective_stats(pet)
+        score = calc_race_score(stats)
+
+        results.append({
+            "pet_id": pet["id"],
+            "user_id": pet["user_id"],
+            "name": pet["name"],
+            "score": score,
+            "stats": stats,
+        })
+
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return results
 # =========================
 # Cog
 # =========================
@@ -488,7 +522,90 @@ class OasistchiCog(commands.Cog):
            embed=embed,
             view=view
         )
+    # =========================
+    # レースデバッグ
+    # =========================
+    @app_commands.command(name="race_debug", description="レース用ステータス確認（デバッグ）")
+    @app_commands.describe(name="確認したいおあしすっち")
+    async def race_debug(
+        self,
+        interaction: discord.Interaction,
+        name: str | None = None
+    ):
+        await interaction.response.defer(ephemeral=True)
 
+        db = interaction.client.db
+        uid = str(interaction.user.id)
+
+        pets = await db.get_oasistchi_pets(uid)
+        if not pets:
+            return await interaction.followup.send(
+                "おあしすっちを持っていません。",
+                ephemeral=True
+            )
+
+        # 成体のみ抽出
+        adults = [dict(p) for p in pets if p["stage"] == "adult"]
+        if not adults:
+            return await interaction.followup.send(
+                "成体のおあしすっちがいません。",
+                ephemeral=True
+            )
+
+        pet = None
+
+        if name:
+            for p in adults:
+                if p.get("name") == name:
+                    pet = p
+                    break
+            if not pet:
+                return await interaction.followup.send(
+                    "指定されたおあしすっちが見つかりません。",
+                    ephemeral=True
+                )
+        else:
+            pet = adults[0]
+
+        # ---- レース計算 ----
+        stats = calc_effective_stats(pet)
+        score = calc_race_score(stats)
+
+        # ---- 表示 ----
+        embed = discord.Embed(
+            title="🏁 レースデバッグ",
+            description=f"**{pet['name']}**",
+            color=discord.Color.orange()
+        )
+
+        embed.add_field(
+            name="📊 実効ステータス",
+            value=(
+                f"🏃 スピード：{stats['speed']}\n"
+                f"🫀 スタミナ：{stats['stamina']}\n"
+                f"💥 パワー：{stats['power']}"
+            ),
+            inline=False
+        )
+
+        embed.add_field(
+            name="🔥 根性判定",
+            value=(
+                f"発動率：{stats['guts_chance']}%\n"
+                f"結果：{'🔥 発動！' if stats['guts'] else '— 不発'}"
+            ),
+            inline=False
+        )
+
+        embed.add_field(
+            name="🏁 レーススコア",
+            value=f"**{score:.2f}**",
+            inline=False
+        )
+
+        embed.set_footer(text="※ デバッグ用。結果は保存されません。")
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
     # -----------------------------
     # ユーザー：おあしすっち表示（既存）
     # -----------------------------
@@ -1665,6 +1782,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
