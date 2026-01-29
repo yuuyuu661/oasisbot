@@ -724,15 +724,6 @@ class OasistchiCog(commands.Cog):
         else:
             pet = dict(pets[0])
 
-            if not pet:
-                return await interaction.followup.send(
-                    "指定されたおあしすっちが見つかりません。",
-                    ephemeral=True
-                )
-
-        # 未指定なら先頭
-        else:
-            pet = dict(pets[0])
 
         await self.process_time_tick(pet)
 
@@ -1882,6 +1873,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
