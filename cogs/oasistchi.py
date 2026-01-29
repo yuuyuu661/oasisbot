@@ -819,25 +819,29 @@ class OasistchiCog(commands.Cog):
 
         # 同色卵の番号付け用
         egg_counter: dict[str, int] = {}
+        adult_counter: dict[str, int] = {}
 
         choices = []
 
         for pet in pets:
-            display = get_pet_display_name(pet)
+            base_name = get_pet_display_name(pet)
 
-            # 卵だけ番号を付ける
             if pet.get("stage") == "egg":
                 egg_type = pet.get("egg_type", "egg")
                 egg_counter[egg_type] = egg_counter.get(egg_type, 0) + 1
-                display = f"{display} #{egg_counter[egg_type]}"
+                display = f"{base_name} #{egg_counter[egg_type]}"
+
             else:
-                display = f"🧬 {display}"
+                # 🧬 成体：名前ごとに連番
+                name = pet.get("name", "おあしすっち")
+                adult_counter[name] = adult_counter.get(name, 0) + 1
+                display = f"🧬 {name} #{adult_counter[name]}"
 
             if current.lower() in display.lower():
                 choices.append(
                     app_commands.Choice(
                         name=display,
-                        value=int(pet["id"])   
+                        value=int(pet["id"])   # ← 中身は常に pet_id（超重要）
                     )
                 )
 
@@ -1832,6 +1836,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
