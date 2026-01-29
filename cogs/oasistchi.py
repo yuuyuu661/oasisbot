@@ -1219,9 +1219,9 @@ class CareView(discord.ui.View):
                 ephemeral=True
             )
 
-        view = TrainingSelectView(self.pet_id)
+        view = TrainingView(self.pet_id) 
         await interaction.response.send_message(
-            "どのステータスを特訓しますか？",
+            "🏋️ どのステータスを特訓しますか？\n選択後「決定」を押してください。",
             view=view,
             ephemeral=True
         )
@@ -1579,6 +1579,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
