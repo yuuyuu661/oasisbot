@@ -84,6 +84,14 @@ TRAIN_RESULTS = [
     (4, "今回はすばらしい！"),
     (5, "今回は大成功だ！！！"),
 ]
+
+RACE_TIMES = ["09:00", "12:00", "15:00", "19:00", "22:00"]
+
+
+DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
+SURFACES = ["芝", "ダート"]
+CONDITIONS = ["良", "稍重", "重", "不良"]
+
 def now_ts() -> float:
     return time.time()
 
@@ -380,6 +388,31 @@ def decide_race_order(pets: list[dict]):
 
     results.sort(key=lambda x: x["score"], reverse=True)
     return results
+
+# -------------------------
+# レース予定関数
+# -------------------------
+
+def build_race_schedule_embed(schedules: list[dict]) -> discord.Embed:
+    embed = discord.Embed(
+        title="🗓 本日のレース予定",
+        description="本日開催されるレース一覧です。",
+        color=discord.Color.blue()
+    )
+
+    for s in schedules:
+        embed.add_field(
+            name=f"第{s['race_no']}レース（🕘 {s['race_time']}）",
+            value=(
+                f"🏁 距離：{s['distance']}\n"
+                f"🏟 バ場：{s['surface']}\n"
+                f"🌧 状態：{s['condition']}"
+            ),
+            inline=False
+        )
+
+    embed.set_footer(text="※ レース参加は各おあしすっちから行えます")
+    return embed
 # =========================
 # Cog
 # =========================
@@ -1008,8 +1041,8 @@ class OasistchiPanelRootView(discord.ui.View):
             ephemeral=True
         )
 
-    @discord.ui.button(label="🏁 レース予定", style=discord.ButtonStyle.primary,custom_id="oasistchi:open_race_schedule")
-    async def open_race_schedule(
+    @discord.ui.button(label="🗓 レース予定", style=discord.ButtonStyle.primary)
+    async def show_race_schedule(
         self,
         interaction: discord.Interaction,
         button: discord.ui.Button
@@ -1018,29 +1051,24 @@ class OasistchiPanelRootView(discord.ui.View):
 
         db = interaction.client.db
 
-        schedules = await db.get_race_schedules()
+        # 今日のレース取得
+        schedules = await db.get_today_race_schedules()
         if not schedules:
             return await interaction.followup.send(
-                "本日のレース予定はありません。",
+                "本日のレース予定はまだ生成されていません。",
                 ephemeral=True
             )
 
-        embed = discord.Embed(
-            title="🏁 本日のレース予定",
-            description="参加費：**50,000 rrc**\n同一ペットは1日1回まで",
-            color=discord.Color.gold()
+        schedules = [dict(s) for s in schedules]
+
+        embed = build_race_schedule_embed(schedules)
+        view = RaceScheduleView(schedules)
+
+        await interaction.followup.send(
+            embed=embed,
+            view=view,
+            ephemeral=True
         )
-
-        for s in schedules:
-            embed.add_field(
-            name=    f"第{s['race_no']}レース",
-                value=f"🕒 {s['race_time'].strftime('%H:%M')}",
-                inline=False
-            )
-
-        embed.set_footer(text="⏱ レース30分前からエントリー可能")
-
-        await interaction.followup.send(embed=embed, ephemeral=True)
 
 # =========================
 # プルダウン View
@@ -1966,6 +1994,23 @@ class RaceEntryConfirmView(discord.ui.View):
             ephemeral=True
         )
         self.stop()
+
+
+class RaceScheduleView(discord.ui.View):
+    def __init__(self, schedules: list[dict]):
+        super().__init__(timeout=60)
+        self.schedules = schedules
+
+    @discord.ui.button(label="❌ 閉じる", style=discord.ButtonStyle.gray)
+    async def close(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button
+    ):
+        await interaction.response.defer()
+        self.stop()
+
+
 async def setup(bot):
     cog = OasistchiCog(bot)
     await bot.add_cog(cog)
@@ -1979,35 +2024,6 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
