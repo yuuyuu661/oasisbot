@@ -426,13 +426,13 @@ class OasistchiCog(commands.Cog):
         # うんち（1時間ごと）
         # -------------------
         elapsed = now - pet.get("last_poop_tick", 0)
-        if elapsed >= 3600:
-            updates["last_poop_tick"] = now
+        if elapsed >= 3600 and not pet.get("poop", False):
 
-            # 卵のうんち抽選（例：30%）
-            if pet["stage"] == "egg" and not pet.get("poop", False):
-                if random.random() < 0.3:
-                    updates["poop"] = True
+            chance = 0.3 if pet["stage"] == "egg" else 0.4  # 成体は出やすく
+
+            if random.random() < chance:
+                updates["poop"] = True
+                updates["last_poop_tick"] = now
 
         # -------------------
         # 孵化成長（1時間単位）
@@ -1883,6 +1883,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
