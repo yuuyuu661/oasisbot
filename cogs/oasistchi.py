@@ -398,6 +398,15 @@ class OasistchiCog(commands.Cog):
 
         uid = str(pet["user_id"])
         notify = await db.get_oasistchi_notify_settings(uid)  # Noneなら通知しない（孵化以外）
+        # -------------------------
+        # 通知設定：デフォルトON
+        # -------------------------
+        if notify is None:
+            notify = {
+                "notify_poop": True,
+                "notify_food": True,
+                "notify_pet_ready": True,
+            }
 
         # 送信トリガー
         trigger_hatch = False
@@ -527,24 +536,23 @@ class OasistchiCog(commands.Cog):
             )
 
         # B) ON/OFF系：設定がある人だけ
-        if notify is not None:
-            if trigger_poop and notify.get("notify_poop", False):
-                await safe_dm(
-                    f"💩 **{pet_name}** がうんちしたよ！\n"
-                    "`/おあしすっち` でお世話してね！"
-                )
+        if trigger_poop and notify.get("notify_poop", False):
+            await safe_dm(
+                f"💩 **{pet_name}** がうんちしたよ！\n"
+                "`/おあしすっち` でお世話してね！"
+            )
 
-            if trigger_hunger and notify.get("notify_food", False):
-                await safe_dm(
-                   f"🍖 **{pet_name}** がおなかすいてるみたい…\n"
-                    "`/おあしすっち` でごはんをあげてね！"
-                )
+        if trigger_hunger and notify.get("notify_food", False):
+            await safe_dm(
+                f"🍖 **{pet_name}** がおなかすいてるみたい…\n"
+                "`/おあしすっち` でごはんをあげてね！"
+            )
 
-            if trigger_pet_ready and notify.get("notify_pet_ready", False):
-                await safe_dm(
-                    f"🤚 **{pet_name}** をなでなでできるよ！\n"
-                    "`/おあしすっち` でなでなでしてあげてね！"
-                )
+        if trigger_pet_ready and notify.get("notify_pet_ready", False):
+            await safe_dm(
+                f"🤚 **{pet_name}** をなでなでできるよ！\n"
+                "`/おあしすっち` でなでなでしてあげてね！"
+            )
 
     # -----------------------------
     # 管理者：パネル設置
@@ -1971,6 +1979,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
