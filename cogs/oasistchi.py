@@ -69,6 +69,12 @@ ADULT_CATALOG = [
     {"key": "ero","name": "えろこ","groups": ["purple"]},
     {"key": "gero","name": "ゲロ","groups": ["yellow"]},
     {"key": "san","name": "サンダー","groups": ["red"]},  
+    {"key": "jinsei","name": "loser","groups": ["red"]},
+    {"key": "kaeko","name": "かえこ","groups": ["blue"]},
+    {"key": "remi","name": "れみたん","groups": ["green"]},
+    {"key": "tonbo","name": "トンボ","groups": ["purple"]},
+    {"key": "yuyu","name": "ゆゆ","groups": ["yellow"]},
+    
 ]
 
 TRAIN_RESULTS = [
@@ -319,22 +325,22 @@ def calc_race_score(stats: dict) -> float:
 # -------------------------
 # レースコンディション
 # -------------------------  
-def get_race_condition(happiness: int) -> tuple[str, str]:
+def get_race_condition(happiness: int) -> tuple[str, str, int]:
     """
     幸福度からレースコンディションを返す
-    return: (label, emoji)
+    return: (label, emoji, face_count)
     """
-    happiness = max(0, min(100, happiness))
-    level = max(1, round(happiness / 10))  # 😊1〜10
+    happiness = max(0, min(100, int(happiness)))
+    face_count = max(1, min(10, round(happiness / 10)))  # 😊1〜10
 
-    if level >= 10:
-        return "絶好調", "✨🔥"
-    elif level >= 7:
-        return "良好", "😊"
-    elif level >= 4:
-        return "普通", "🙂"
+    if face_count == 10:
+        return "絶好調", "✨🔥", face_count
+    elif 7 <= face_count <= 9:
+        return "良好", "😊", face_count
+    elif 4 <= face_count <= 6:
+        return "普通", "🙂", face_count
     else:
-        return "不調", "😨"
+        return "不調", "😨", face_count
 # -------------------------
 # 順位決定
 # -------------------------
@@ -1843,6 +1849,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
