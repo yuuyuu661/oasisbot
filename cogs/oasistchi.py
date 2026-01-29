@@ -425,14 +425,18 @@ class OasistchiCog(commands.Cog):
         # -------------------
         # うんち（1時間ごと）
         # -------------------
-        elapsed = now - pet.get("last_poop_tick", 0)
-        if elapsed >= 3600 and not pet.get("poop", False):
+        next_check = pet.get("next_poop_check_at", 0)
 
-            chance = 0.3 if pet["stage"] == "egg" else 0.4  # 成体は出やすく
+        if now >= next_check and not pet.get("poop", False):
+            chance = 0.4 if pet["stage"] == "adult" else 0.3
 
             if random.random() < chance:
                 updates["poop"] = True
-                updates["last_poop_tick"] = now
+                trigger_poop = True
+                updates["poop_notified_at"] = now
+
+            # 次回チェックは必ず1時間後
+            updates["next_poop_check_at"] = now + 3600
 
         # -------------------
         # 孵化成長（1時間単位）
@@ -488,13 +492,12 @@ class OasistchiCog(commands.Cog):
                 updates["hunger_alerted"] = False
 
         # (3) 🤚 なでなで通知：3時間CTが明けた瞬間（通知設定がある人だけ）
-        if pet["stage"] == "adult":
-            last_pet = float(pet.get("last_pet", 0))
-            if last_pet > 0 and (now - last_pet) >= 10800:
-                # まだこの last_pet に対して通知してないなら通知
-                if float(pet.get("pet_ready_alerted_for", 0)) < last_pet:
-                    trigger_pet_ready = True
-                    updates["pet_ready_alerted_for"] = last_pet
+        pet_ready_at = pet.get("pet_ready_at", 0)
+        pet_ready_notified_at = pet.get("pet_ready_notified_at", 0)
+
+        if pet_ready_at > 0 and now >= pet_ready_at and pet_ready_notified_at < pet_ready_at:
+            trigger_pet_ready = True
+            updates["pet_ready_notified_at"] = now
 
         # =========================
         # DB更新
@@ -1338,6 +1341,8 @@ class CareView(discord.ui.View):
             happiness=new_happiness,
             growth=new_growth,
             last_pet=now,
+            pet_ready_at=now + 10800,      # ← 次になでなで可能な時刻
+            pet_ready_notified_at=0,       # ← 通知リセット
             last_interaction=now,
         )
         pet = await db.get_oasistchi_pet(self.pet_id)
@@ -1399,6 +1404,8 @@ class CareView(discord.ui.View):
             self.pet_id,
             poop=False,
             happiness=new_happiness,
+            next_poop_check_at=now + 3600,  
+            poop_notified_at=0,
             last_interaction=now,
         )
 
@@ -1954,6 +1961,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
