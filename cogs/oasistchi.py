@@ -713,8 +713,11 @@ class OasistchiCog(commands.Cog):
 
         # pet は autocomplete 経由の「文字列ID」のみ許可
         if pet is not None:
-            # 手入力は完全拒否
-            if not pet.isdigit():
+            # 自分のペット一覧を先に取得
+            my_pet_ids = {str(p["id"]) for p in pets}
+
+            # プルダウン由来でない入力はすべて拒否
+            if pet not in my_pet_ids:
                 return await interaction.followup.send(
                     "❌ プルダウンから選択してください。",
                     ephemeral=True
@@ -723,14 +726,7 @@ class OasistchiCog(commands.Cog):
             pet_id = int(pet)
             pet = await db.get_oasistchi_pet(pet_id)
 
-            # 存在しない or 所有者が違う
-            if not pet or str(pet["user_id"]) != uid:
-                return await interaction.followup.send(
-                    "❌ プルダウンから正しく選択してください。",
-                    ephemeral=True
-                )
         else:
-            # 未指定時は先頭の自分のペット
             pet = dict(pets[0])
 
 
@@ -1847,6 +1843,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
