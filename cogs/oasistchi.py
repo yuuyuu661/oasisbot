@@ -1674,23 +1674,25 @@ class CareView(discord.ui.View):
         interaction: discord.Interaction,
         button: discord.ui.Button
     ):
+        # ★最初に defer
+        await interaction.response.defer(ephemeral=True)
+
         if not self.is_owner(interaction):
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 "❌ このおあしすっちはあなたのものではありません。",
                 ephemeral=True
             )
 
         db = interaction.client.db
-        pet = self.pet  # ← この View が持っているおあしすっち
+        pet = self.pet
 
         # ---- コンディション計算 ----
         condition, condition_emoji, face_count = get_race_condition(
             pet.get("happiness", 0)
         )
 
-        ENTRY_FEE = 50000  # 仮（後で設定DBにしてもOK）
+        ENTRY_FEE = 50000
 
-        # ---- 確認用Embed ----
         embed = discord.Embed(
             title="🏁 レース出走確認",
             description="この状態でレースに出走しますか？",
@@ -1717,7 +1719,8 @@ class CareView(discord.ui.View):
 
         view = RaceEntryConfirmView(pet, ENTRY_FEE)
 
-        await interaction.response.send_message(
+        # ★最後は followup
+        await interaction.followup.send(
             embed=embed,
             view=view,
             ephemeral=True
@@ -1950,6 +1953,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
