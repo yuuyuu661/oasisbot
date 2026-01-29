@@ -282,6 +282,26 @@ def build_dex_tile_image(adults: list[dict], owned: set[str]):
     buf.seek(0)
     return buf
 
+# -------------------------
+# たまご表示関数
+# -------------------------
+def get_pet_display_name(pet: dict) -> str:
+    """
+    autocomplete / 表示用の名前
+    ・成体 → pet["name"]
+    ・たまご → 「🔴 あかいたまご」など
+    """
+    if pet.get("stage") == "adult":
+        return pet.get("name", "おあしすっち")
+
+    # たまご
+    egg_type = pet.get("egg_type", "red")
+    for key, label in EGG_COLORS:
+        if key == egg_type:
+            return label
+
+    return "🥚 たまご"
+
 
 # =========================
 # Cog
@@ -495,7 +515,7 @@ class OasistchiCog(commands.Cog):
         # 名前指定がある場合
         if name:
             for p in pets:
-                if p.get("name") == name:
+                if get_pet_display_name(p) == name:
                     pet = dict(p)
                     break
 
@@ -605,14 +625,13 @@ class OasistchiCog(commands.Cog):
 
         choices = []
         for pet in pets:
-            pet_name = pet.get("name") or "たまご"
+            display_name = get_pet_display_name(pet)
 
-            # 入力途中の文字でフィルタ
-            if current.lower() in pet_name.lower():
+            if current.lower() in display_name.lower():
                 choices.append(
                     app_commands.Choice(
-                        name=pet_name,
-                        value=pet_name
+                        name=display_name,
+                        value=display_name
                     )
                 )
 
@@ -1646,6 +1665,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
