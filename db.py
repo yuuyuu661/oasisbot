@@ -399,6 +399,34 @@ class Database:
                 await self.conn.execute(
                     f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
                 )
+        # --------------------------------------------------
+        # おあしすっち：通知時刻の正規化（安全版）
+        # --------------------------------------------------
+        now = time.time()
+
+        col_check = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'oasistchi_pets';
+        """)
+        cols = {row["column_name"] for row in col_check}
+
+        # 💩 うんち：次回チェック時刻が未設定の個体
+        if "next_poop_check_at" in cols:
+            await self.conn.execute("""
+                UPDATE oasistchi_pets
+                SET next_poop_check_at = $1
+                WHERE next_poop_check_at = 0;
+            """, now + 3600)
+
+        # 🤚 なでなで：last_pet があるのに予定時刻が無い個体
+        if "pet_ready_at" in cols:
+            await self.conn.execute("""
+                UPDATE oasistchi_pets
+                SET pet_ready_at = last_pet + 10800
+                WHERE last_pet > 0 AND pet_ready_at = 0;
+            """)
+        
 
         col_check = await self.conn.fetch("""
             SELECT column_name
@@ -1145,6 +1173,7 @@ class Database:
             user_id
         )
         return dict(row) if row else None
+
 
 
 
