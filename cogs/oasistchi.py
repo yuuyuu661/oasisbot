@@ -585,8 +585,9 @@ class OasistchiCog(commands.Cog):
                 )
         else:
             pet = adults[0]
-            # ---- レース前コンディション ----
-            condition, condition_emoji, face_count = get_race_condition(pet.get("happiness", 0))
+
+        # ★追加：レース前コンディション
+        condition, condition_emoji, face_count = get_race_condition(pet.get("happiness", 0))
 
         # ---- レース計算 ----
         stats = calc_effective_stats(pet)
@@ -598,6 +599,8 @@ class OasistchiCog(commands.Cog):
             description=f"**{pet['name']}**",
             color=discord.Color.orange()
         )
+
+        # ★追加：コンディション表示フィールド
         embed.add_field(
             name="🧠 レース前コンディション",
             value=f"{condition_emoji} **{condition}**（😊×{face_count}）",
@@ -1863,6 +1866,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
