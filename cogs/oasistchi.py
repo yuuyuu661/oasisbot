@@ -1165,26 +1165,6 @@ class ConfirmPurchaseView(discord.ui.View):
                 view=None
             )
 
-        # 残高減算
-        try:
-            settings = await db.get_settings()
-            unit = settings["currency_unit"]
-
-            row = await db.get_user(uid, gid)
-            balance = row["balance"]
-
-            if balance < self.price:
-                return await interaction.response.edit_message(...)
-
-            await db.remove_balance(uid, gid, self.price)
-
-        except Exception as e:
-            print("purchase error:", repr(e))
-            return await interaction.response.edit_message(
-                content="❌ 通貨処理中にエラーが発生しました。",
-                view=None
-            )
-
         # -------------------------
         # 購入内容の反映
         # -------------------------
@@ -1871,6 +1851,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
