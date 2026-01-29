@@ -694,11 +694,11 @@ class OasistchiCog(commands.Cog):
     # ユーザー：おあしすっち表示（既存）
     # -----------------------------
     @app_commands.command(name="おあしすっち")
-    @app_commands.describe(name="表示したいおあしすっち")
+    @app_commands.describe(pet="表示したいおあしすっち")
     async def oasistchi(
         self,
         interaction: discord.Interaction,
-        name: str | None = None
+        pet: int | None = None
     ):
         await interaction.response.defer(ephemeral=True)
         db = interaction.client.db
@@ -714,11 +714,15 @@ class OasistchiCog(commands.Cog):
         pet = None
 
         # 名前指定がある場合
-        if name:
-            for p in pets:
-                if get_pet_display_name(p) == name:
-                    pet = dict(p)
-                    break
+        if pet is not None:
+            pet = await db.get_oasistchi_pet(pet)
+            if not pet:
+                return await interaction.followup.send(
+                    "指定されたおあしすっちが見つかりません。",
+                    ephemeral=True
+                )
+        else:
+            pet = dict(pets[0])
 
             if not pet:
                 return await interaction.followup.send(
@@ -811,7 +815,7 @@ class OasistchiCog(commands.Cog):
 
         return discord.File(path, filename="pet.gif")
 
-    @oasistchi.autocomplete("name")
+    @oasistchi.autocomplete("pet")
     async def oasistchi_autocomplete(
         self,
         interaction: discord.Interaction,
@@ -824,19 +828,31 @@ class OasistchiCog(commands.Cog):
         if not pets:
             return []
 
-        choices = []
-        for pet in pets:
-            display_name = get_pet_display_name(pet)
+        # 同色卵の番号付け用
+        egg_counter: dict[str, int] = {}
 
-            if current.lower() in display_name.lower():
+        choices = []
+
+        for pet in pets:
+            display = get_pet_display_name(pet)
+
+            # 卵だけ番号を付ける
+            if pet.get("stage") == "egg":
+                egg_type = pet.get("egg_type", "egg")
+                egg_counter[egg_type] = egg_counter.get(egg_type, 0) + 1
+                display = f"{display} #{egg_counter[egg_type]}"
+            else:
+                display = f"🧬 {display}"
+
+            if current.lower() in display.lower():
                 choices.append(
                     app_commands.Choice(
-                        name=display_name,
-                        value=display_name
+                        name=display,
+                        value=int(pet["id"])   
                     )
                 )
 
-        return choices[:25] 
+        return choices[:25]
 
     # -----------------------------
     # うんち抽選（60分）
@@ -1866,6 +1882,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
