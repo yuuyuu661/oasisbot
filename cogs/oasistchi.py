@@ -1170,30 +1170,25 @@ class ConfirmPurchaseView(discord.ui.View):
         # -------------------------
 
         if self.kind == "egg":
-            uid = str(interaction.user.id)
-
-            # 育成枠チェック
             pets = await db.get_oasistchi_pets(uid)
             user_row = await db.get_oasistchi_user(uid)
 
             if len(pets) >= user_row["slots"]:
                 return await interaction.response.edit_message(
-                    content=(
-                        "❌ 育成枠がいっぱいです。\n"
-                        "「お別れ」するか、課金で枠を拡張してください。"
-                    ),
+                    "❌ 育成枠がいっぱいです。",
                     view=None
                 )
 
-            await db.add_oasistchi_egg(
-                uid,
-                self.egg_key or "red"
-            )
+            # ✅ ここで初めて課金
+            await db.remove_balance(uid, gid, self.price)
+            await db.add_oasistchi_egg(uid, self.egg_key or "red")
+
+            new_balance = balance - self.price
 
             return await interaction.response.edit_message(
                 content=(
                     f"✅ **たまごを購入しました！**\n"
-                    f"残高: **{balance - self.price:,} {unit}**\n"
+                    f"残高: **{new_balance:,} {unit}**\n"
                     f"`/おあしすっち` で確認できます"
                 ),
                 view=None
@@ -1203,34 +1198,33 @@ class ConfirmPurchaseView(discord.ui.View):
             user_row = await db.get_oasistchi_user(uid)
             current_slots = user_row["slots"]
 
-            # 最大10枠
             if current_slots >= 10:
                 return await interaction.response.edit_message(
-                    content="❌ 育成枠は最大 **10枠** までです。",
+                    "❌ 育成枠は最大 **10枠** までです。",
                     view=None
                 )
 
-            # 価格判定
-            # 1〜5枠目：通常価格
-            # 6〜10枠目：2倍
-            price = self.slot_price
-            if current_slots >= 5:
-                price = self.slot_price * 2
-
-            # 残高再チェック（念のため）
-            settings = await db.get_settings()
-            unit = settings["currency_unit"]
-            row = await db.get_user(uid, gid)
-            balance = row["balance"]
+            price = self.slot_price * 2 if current_slots >= 5 else self.slot_price
 
             if balance < price:
                 return await interaction.response.edit_message(
-                    content=(
-                        f"❌ 残高が足りません。\n"
-                        f"現在: **{balance:,} {unit}** / 必要: **{price:,} {unit}**"
-                    ),
+                    f"❌ 残高が足りません。\n"
+                    f"現在: **{balance:,} {unit}** / 必要: **{price:,} {unit}**",
                     view=None
                 )
+
+            # ✅ 課金はここで1回だけ
+            await db.remove_balance(uid, gid, price)
+            await db.add_oasistchi_slot(uid, 1)
+
+            return await interaction.response.edit_message(
+                content=(
+                    f"✅ **育成枠を1つ増築しました！**\n"
+                    f"現在の育成枠: **{current_slots + 1} / 10**\n"
+                    f"消費: **{price:,} {unit}**"
+                ),
+                view=None
+            )
 
             # 支払い
             await db.remove_balance(uid, gid, price)
@@ -1851,6 +1845,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
