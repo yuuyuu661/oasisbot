@@ -316,7 +316,25 @@ def calc_race_score(stats: dict) -> float:
         stats["power"] * 0.4 +
         random.uniform(-5, 5)  # ブレ
     )
+# -------------------------
+# レースコンディション
+# -------------------------  
+def get_race_condition(happiness: int) -> tuple[str, str]:
+    """
+    幸福度からレースコンディションを返す
+    return: (label, emoji)
+    """
+    happiness = max(0, min(100, happiness))
+    level = max(1, round(happiness / 10))  # 😊1〜10
 
+    if level >= 10:
+        return "絶好調", "✨🔥"
+    elif level >= 7:
+        return "良好", "😊"
+    elif level >= 4:
+        return "普通", "🙂"
+    else:
+        return "不調", "😨"
 # -------------------------
 # 順位決定
 # -------------------------
@@ -1837,6 +1855,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
