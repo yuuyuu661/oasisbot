@@ -1680,8 +1680,46 @@ class CareView(discord.ui.View):
                 ephemeral=True
             )
 
-        return await interaction.response.send_message(
-            "🚧 現在開発中です。\nアップデートをお待ちください！",
+        db = interaction.client.db
+        pet = self.pet  # ← この View が持っているおあしすっち
+
+        # ---- コンディション計算 ----
+        condition, condition_emoji, face_count = get_race_condition(
+            pet.get("happiness", 0)
+        )
+
+        ENTRY_FEE = 50000  # 仮（後で設定DBにしてもOK）
+
+        # ---- 確認用Embed ----
+        embed = discord.Embed(
+            title="🏁 レース出走確認",
+            description="この状態でレースに出走しますか？",
+            color=discord.Color.red()
+        )
+
+        embed.add_field(
+            name="🐣 参加おあしすっち",
+            value=f"**{pet['name']}**",
+            inline=False
+        )
+
+        embed.add_field(
+            name="🧠 コンディション",
+            value=f"{condition_emoji} **{condition}**（😊×{face_count}）",
+            inline=False
+        )
+
+        embed.add_field(
+            name="💰 参加費",
+            value=f"{ENTRY_FEE:,}",
+            inline=False
+        )
+
+        view = RaceEntryConfirmView(pet, ENTRY_FEE)
+
+        await interaction.response.send_message(
+            embed=embed,
+            view=view,
             ephemeral=True
         )
 
@@ -1869,7 +1907,36 @@ class TrainingConfirmButton(discord.ui.Button):
             f"🏋️ 特訓回数：{pet.get('training_count', 0) + 1} / 30",
             ephemeral=True
         )
+        # レース
+class RaceEntryConfirmView(discord.ui.View):
+    def __init__(self, pet: dict, entry_fee: int):
+        super().__init__(timeout=60)
+        self.pet = pet
+        self.entry_fee = entry_fee
 
+    @discord.ui.button(label="🏁 この状態で出走する", style=discord.ButtonStyle.success)
+    async def confirm(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button
+    ):
+        await interaction.response.send_message(
+            "🏁 レースにエントリーしました！（※ まだ仮）",
+            ephemeral=True
+        )
+        self.stop()
+
+    @discord.ui.button(label="❌ やめる", style=discord.ButtonStyle.gray)
+    async def cancel(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button
+    ):
+        await interaction.response.send_message(
+            "キャンセルしました。",
+            ephemeral=True
+        )
+        self.stop()
 async def setup(bot):
     cog = OasistchiCog(bot)
     await bot.add_cog(cog)
@@ -1883,6 +1950,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
