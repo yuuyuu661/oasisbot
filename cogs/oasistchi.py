@@ -307,7 +307,26 @@ def get_pet_display_name(pet: dict) -> str:
             return label
 
     return "🥚 たまご"
+# -------------------------
+# 通知名前判定
+# -------------------------
+def get_pet_notify_name(pet: dict) -> str:
+    """
+    通知用のおあしすっち名
+    例：
+    ・🧬 やまだ
+    ・🔴 あかいたまご
+    """
+    if pet.get("stage") == "adult":
+        return f"🧬 {pet.get('name', 'おあしすっち')}"
 
+    # たまご
+    egg_type = pet.get("egg_type", "red")
+    for key, label in EGG_COLORS:
+        if key == egg_type:
+            return label
+
+    return "🥚 おあしすっち"
 # -------------------------
 # レーススコア計算
 # -------------------------
@@ -494,20 +513,35 @@ class OasistchiCog(commands.Cog):
             except:
                 pass
 
+        # 通知用の表示名を作る（ここで1回だけ）
+        pet_name = get_pet_notify_name(pet)
+
         # A) 孵化通知：常に送る（1回のみ）
         if trigger_hatch:
-            await safe_dm("おあしすっちが孵化できるよ！\n`/おあしすっち` で確認してね！")
+            await safe_dm(
+                f"🐣 **{pet_name}** が孵化できるよ！\n"
+                "`/おあしすっち` で確認してね！"
+            )
 
         # B) ON/OFF系：設定がある人だけ
         if notify is not None:
             if trigger_poop and notify.get("notify_poop", False):
-                await safe_dm("💩 おあしすっちがうんちした！\n`/おあしすっち` でお世話してね！")
+                await safe_dm(
+                    f"💩 **{pet_name}** がうんちしたよ！\n"
+                    "`/おあしすっち` でお世話してね！"
+                )
 
             if trigger_hunger and notify.get("notify_food", False):
-                await safe_dm("🍖 おあしすっちがおなかすいてるみたい…\n`/おあしすっち` でごはんをあげてね！")
+                await safe_dm(
+                   f"🍖 **{pet_name}** がおなかすいてるみたい…\n"
+                    "`/おあしすっち` でごはんをあげてね！"
+                )
 
             if trigger_pet_ready and notify.get("notify_pet_ready", False):
-                await safe_dm("🤚 なでなでできるようになったよ！\n`/おあしすっち` でなでなでしてね！")
+                await safe_dm(
+                    f"🤚 **{pet_name}** をなでなでできるよ！\n"
+                    "`/おあしすっち` でなでなでしてあげてね！"
+                )
 
     # -----------------------------
     # 管理者：パネル設置
@@ -1849,6 +1883,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
