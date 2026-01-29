@@ -490,14 +490,24 @@ class OasistchiCog(commands.Cog):
                 ephemeral=True
             )
 
-        pet_index = (index - 1) if index else 0
-        if pet_index < 0 or pet_index >= len(pets):
-            return await interaction.followup.send(
-                "その番号のおあしすっちは存在しません。",
-                ephemeral=True
-            )
+        pet = None
 
-        pet = dict(pets[pet_index])
+        # 名前指定がある場合
+        if name:
+            for p in pets:
+                if p.get("name") == name:
+                    pet = dict(p)
+                    break
+
+            if not pet:
+                return await interaction.followup.send(
+                    "指定されたおあしすっちが見つかりません。",
+                    ephemeral=True
+                )
+
+        # 未指定なら先頭
+        else:
+            pet = dict(pets[0])
 
         await self.process_time_tick(pet)
 
@@ -1636,6 +1646,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
