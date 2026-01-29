@@ -275,24 +275,7 @@ class Database:
         );
         """)
         
-        # --------------------------------------------------
-        # おあしすっち：通知時刻の正規化（既存データ救済）
-        # --------------------------------------------------
-        now = time.time()
 
-        # うんち：次回チェック時刻が無い個体
-       #  await self.conn.execute("""
-       #      UPDATE oasistchi_pets
-       #      SET next_poop_check_at = $1
-       #      WHERE next_poop_check_at = 0;
-      #   """, now + 3600)
-
-        # なでなで：last_pet があるのに pet_ready_at が無い個体
-        await self.conn.execute("""
-            UPDATE oasistchi_pets
-            SET pet_ready_at = last_pet + 10800
-            WHERE last_pet > 0 AND pet_ready_at = 0;
-        """)
         # --------------------------------------------------
         # おあしすっち：レース用カラム補完
         # --------------------------------------------------
@@ -1162,6 +1145,7 @@ class Database:
             user_id
         )
         return dict(row) if row else None
+
 
 
 
