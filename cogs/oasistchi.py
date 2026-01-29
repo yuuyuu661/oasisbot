@@ -957,20 +957,48 @@ class ConfirmPurchaseView(discord.ui.View):
 
         if self.kind == "slot":
             user_row = await db.get_oasistchi_user(uid)
+            current_slots = user_row["slots"]
 
-            if user_row["slots"] >= 5:
+            # 最大10枠
+            if current_slots >= 10:
                 return await interaction.response.edit_message(
-                    content="❌ 育成枠は最大 **5枠** までです。",
+                    content="❌ 育成枠は最大 **10枠** までです。",
                     view=None
                 )
 
+            # 価格判定
+            # 1〜5枠目：通常価格
+            # 6〜10枠目：2倍
+            price = self.slot_price
+            if current_slots >= 5:
+                price = self.slot_price * 2
+
+            # 残高再チェック（念のため）
+            settings = await db.get_settings()
+            unit = settings["currency_unit"]
+            row = await db.get_user(uid, gid)
+            balance = row["balance"]
+
+            if balance < price:
+                return await interaction.response.edit_message(
+                    content=(
+                        f"❌ 残高が足りません。\n"
+                        f"現在: **{balance:,} {unit}** / 必要: **{price:,} {unit}**"
+                    ),
+                    view=None
+                )
+
+            # 支払い
+            await db.remove_balance(uid, gid, price)
+
+            # 枠追加
             await db.add_oasistchi_slot(uid, 1)
 
             return await interaction.response.edit_message(
                 content=(
                     f"✅ **育成枠を1つ増築しました！**\n"
-                    f"現在の育成枠: **{user_row['slots']}**\n"
-                    f"残高: **{balance - self.price:,} {unit}**"
+                    f"現在の育成枠: **{current_slots + 1}** / 10\n"
+                    f"消費: **{price:,} {unit}**"
                 ),
                 view=None
             )
@@ -1579,6 +1607,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
