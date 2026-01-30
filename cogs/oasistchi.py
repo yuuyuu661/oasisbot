@@ -429,7 +429,9 @@ class OasistchiCog(commands.Cog):
         self.poop_check.start()
 
     async def run_race_lottery(self, race: dict):
-    # レース抽選処理
+        """
+        レース抽選処理
+        """
         db = self.bot.db
 
         race_id = race["id"]
@@ -499,7 +501,7 @@ class OasistchiCog(commands.Cog):
                     race_date=race_date,
                     exclude_schedule_id=race_id
                 )
-           else:
+            else:
                 await db.update_race_entry_status(e["id"], "cancelled")
                 await db.refund_entry(
                     e["user_id"],
@@ -2235,6 +2237,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
