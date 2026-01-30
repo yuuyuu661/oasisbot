@@ -2014,16 +2014,11 @@ class RaceScheduleView(discord.ui.View):
 async def setup(bot):
     cog = OasistchiCog(bot)
     await bot.add_cog(cog)
-    bot.add_view(
-        OasistchiPanelRootView(
-            egg_price=0,   # ダミー値でOK
-            slot_price=0   # ダミー値でOK
-        )
-    )
 
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
