@@ -1487,6 +1487,7 @@ class ConfirmPurchaseView(discord.ui.View):
         self.price = int(price)
         self.egg_key = egg_key
         self.slot_price = slot_price
+        self._confirmed = False
 
     @discord.ui.button(label="購入する", style=discord.ButtonStyle.green)
     async def ok(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -2548,6 +2549,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
