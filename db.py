@@ -1385,21 +1385,14 @@ class Database:
     # =====================================================
     # レース：同一ユーザーの重複エントリーチェック
     # =====================================================
-    async def has_user_entry_for_race(self, race_schedule_id: int, user_id: str) -> bool:
-        # ===== デバッグ用（一時的） =====
-        rows = await self.conn.fetch("""
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_name = 'race_entries';
-        """)
-        print("[RACE_ENTRIES COLUMNS]", [r["column_name"] for r in rows])
+    async def has_user_entry_for_race(self, schedule_id: int, user_id: str) -> bool:
         row = await self.conn.fetchrow("""
             SELECT 1
             FROM race_entries
-            WHERE race_schedule_id = $1
+            WHERE schedule_id = $1
               AND user_id = $2
             LIMIT 1;
-        """, race_schedule_id, user_id)
+        """, schedule_id, user_id)
 
         return row is not None
     # =====================================================
@@ -1475,6 +1468,7 @@ class Database:
             WHERE race_schedule_id = $1
               AND status = 'cancelled'
         """, race_schedule_id)
+
 
 
 
