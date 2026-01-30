@@ -1223,6 +1223,15 @@ class Database:
         """, race_date)
 
     async def generate_today_races(self, race_date: date):
+        cols = await self.conn.fetch("""
+            SELECT column_name, is_nullable
+            FROM information_schema.columns
+            WHERE table_name = 'race_schedules'
+            ORDER BY ordinal_position;
+        """)
+        print("[RACE DEBUG] race_schedules columns:")
+        for c in cols:
+            print(f"  {c['column_name']} | nullable={c['is_nullable']}")
         # 念のため同日分を削除（再生成耐性）
         await self.conn.execute("""
             DELETE FROM race_schedules
@@ -1307,6 +1316,7 @@ class Database:
                 ALTER COLUMN race_time TYPE TEXT
                 USING race_time::text;
             """)
+
 
 
 
