@@ -1376,6 +1376,21 @@ class Database:
               AND status = 'pending'
         """, pet_id, race_date, exclude_race_id)
 
+    # =====================================================
+    # レース：同一ユーザーの重複エントリーチェック
+    # =====================================================
+    async def has_user_entry_for_race(self, race_id: int, user_id: str) -> bool:
+        row = await self.conn.fetchrow("""
+            SELECT 1
+            FROM race_entries
+            WHERE race_id = $1
+              AND user_id = $2
+            LIMIT 1;
+        """, race_id, user_id)
+
+        return row is not None
+
+
 
 
 
