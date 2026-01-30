@@ -470,89 +470,83 @@ class OasistchiCog(commands.Cog):
                 print(f"[RACE ERROR] lottery failed: {e}")
 
     async def run_race_lottery(self, race: dict):
-        """
-        レース抽選処理
-        """
         db = self.bot.db
 
         race_id = race["id"]
         race_date = race["race_date"]
-        race_time = race["race_time"]
+        max_entries = race["max_entries"]
+        entry_fee = race["entry_fee"]
 
-        # ----------------------------------
+        # -------------------------
         # ① pending エントリー取得
-        # ----------------------------------
+        # -------------------------
         entries = await db.get_race_entries(race_id)
+        entry_count = len(entries)
 
-        if len(entries) == 0:
-            print(f"[RACE] {race_time} エントリーなし → 中止")
+        print(f"[RACE] 抽選開始 race_id={race_id} entries={entry_count}")
+
+        # -------------------------
+        # ② エントリー0件 → 中止
+        # -------------------------
+        if entry_count == 0:
+            print(f"[RACE] race_id={race_id} エントリー0件 → 中止")
             return
 
-        # ----------------------------------
-        # ② すでに本日出走確定している pet / user を除外
-        # ----------------------------------
-        selected_pet_ids = await db.get_today_selected_pet_ids(race_date)
-        selected_user_ids = set()
+        # -------------------------
+        # ③ エントリー1件 → 中止＋返金
+        # -------------------------
+        if entry_count == 1:
+            entry = entries[0]
 
-        valid_entries = []
-        for e in entries:
-            if e["pet_id"] in selected_pet_ids:
-                continue
-            if e["user_id"] in selected_user_ids:
-                continue
+            await db.update_race_entry_status(entry["id"], "cancelled")
+            await db.refund_entry(
+                entry["user_id"],
+                entry["guild_id"],
+                entry_fee
+            )
 
-            valid_entries.append(e)
-            selected_user_ids.add(e["user_id"])
-
-        # ----------------------------------
-        # ③ 出走1体のみ → レース中止
-        # ----------------------------------
-        if len(valid_entries) <= 1:
-            print(f"[RACE] {race_time} 出走1体以下 → レース中止")
-
-            for e in entries:
-                await db.update_race_entry_status(e["id"], "cancelled")
-                await db.refund_entry(
-                    e["user_id"],
-                    e["guild_id"],
-                    e["entry_fee"]
-                )
+            print(f"[RACE] race_id={race_id} 1件のみ → 中止＆返金")
             return
 
-        # ----------------------------------
-        # ④ 抽選（最大8体）
-        # ----------------------------------
-        selected = random.sample(
-            valid_entries,
-            min(MAX_ENTRIES, len(valid_entries))
-        )
+        # -------------------------
+        # ④ 抽選対象シャッフル
+        # -------------------------
+        entries = list(entries)
+        random.shuffle(entries)
 
-        selected_ids = {e["id"] for e in selected}
+        # -------------------------
+        # ⑤ selected / cancelled 分岐
+        # -------------------------
+        selected = entries[:max_entries]
+        cancelled = entries[max_entries:]
 
-        # ----------------------------------
-        # ⑤ ステータス更新
-        # ----------------------------------
-        for e in entries:
-            if e["id"] in selected_ids:
-                await db.update_race_entry_status(e["id"], "selected")
+        # -------------------------
+        # ⑥ selected 確定
+        # -------------------------
+        for e in selected:
+            await db.update_race_entry_status(e["id"], "selected")
 
-                # 同一ペットの他レース pending を無効化
-                await db.cancel_other_entries(
-                    pet_id=e["pet_id"],
-                    race_date=race_date,
-                    exclude_schedule_id=race_id
-                )
-            else:
-                await db.update_race_entry_status(e["id"], "cancelled")
-                await db.refund_entry(
-                    e["user_id"],
-                    e["guild_id"],
-                    e["entry_fee"]
-                )
+            # 同日・他レース pending をキャンセル
+            await db.cancel_other_entries(
+                pet_id=e["pet_id"],
+                race_date=race_date,
+                exclude_schedule_id=race_id
+            )
+
+        # -------------------------
+        # ⑦ cancelled ＋ 返金
+        # -------------------------
+        for e in cancelled:
+            await db.update_race_entry_status(e["id"], "cancelled")
+            await db.refund_entry(
+                e["user_id"],
+                e["guild_id"],
+                entry_fee
+            )
 
         print(
-            f"[RACE] {race_time} 抽選完了 "
-            f"({len(selected)}/{len(entries)} 出走)"
+           f"[RACE] 抽選完了 race_id={race_id} "
+            f"selected={len(selected)} cancelled={len(cancelled)}"
         )
 
     # レース処理
@@ -2283,6 +2277,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
