@@ -2087,7 +2087,7 @@ class RaceEntryConfirmView(discord.ui.View):
             user_id=uid,
             pet_id=pet["id"],
             race_date=race_date,
-            paid=self.entry_fee,
+            paid=True,
         )
 
         # ④ 同一おあしすっちの他レースエントリーを無効化
@@ -2158,6 +2158,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
