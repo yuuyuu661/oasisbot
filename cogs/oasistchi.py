@@ -10,9 +10,10 @@ from io import BytesIO
 import asyncio
 from PIL import Image, ImageSequence
 from datetime import datetime, timezone, timedelta
-JST = timezone(timedelta(hours=9))
+
 
 def get_today_jst_date():
+    JST = timezone(timedelta(hours=9))
     """JST基準の今日の日付を返す"""
     return datetime.now(JST).date()
 
@@ -1757,7 +1758,8 @@ class CareView(discord.ui.View):
         pet = self.pet
 
         # ★ 今日のレース予定を取得
-        schedules = await db.get_today_race_schedules()
+        today = get_today_jst_date()
+        schedules = await db.get_today_race_schedules(today)
 
         if not schedules:
             return await interaction.followup.send(
@@ -2126,6 +2128,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
