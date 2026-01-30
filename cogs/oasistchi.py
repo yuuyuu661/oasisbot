@@ -2084,11 +2084,10 @@ class RaceEntryConfirmView(discord.ui.View):
         # ③ エントリー保存（pending）
         await db.insert_race_entry(
             schedule_id=schedule_id,
-            race_date=race_date,
             user_id=uid,
             pet_id=pet["id"],
-            guild_id=guild_id,
-            entry_fee=self.entry_fee
+            race_date=race_date,
+            paid=self.entry_fee,
         )
 
         # ④ 同一おあしすっちの他レースエントリーを無効化
@@ -2159,6 +2158,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
