@@ -1478,6 +1478,15 @@ class Database:
 
 
 
+    # =====================================================
+    # 抽選済みフラグ
+    # =====================================================
+    async def mark_race_lottery_done(self, race_id: int):
+        await self.conn.execute("""
+            UPDATE race_schedules
+            SET lottery_done = TRUE
+            WHERE id = $1
+        """, race_id)
 
 
 
