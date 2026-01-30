@@ -1322,6 +1322,7 @@ class ChargeSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         value = self.values[0]
+        uid = str(interaction.user.id)
 
         # ① 育成枠
         if value == "slot":
@@ -1339,96 +1340,38 @@ class ChargeSelect(discord.ui.Select):
             )
 
         # 転生
-        if value == "rebirth":
-            view = PaidPetSelectView(
-                uid=str(interaction.user.id),
-                kind="rebirth",
-                price=100_000,
-                slot_price=self.slot_price
-            )
-            select = view.children[0]
-            await select.refresh_options(interaction)
+        elif value in ("rebirth", "train_reset"):
+                price = 100_000 if value == "rebirth" else 50_000
 
-            return await interaction.response.send_message(
-                "🧬 **転生させるおあしすっちを選んでください**",
-                ephemeral=True,
-                view=view
-            )
-
-        # 特訓リセット
-        if value == "train_reset":
-            view = PaidPetSelectView(
-                uid=str(interaction.user.id),
-                kind="train_reset",
-                price=50_000,
-                slot_price=self.slot_price
-            )
-            select = view.children[0]
-            await select.refresh_options(interaction)
-
-            return await interaction.response.send_message(
-                "🏋️ **特訓リセットするおあしすっちを選んでください**",
-                ephemeral=True,
-                view=view
-            )
-
-        # ④ かぶりなし たまご
-        if self.kind == "unique_egg":
-            uid = self.uid
-            gid = self.guild_id
-
-            # -------------------------
-            # ① 育成枠チェック
-            # -------------------------
-            pets = await db.get_oasistchi_pets(uid)
-            user_row = await db.get_oasistchi_user(uid)
-
-            if len(pets) >= user_row["slots"]:
-                return await interaction.response.send_message(
-                    "❌ 育成枠がいっぱいです。",
-                    ephemeral=True
+                view = PaidPetSelectView(
+                    uid=uid,
+                    kind=value,
+                    price=price,
+                    slot_price=self.slot_price
                 )
 
-            # -------------------------
-            # ② 未所持成体を抽選
-            # -------------------------
-            owned = set(await db.get_oasistchi_owned_adult_keys(uid))
+                await interaction.response.send_message(
+                    "対象のおあしすっちを選択してください。",
+                    ephemeral=True,
+                    view=view
+                )
+                return
 
-            candidates = [
-                a for a in ADULT_CATALOG
-                if a["key"] not in owned
-            ]
-
-            if not candidates:
-                return await interaction.response.send_message(
-                    "❌ すべてのおあしすっちを所持済みです。",
-                    ephemeral=True
+            elif value == "unique_egg":
+                view = ConfirmPurchaseView(
+                    uid=str(interaction.user.id),
+                    guild_id=str(interaction.guild.id),
+                    kind="unique_egg",
+                    price=300_000,
+                    slot_price=self.slot_price
                 )
 
-            # -------------------------
-            # ③ egg_type を決める
-            # -------------------------
-            adult = random.choice(candidates)
-            egg_type = random.choice(adult["groups"])
-
-            # -------------------------
-            # ④ 課金（ここで1回だけ）
-            # -------------------------
-            await db.remove_balance(uid, gid, self.price)
-
-            # -------------------------
-            # ⑤ 卵を追加
-            # -------------------------
-            await db.add_oasistchi_egg(uid, egg_type)
-
-            return await interaction.response.send_message(
-                (
-                    "🥚 **かぶりなし たまごを入手しました！**\n"
-                    f"孵化すると **{adult['name']}** が必ず生まれます。\n"
-                    "`/おあしすっち` で確認してください。"
-                ),
-                ephemeral=True
-            )
+                await interaction.response.send_message(
+                    "🥚 **かぶりなし たまご** を購入しますか？",
+                    ephemeral=True,
+                    view=view
+                )
+                return
 
 class NotifySelectView(discord.ui.View):
     def __init__(self):
@@ -2294,14 +2237,14 @@ class TrainingConfirmButton(discord.ui.Button):
     # 課金要素
     # -----------------------------------------
 class PaidPetSelectView(discord.ui.View):
-    def __init__(self, uid: str, kind: str, price: int, slot_price: int, options):
+    def __init__(self, uid: str, kind: str, price: int, slot_price: int):
         super().__init__(timeout=60)
         self.uid = uid
-        self.kind = kind
+        self.kind = kind            
         self.price = price
         self.slot_price = slot_price
 
-        self.add_item(PaidPetSelect(self, options))
+        self.add_item(PaidPetSelect(self))
 
 class PaidPetSelect(discord.ui.Select):
     def __init__(self, view: "PaidPetSelectView", options: list[discord.SelectOption]):
@@ -2605,6 +2548,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
