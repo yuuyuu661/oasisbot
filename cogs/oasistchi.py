@@ -455,7 +455,15 @@ class OasistchiCog(commands.Cog):
             if race.get("lottery_done") is True:
                 continue
 
-            race_time = race["race_time"]
+            race_time_raw = race["race_time"]
+
+            # race_time が "HH:MM" 文字列の場合
+            if isinstance(race_time_raw, str):
+                h, m = map(int, race_time_raw.split(":"))
+                race_time = dtime(hour=h, minute=m)
+            else:
+                race_time = race_time_raw  # すでに time 型ならそのまま
+
             entry_close = (
                 datetime.combine(today, race_time, JST)
                 - timedelta(minutes=race["entry_open_minutes"])
@@ -2307,6 +2315,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
