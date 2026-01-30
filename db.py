@@ -4,6 +4,9 @@ from dotenv import load_dotenv
 import asyncio
 import time
 import random
+from datetime import datetime, timezone, timedelta
+
+JST = timezone(timedelta(hours=9))
 
 load_dotenv()
 
@@ -1243,6 +1246,19 @@ class Database:
             random.choice(CONDITIONS),
             race_date
             )
+
+    async def has_today_race_schedules(self) -> bool:
+            today = datetime.now(JST).date()
+
+            row = await self.conn.fetchrow("""
+                SELECT 1
+                FROM race_schedules
+                WHERE race_date = $1
+                LIMIT 1
+            """, today)
+
+            return row is not None
+
 
 
 
