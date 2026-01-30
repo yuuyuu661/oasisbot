@@ -1220,7 +1220,7 @@ class Database:
             ORDER BY race_no;
         """)
 
-    async def generate_today_races(self, race_date):
+    async def generate_today_races(self, race_date: date):
         # 念のため同日分を削除（再生成耐性）
         await self.conn.execute("""
             DELETE FROM race_schedules
@@ -1247,17 +1247,16 @@ class Database:
             race_date
             )
 
-    async def has_today_race_schedules(self) -> bool:
-            today = datetime.now(JST).date()
+    async def has_today_race_schedules(self, race_date: date) -> bool:
+        row = await self.conn.fetchrow("""
+            SELECT 1
+            FROM race_schedules
+            WHERE race_date = $1
+            LIMIT 1
+        """, race_date)
 
-            row = await self.conn.fetchrow("""
-                SELECT 1
-                FROM race_schedules
-                WHERE race_date = $1
-                LIMIT 1
-            """, today)
+        return row is not None
 
-            return row is not None
 
 
 
