@@ -1328,12 +1328,13 @@ class Database:
     # -----------------------------------------
     # レース関係関数
     # -----------------------------------------
-    async def get_race_entries(self, race_id: int):
+    async def get_race_entries(self, race_schedule_id: int):
         return await self.conn.fetch("""
-            SELECT * FROM race_entries
+            SELECT *
+            FROM race_entries
             WHERE race_schedule_id = $1
               AND status = 'pending'
-        """, race_id)
+        """, race_schedule_id)
     # -----------------------------------------
     # 参加済みを取得
     # -----------------------------------------
@@ -1366,15 +1367,20 @@ class Database:
     # 同日・他レースエントリー無効化
     # -----------------------------------------
 
-    async def cancel_other_entries(self, pet_id: int, race_date: date, exclude_race_id: int):
+    async def cancel_other_entries(
+        self,
+        pet_id: int,
+       race_date: date,
+        exclude_race_schedule_id: int
+    ):
         await self.conn.execute("""
             UPDATE race_entries
             SET status = 'cancelled'
             WHERE pet_id = $1
               AND race_date = $2
-              AND race_id != $3
+              AND race_schedule_id != $3
               AND status = 'pending'
-        """, pet_id, race_date, exclude_race_id)
+        """, pet_id, race_date, exclude_race_schedule_id)
 
     # =====================================================
     # レース：同一ユーザーの重複エントリーチェック
@@ -1389,12 +1395,79 @@ class Database:
         """, race_schedule_id, user_id)
 
         return row is not None
+    # =====================================================
+    # おあしすっち出走済みかチェック
+    # =====================================================
+    async def has_pet_selected_today(self, pet_id: int, race_date: date) -> bool:
+        row = await self.conn.fetchrow("""
+            SELECT 1
+            FROM race_entries
+            WHERE pet_id = $1
+              AND race_date = $2
+              AND status = 'selected'
+            LIMIT 1;
+        """, pet_id, race_date)
+        return row is not None
+        
+    # =====================================================
+    # 同一ユーザーが同日出走したかチェック
+    # =====================================================
 
+    async def has_user_selected_today(self, user_id: str, race_date: date) -> bool:
+        row = await self.conn.fetchrow("""
+            SELECT 1
+            FROM race_entries
+            WHERE user_id = $1
+              AND race_date = $2
+              AND status = 'selected'
+            LIMIT 1;
+        """, user_id, race_date)
+        return row is not None
 
+    # =====================================================
+    # エントリー追加（確定時）
+    # =====================================================
 
+    async def insert_race_entry(
+        self,
+        race_schedule_id: int,
+        race_date: date,
+        user_id: str,
+        pet_id: int,
+        guild_id: str,
+        entry_fee: int
+    ):
+        await self.conn.execute("""
+            INSERT INTO race_entries (
+                race_schedule_id,
+                race_date,
+                user_id,
+                pet_id,
+                guild_id,
+                entry_fee,
+                status,
+                created_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())
+        """,
+        race_schedule_id,
+        race_date,
+        user_id,
+        pet_id,
+        guild_id,
+        entry_fee
+        )
+    # =====================================================
+    # 返金対象をまとめて取得
+    # =====================================================
 
-
-
+    async def get_refund_entries(self, race_schedule_id: int):
+        return await self.conn.fetch("""
+            SELECT user_id, guild_id, entry_fee
+            FROM race_entries
+            WHERE race_schedule_id = $1
+              AND status = 'cancelled'
+        """, race_schedule_id)
 
 
 
