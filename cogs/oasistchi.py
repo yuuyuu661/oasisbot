@@ -427,6 +427,59 @@ class OasistchiCog(commands.Cog):
         self.bot = bot
         self.poop_check.start()
 
+    # レース処理
+    # =========================
+
+    async def run_race_lottery(bot, race: dict):
+        db = bot.db
+        race_id = race["id"]
+        race_date = race["race_date"]
+        guild_id = str(race["guild_id"])  # あるなら
+
+        entries = await db.get_race_entries(race_id)
+
+        # --- 中止条件 ---
+        if len(entries) <= 1:
+            for e in entries:
+                await db.update_race_entry_status(e["id"], "cancelled")
+                await db.refund_entry(e["user_id"], guild_id, e["entry_fee"])
+            print(f"[RACE] レース {race_id} 中止（参加1体以下）")
+            return
+
+        # --- 当日すでに出走しているペット除外 ---
+        already_selected = await db.get_today_selected_pet_ids(race_date)
+
+        candidates = [
+            e for e in entries
+            if e["pet_id"] not in already_selected
+        ]
+
+        # 念のため：候補が1体以下になった場合も中止
+        if len(candidates) <= 1:
+            for e in entries:
+                await db.update_race_entry_status(e["id"], "cancelled")
+                await db.refund_entry(e["user_id"], guild_id, e["entry_fee"])
+            print(f"[RACE] レース {race_id} 中止（有効候補不足）")
+            return
+
+        # --- 抽選 ---
+        winners = random.sample(
+            candidates,
+            k=min(8, len(candidates))
+        )
+
+        winner_ids = {w["id"] for w in winners}
+
+        for e in entries:
+            if e["id"] in winner_ids:
+                await db.update_race_entry_status(e["id"], "selected")
+                await db.cancel_other_entries(e["pet_id"], race_date, race_id)
+            else:
+                await db.update_race_entry_status(e["id"], "rejected")
+                await db.refund_entry(e["user_id"], guild_id, e["entry_fee"])
+
+        print(f"[RACE] レース {race_id} 抽選完了（{len(winners)}体）")
+
     # 共通：時間差分処理
     # =========================
     async def process_time_tick(self, pet: dict):
@@ -2099,6 +2152,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
