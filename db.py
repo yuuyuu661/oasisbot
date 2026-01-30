@@ -3,9 +3,14 @@ import asyncpg
 from dotenv import load_dotenv
 import asyncio
 import time
+import random
 
 load_dotenv()
 
+RACE_TIMES = ["09:00", "12:00", "15:00", "19:00", "22:00"]
+DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
+SURFACES = ["芝", "ダート"]
+CONDITIONS = ["良", "稍重", "重", "不良"]
 
 class Database:
     def __init__(self):
@@ -1212,6 +1217,32 @@ class Database:
             ORDER BY race_no;
         """)
 
+    async def generate_today_races(self, race_date):
+        # 念のため同日分を削除（再生成耐性）
+        await self.conn.execute("""
+            DELETE FROM race_schedules
+            WHERE race_date = $1;
+        """, race_date)
+
+        for i, race_time in enumerate(RACE_TIMES, start=1):
+            await self.conn.execute("""
+                INSERT INTO race_schedules (
+                    race_no,
+                    race_time,
+                    distance,
+                    surface,
+                    condition,
+                    race_date
+                )
+                VALUES ($1, $2, $3, $4, $5, $6);
+            """,
+            i,
+            race_time,
+            random.choice(DISTANCES),
+            random.choice(SURFACES),
+            random.choice(CONDITIONS),
+            race_date
+            )
 
 
 
