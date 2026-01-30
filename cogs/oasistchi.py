@@ -2068,7 +2068,7 @@ class RaceEntryConfirmView(discord.ui.View):
         guild_id = str(interaction.guild.id)
 
         # ① 同一レースに同一ユーザーが既にエントリーしていないか
-        if await db.has_user_entry_for_race(race_schedule_id, uid):
+        if await db.has_user_entry_for_race(schedule_id, uid):
             return await interaction.followup.send(
                 "❌ このレースにはすでにエントリーしています。",
                 ephemeral=True
@@ -2159,6 +2159,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
