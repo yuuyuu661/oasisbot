@@ -2062,7 +2062,7 @@ class RaceEntryConfirmView(discord.ui.View):
         pet = self.pet
         race = self.selected_race
 
-        race_schedule_id = race["id"]
+        schedule_id = race["id"]
         race_date = race["race_date"]
         uid = str(interaction.user.id)
         guild_id = str(interaction.guild.id)
@@ -2159,6 +2159,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
