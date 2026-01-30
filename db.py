@@ -1477,13 +1477,14 @@ class Database:
     # 返金対象をまとめて取得
     # =====================================================
 
-    async def get_refund_entries(self, race_schedule_id: int):
+    async def get_refund_entries(self, schedule_id: int):
         return await self.conn.fetch("""
             SELECT user_id, guild_id, entry_fee
             FROM race_entries
-            WHERE race_schedule_id = $1
+            WHERE schedule_id = $1
               AND status = 'cancelled'
-        """, race_schedule_id)
+        """, schedule_id)
+
 
 
 
