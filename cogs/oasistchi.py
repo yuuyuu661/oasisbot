@@ -1299,17 +1299,17 @@ class ChargeSelect(discord.ui.Select):
             ),
             discord.SelectOption(
                 label="🧬 転生アイテム",
-                description="個体値を再抽選",
+                description="個体値を再抽選（100,000rrc）",
                 value="rebirth"
             ),
             discord.SelectOption(
                 label="🏋️ 特訓リセット",
-                description="特訓回数を0に戻す",
+                description="特訓回数を0に戻す（50,000rrc）",
                 value="train_reset"
             ),
             discord.SelectOption(
-                label="🥚 被りなし たまご",
-                description="未所持のみ抽選",
+                label="🥚 かぶりなし たまご",
+                description="未所持のみ孵化（300,000rrc）",
                 value="unique_egg"
             ),
         ]
@@ -1333,7 +1333,7 @@ class ChargeSelect(discord.ui.Select):
                 slot_price=self.slot_price
             )
             return await interaction.response.send_message(
-                f"育成枠を **{self.slot_price}** で増築しますか？",
+                f"育成枠を **{self.slot_price:,} rrc** で増築しますか？",
                 ephemeral=True,
                 view=view
             )
@@ -1343,13 +1343,13 @@ class ChargeSelect(discord.ui.Select):
             view = ConfirmPurchaseView(
                 kind="rebirth",
                 label="🧬 転生アイテム",
-                price=150000,  # ← 好きな価格
+                price=100_000,
                 egg_key=None,
                 slot_price=self.slot_price
             )
             return await interaction.response.send_message(
                 "🧬 **転生アイテム** を使用しますか？\n"
-                "所持中のおあしすっちの個体値を再抽選します。",
+                "所持中のおあしすっちの **個体値（基礎ステータス）を再抽選** します。",
                 ephemeral=True,
                 view=view
             )
@@ -1359,28 +1359,28 @@ class ChargeSelect(discord.ui.Select):
             view = ConfirmPurchaseView(
                 kind="train_reset",
                 label="🏋️ 特訓リセット",
-                price=100000,
+                price=50_000,
                 egg_key=None,
                 slot_price=self.slot_price
             )
             return await interaction.response.send_message(
                 "🏋️ **特訓リセット** を使用しますか？\n"
-                "特訓回数と特訓ステータスがすべて0になります。",
+                "特訓回数と特訓ステータスが **すべて0に戻ります**。",
                 ephemeral=True,
                 view=view
             )
 
-        # ④ 被りなし たまご
+        # ④ かぶりなし たまご
         if value == "unique_egg":
             view = ConfirmPurchaseView(
                 kind="unique_egg",
-                label="🥚 被りなし たまご",
-                price=200000,
+                label="🥚 かぶりなし たまご",
+                price=300_000,
                 egg_key=None,
                 slot_price=self.slot_price
             )
             return await interaction.response.send_message(
-                "🥚 **被りなし たまご** を購入しますか？\n"
+                "🥚 **かぶりなし たまご** を購入しますか？\n"
                 "未所持のおあしすっちが孵化します。",
                 ephemeral=True,
                 view=view
@@ -2379,6 +2379,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
