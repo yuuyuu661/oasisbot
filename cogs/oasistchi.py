@@ -1966,83 +1966,83 @@ class TrainingConfirmButton(discord.ui.Button):
         )
         # レース
 class RaceEntryConfirmView(discord.ui.View):
-    def __init__(self, pet: dict, entry_fee: int, schedules: list[dict]):
+    def __init__(
+        self,
+        pet: dict,
+        entry_fee: int,
+        schedules: list[dict]
+    ):
         super().__init__(timeout=120)
 
         self.pet = pet
         self.entry_fee = entry_fee
         self.schedules = schedules
 
+        # ★ Select 
         self.selected_race: dict | None = None
 
-        # ★ options 完成済み Select を追加
         self.add_item(RaceSelect(self, schedules))
 
     # =========================
     # エントリー確定ボタン
     # =========================
     @discord.ui.button(label="✅ エントリー確定", style=discord.ButtonStyle.success)
-    async def confirm(
-        self,
-        interaction: discord.Interaction,
-        button: discord.ui.Button
-    ):
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
 
         if not self.selected_race:
             return await interaction.followup.send(
-                "❌ レースを選択してください。",
+                "❌ レースが選択されていません。",
                 ephemeral=True
             )
 
         db = interaction.client.db
-        uid = str(interaction.user.id)
+        guild = interaction.guild
+        user = interaction.user
+
         race = self.selected_race
+        race_id = race["id"]
+        race_date = race["race_date"]
 
-        # --- 締切チェック ---
-        now = datetime.now(JST)
-        race_time = datetime.combine(
-            race["race_date"],
-            datetime.strptime(race["race_time"], "%H:%M").time(),
-            tzinfo=JST
-        )
-        deadline = race_time - timedelta(minutes=race["entry_open_minutes"])
+        uid = str(user.id)
+        pet_id = self.pet["id"]
 
-        if now >= deadline:
+        # ① 同一レース・同一ユーザー防止
+        if await db.has_user_entry_for_race(race_id, uid):
             return await interaction.followup.send(
-                "⏰ このレースはエントリー締切を過ぎています。",
+                "❌ このレースにはすでにエントリーしています。",
                 ephemeral=True
             )
 
-        # --- 定員チェック ---
-        count = await db.count_race_entries(race["id"])
-        if count >= race["max_entries"]:
+        # ② 同一ペット防止
+        if await db.has_pet_entry_for_race(race_id, pet_id):
             return await interaction.followup.send(
-                "🚫 このレースは定員に達しています。",
+                "❌ このおあしすっちはすでにこのレースにエントリーしています。",
                 ephemeral=True
             )
 
-        # --- 所持金チェック ---
-        balance = await db.get_user_balance(uid, interaction.guild.id)
-        if balance < self.entry_fee:
+        # ③ 残高チェック
+        row = await db.get_user(uid, str(guild.id))
+        if row["balance"] < self.entry_fee:
             return await interaction.followup.send(
-                "💸 所持金が不足しています。",
+                "❌ 残高不足です。",
                 ephemeral=True
             )
 
-        # --- エントリー保存 ---
-        await db.insert_race_entry(
-            race_id=race["id"],
+        # ④ 支払い
+        await db.remove_balance(uid, str(guild.id), self.entry_fee)
+
+        # ⑤ 保存
+        await db.add_race_entry(
+            race_id=race_id,
+            race_date=race_date,
             user_id=uid,
-            pet_id=self.pet["id"],
+            pet_id=pet_id,
             entry_fee=self.entry_fee
         )
 
-        # --- 支払い ---
-        await db.add_balance(uid, interaction.guild.id, -self.entry_fee)
-
         await interaction.followup.send(
-            f"🏁 **{race['race_no']}レース** にエントリーしました！",
+            "🏁 **レースエントリーを受け付けました！**",
             ephemeral=True
         )
 
@@ -2099,6 +2099,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
