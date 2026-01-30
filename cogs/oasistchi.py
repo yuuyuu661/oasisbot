@@ -1085,13 +1085,7 @@ class OasistchiPanelRootView(discord.ui.View):
         schedules = [dict(s) for s in schedules]
 
         embed = build_race_schedule_embed(schedules)
-        view = RaceScheduleView(schedules)
-
-        await interaction.followup.send(
-            embed=embed,
-            view=view,
-            ephemeral=True
-        )
+        await interaction.followup.send(embed=embed)
 
 # =========================
 # プルダウン View
@@ -2027,6 +2021,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
