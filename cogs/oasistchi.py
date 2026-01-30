@@ -1338,34 +1338,36 @@ class ChargeSelect(discord.ui.Select):
                 view=view
             )
 
-        # ② 転生アイテム
+        # 転生
         if value == "rebirth":
-            view = ConfirmPurchaseView(
+            view = PaidPetSelectView(
+                uid=str(interaction.user.id),
                 kind="rebirth",
-                label="🧬 転生アイテム",
                 price=100_000,
-                egg_key=None,
                 slot_price=self.slot_price
             )
+            select = view.children[0]
+            await select.refresh_options(interaction)
+
             return await interaction.response.send_message(
-                "🧬 **転生アイテム** を使用しますか？\n"
-                "所持中のおあしすっちの **個体値（基礎ステータス）を再抽選** します。",
+                "🧬 **転生させるおあしすっちを選んでください**",
                 ephemeral=True,
                 view=view
             )
 
-        # ③ 特訓リセット
+        # 特訓リセット
         if value == "train_reset":
-            view = ConfirmPurchaseView(
+            view = PaidPetSelectView(
+                uid=str(interaction.user.id),
                 kind="train_reset",
-                label="🏋️ 特訓リセット",
                 price=50_000,
-                egg_key=None,
                 slot_price=self.slot_price
             )
+            select = view.children[0]
+            await select.refresh_options(interaction)
+
             return await interaction.response.send_message(
-                "🏋️ **特訓リセット** を使用しますか？\n"
-                "特訓回数と特訓ステータスが **すべて0に戻ります**。",
+                "🏋️ **特訓リセットするおあしすっちを選んでください**",
                 ephemeral=True,
                 view=view
             )
@@ -2246,6 +2248,99 @@ class TrainingConfirmButton(discord.ui.Button):
             f"🏋️ 特訓回数：{pet.get('training_count', 0) + 1} / 30",
             ephemeral=True
         )
+    # -----------------------------------------
+    # 課金要素
+    # -----------------------------------------
+class PaidPetSelectView(discord.ui.View):
+    """
+    転生・特訓リセット用 ペット選択View
+    """
+    def __init__(self, uid: str, kind: str, price: int, slot_price: int):
+        super().__init__(timeout=60)
+        self.uid = uid
+        self.kind = kind            # "rebirth" or "train_reset"
+        self.price = price
+        self.slot_price = slot_price
+
+        self.add_item(PaidPetSelect(self))
+
+class PaidPetSelect(discord.ui.Select):
+    def __init__(self, view: PaidPetSelectView):
+        self.view_ref = view
+
+        super().__init__(
+            placeholder="対象のおあしすっちを選択",
+            min_values=1,
+            max_values=1,
+            options=[
+                discord.SelectOption(
+                    label="読み込み中...",
+                    value="loading",
+                    default=True
+                )
+            ]
+        )
+
+    async def refresh_options(self, interaction: discord.Interaction):
+        db = interaction.client.db
+        uid = self.view_ref.uid
+
+        pets = await db.get_oasistchi_pets(uid)
+        adults = [p for p in pets if p["stage"] == "adult"]
+
+        if not adults:
+            self.options = [
+                discord.SelectOption(
+                    label="成体のおあしすっちがいません",
+                    value="none",
+                    default=True
+                )
+            ]
+        else:
+            self.options = [
+                discord.SelectOption(
+                    label=f"🧬 {p['name']}",
+                    description=(
+                        f"SPD {p['base_speed'] + p['train_speed']} / "
+                        f"STA {p['base_stamina'] + p['train_stamina']} / "
+                        f"POW {p['base_power'] + p['train_power']}"
+                    ),
+                    value=str(p["id"])
+                )
+                for p in adults
+            ]
+
+        # ★ ここが重要：メッセージを再描画
+        await interaction.edit_original_response(view=self.view_ref)
+
+    async def callback(self, interaction: discord.Interaction):
+        pet_id = self.values[0]
+
+        if pet_id == "none":
+            return await interaction.response.send_message(
+                "成体のおあしすっちがいません。",
+                ephemeral=True
+            )
+
+        # 次：最終確認Viewへ
+        view = PaidPetConfirmView(
+            uid=self.view_ref.uid,
+            pet_id=int(pet_id),
+            kind=self.view_ref.kind,
+            price=self.view_ref.price,
+            slot_price=self.view_ref.slot_price
+        )
+
+        label = "🧬 転生" if self.view_ref.kind == "rebirth" else "🏋️ 特訓リセット"
+
+        await interaction.response.send_message(
+            f"{label} を実行しますか？\n"
+            "この操作は取り消せません。",
+            ephemeral=True,
+            view=view
+        )
+
+
         # レース
 class RaceEntryConfirmView(discord.ui.View):
     def __init__(self, pet: dict, entry_fee: int, schedules: list[dict]):
@@ -2379,6 +2474,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
