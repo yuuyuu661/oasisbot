@@ -1745,7 +1745,6 @@ class CareView(discord.ui.View):
         interaction: discord.Interaction,
         button: discord.ui.Button
     ):
-        # ★最初に defer
         await interaction.response.defer(ephemeral=True)
 
         if not self.is_owner(interaction):
@@ -1756,9 +1755,16 @@ class CareView(discord.ui.View):
 
         db = interaction.client.db
         pet = self.pet
+
+        # ★ 今日のレース予定を取得
         schedules = await db.get_today_race_schedules()
 
-        # ---- コンディション計算 ----
+        if not schedules:
+            return await interaction.followup.send(
+                "本日のレース予定がありません。",
+                ephemeral=True
+            )
+
         condition, condition_emoji, face_count = get_race_condition(
             pet.get("happiness", 0)
         )
@@ -1795,7 +1801,6 @@ class CareView(discord.ui.View):
             schedules=schedules
         )
 
-        # ★最後は followup
         await interaction.followup.send(
             embed=embed,
             view=view,
@@ -2121,6 +2126,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
