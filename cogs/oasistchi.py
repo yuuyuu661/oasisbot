@@ -428,6 +428,47 @@ class OasistchiCog(commands.Cog):
         self.bot = bot
         self.poop_check.start()
 
+    async def trigger_race_daily_process(self):
+        db = self.bot.db
+        now = datetime.now(JST)
+        today = now.date()
+
+        # -------------------------
+        # ① 今日のレース生成
+        # -------------------------
+        try:
+            if not await db.has_today_race_schedules(today):
+                await db.generate_today_races(today)
+                print(f"[RACE] {today} のレースを生成しました")
+        except Exception as e:
+            print(f"[RACE ERROR] generate failed: {e}")
+            return
+
+        # -------------------------
+        # ② 抽選チェック
+        # -------------------------
+        races = await db.get_today_race_schedules(today)
+
+        for race in races:
+            if race["lottery_done"]:
+                continue
+
+            race_time = race["race_time"]
+            entry_close = (
+                datetime.combine(today, race_time, JST)
+                - timedelta(minutes=race["entry_open_minutes"])
+            )
+
+            if now < entry_close:
+                continue
+
+            try:
+                await self.run_race_lottery(race)
+                await db.mark_race_lottery_done(race["id"])
+                print(f"[RACE] 抽選完了 race_id={race['id']}")
+            except Exception as e:
+                print(f"[RACE ERROR] lottery failed: {e}")
+
     async def run_race_lottery(self, race: dict):
         """
         レース抽選処理
@@ -752,6 +793,11 @@ class OasistchiCog(commands.Cog):
                 "❌ 管理者ロールが必要です。",
                 ephemeral=True
             )
+
+        # =============================
+        # ★ ここでレース処理を起動
+        # =============================
+        await self.trigger_race_daily_process()
         # =============================
         # ★ レース生成トリガー（重要）
         # =============================
@@ -2237,6 +2283,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
