@@ -1331,7 +1331,7 @@ class Database:
     async def get_race_entries(self, race_id: int):
         return await self.conn.fetch("""
             SELECT * FROM race_entries
-            WHERE race_id = $1
+            WHERE race_schedule_id = $1
               AND status = 'pending'
         """, race_id)
     # -----------------------------------------
@@ -1379,16 +1379,17 @@ class Database:
     # =====================================================
     # レース：同一ユーザーの重複エントリーチェック
     # =====================================================
-    async def has_user_entry_for_race(self, race_id: int, user_id: str) -> bool:
+    async def has_user_entry_for_race(self, race_schedule_id: int, user_id: str) -> bool:
         row = await self.conn.fetchrow("""
             SELECT 1
             FROM race_entries
-            WHERE race_id = $1
+            WHERE race_schedule_id = $1
               AND user_id = $2
             LIMIT 1;
-        """, race_id, user_id)
+        """, race_schedule_id, user_id)
 
         return row is not None
+
 
 
 
