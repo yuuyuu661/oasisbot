@@ -1756,6 +1756,7 @@ class CareView(discord.ui.View):
 
         db = interaction.client.db
         pet = self.pet
+        schedules = await db.get_today_race_schedules()
 
         # ---- コンディション計算 ----
         condition, condition_emoji, face_count = get_race_condition(
@@ -1788,7 +1789,11 @@ class CareView(discord.ui.View):
             inline=False
         )
 
-        view = RaceEntryConfirmView(pet, ENTRY_FEE)
+        view = RaceEntryConfirmView(
+            pet=pet,
+            entry_fee=ENTRY_FEE,
+            schedules=schedules
+        )
 
         # ★最後は followup
         await interaction.followup.send(
@@ -1983,17 +1988,17 @@ class TrainingConfirmButton(discord.ui.Button):
         )
         # レース
 class RaceEntryConfirmView(discord.ui.View):
-    def __init__(self, pet: dict, entry_fee: int):
+    def __init__(self, pet: dict, entry_fee: int, schedules: list[dict]):
         super().__init__(timeout=120)
 
         self.pet = pet
         self.entry_fee = entry_fee
+        self.schedules = schedules
 
-        self.selected_race_id: int | None = None
         self.selected_race: dict | None = None
 
-        # Select は後で動的に入れる
-        self.add_item(RaceSelect(self))
+        # ★ options 完成済み Select を追加
+        self.add_item(RaceSelect(self, schedules))
 
     # =========================
     # エントリー確定ボタン
@@ -2079,51 +2084,29 @@ class RaceEntryConfirmView(discord.ui.View):
         self.stop()
 
 class RaceSelect(discord.ui.Select):
-    def __init__(self, parent_view: RaceEntryConfirmView):
+    def __init__(self, parent_view: RaceEntryConfirmView, schedules: list[dict]):
         self.parent_view = parent_view
 
-        options = []
-        schedules = parent_view.pet["race_schedules"] if "race_schedules" in parent_view.pet else None
-
-        # 通常は DB から取得
-        # View 初期化時点では interaction が無いので、
-        # callback 内で fetch する構造にする
+        options = [
+            discord.SelectOption(
+                label=f"第{r['race_no']}レース {r['race_time']}",
+                description=f"{r['distance']}｜{r['surface']}｜{r['condition']}",
+                value=str(r["id"])
+            )
+            for r in schedules
+        ]
 
         super().__init__(
             placeholder="参加するレースを選択",
             min_values=1,
             max_values=1,
-            options=[]
+            options=options
         )
 
     async def callback(self, interaction: discord.Interaction):
-        db = interaction.client.db
-
-        schedules = await db.get_today_race_schedules()
-        if not schedules:
-            return await interaction.response.send_message(
-                "本日のレース予定がありません。",
-                ephemeral=True
-            )
-
-        # options を初回だけ動的生成
-        if not self.options:
-            self.options = [
-                discord.SelectOption(
-                    label=f"第{r['race_no']}レース {r['race_time']}",
-                    description=f"{r['distance']}｜{r['surface']}｜{r['condition']}",
-                    value=str(r["id"])
-                )
-                for r in schedules
-            ]
-            await interaction.response.edit_message(view=self.parent_view)
-            return
-
-        # 選択確定
         race_id = int(self.values[0])
-        race = next(r for r in schedules if r["id"] == race_id)
+        race = next(r for r in self.parent_view.schedules if r["id"] == race_id)
 
-        self.parent_view.selected_race_id = race_id
         self.parent_view.selected_race = race
 
         await interaction.response.send_message(
@@ -2138,6 +2121,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
