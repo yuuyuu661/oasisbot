@@ -1212,13 +1212,13 @@ class Database:
         )
         return dict(row) if row else None
 
-    async def get_today_race_schedules(self):
+    async def get_today_race_schedules(self, race_date: date):
         return await self.conn.fetch("""
             SELECT *
             FROM race_schedules
-            WHERE race_date = CURRENT_DATE
-            ORDER BY race_no;
-        """)
+            WHERE race_date = $1
+            ORDER BY race_time
+        """, race_date)
 
     async def generate_today_races(self, race_date: date):
         # 念のため同日分を削除（再生成耐性）
@@ -1256,6 +1256,7 @@ class Database:
         """, race_date)
 
         return row is not None
+
 
 
 
