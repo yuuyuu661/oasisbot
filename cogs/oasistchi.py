@@ -2035,28 +2035,20 @@ class RaceEntryConfirmView(discord.ui.View):
     # ✅ エントリー確定
     # -----------------------------------------
     @discord.ui.button(label="✅ エントリー確定", style=discord.ButtonStyle.success)
-    async def confirm(
-        self,
-        interaction: discord.Interaction,
-        button: discord.ui.Button
-    ):
-        # 二重実行防止
-        if self._confirmed:
-            return await interaction.response.send_message(
-                "⚠️ すでにエントリー処理は完了しています。",
-                ephemeral=True
-            )
-        self._confirmed = True
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
 
         # レース未選択防止
         if not self.selected_race:
-            self._confirmed = False
             return await interaction.response.send_message(
                 "❌ レースを選択してください。",
                 ephemeral=True
-            )
+           )
 
-        await interaction.response.defer(ephemeral=True)
+       # ★ ここでボタンを無効化
+        button.disabled = True
+        await interaction.response.edit_message(view=self)
+
+        await interaction.followup.defer(ephemeral=True)
 
         db = interaction.client.db
         pet = self.pet
@@ -2159,6 +2151,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
