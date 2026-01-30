@@ -1325,11 +1325,56 @@ class Database:
                 ALTER COLUMN race_time TYPE TEXT
                 USING race_time::text;
             """)
+    # -----------------------------------------
+    # レース関係関数
+    # -----------------------------------------
+    async def get_race_entries(self, race_id: int):
+        return await self.conn.fetch("""
+            SELECT * FROM race_entries
+            WHERE race_id = $1
+              AND status = 'pending'
+        """, race_id)
+    # -----------------------------------------
+    # 参加済みを取得
+    # -----------------------------------------
 
+    async def get_today_selected_pet_ids(self, race_date: date):
+        rows = await self.conn.fetch("""
+            SELECT pet_id FROM race_entries
+            WHERE race_date = $1
+              AND status = 'selected'
+        """, race_date)
+        return {r["pet_id"] for r in rows}
 
+    # -----------------------------------------
+    # ステータス更新
+    # -----------------------------------------
 
+    async def update_race_entry_status(self, entry_id: int, status: str):
+        await self.conn.execute("""
+            UPDATE race_entries
+            SET status = $2
+            WHERE id = $1
+        """, entry_id, status)
 
+    # -----------------------------------------
+    # 返金
+    # -----------------------------------------
+    async def refund_entry(self, user_id: str, guild_id: str, amount: int):
+        await self.add_balance(user_id, guild_id, amount)
+    # -----------------------------------------
+    # 同日・他レースエントリー無効化
+    # -----------------------------------------
 
+    async def cancel_other_entries(self, pet_id: int, race_date: date, exclude_race_id: int):
+        await self.conn.execute("""
+            UPDATE race_entries
+            SET status = 'cancelled'
+            WHERE pet_id = $1
+              AND race_date = $2
+              AND race_id != $3
+              AND status = 'pending'
+        """, pet_id, race_date, exclude_race_id)
 
 
 
