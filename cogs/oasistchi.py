@@ -612,6 +612,23 @@ class OasistchiCog(commands.Cog):
                 "❌ 管理者ロールが必要です。",
                 ephemeral=True
             )
+        # =============================
+        # ★ レース生成トリガー（重要）
+        # =============================
+        db = self.bot.db
+        today = get_today_jst_date()
+
+        try:
+            exists = await db.has_today_race_schedules(today)
+            if not exists:
+                await db.generate_today_races(today)
+                print(f"[RACE] {today} のレースを生成しました")
+            else:
+                print(f"[RACE] {today} のレースは既に存在します")
+        except Exception as e:
+            # パネル設置自体は止めない
+            print(f"[RACE ERROR] race generation failed: {e}")
+
 
         # ✅ 共有パネルは「固定のEmbed + 入口ボタンのみ」
         embed = discord.Embed(
@@ -2023,6 +2040,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
