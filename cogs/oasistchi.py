@@ -5,12 +5,11 @@ import json
 import time
 import os
 import random
-from datetime import time as dtime
 from PIL import Image
 from io import BytesIO
 import asyncio
 from PIL import Image, ImageSequence
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, time as dtime
 JST = timezone(timedelta(hours=9))
 
 
@@ -2316,6 +2315,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
