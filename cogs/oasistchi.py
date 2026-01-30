@@ -99,6 +99,7 @@ DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
 SURFACES = ["芝", "ダート"]
 CONDITIONS = ["良", "稍重", "重", "不良"]
 MAX_ENTRIES = 8
+RACE_RESULT_CHANNEL_ID = 1466693608366276793
 
 def now_ts() -> float:
     return time.time()
@@ -549,6 +550,48 @@ class OasistchiCog(commands.Cog):
            f"[RACE] 抽選完了 race_id={race_id} "
             f"selected={len(selected)} cancelled={len(cancelled)}"
         )
+        # =========================
+        # ⑧ 抽選結果通知
+        # =========================
+        channel = self.bot.get_channel(RACE_RESULT_CHANNEL_ID)
+
+        if channel and selected:
+            embed = discord.Embed(
+                title=f"🏁 第{race['race_no']}レース 抽選結果",
+                description="出走が確定したおあしすっちはこちら！",
+                color=discord.Color.gold()
+            )
+
+            lines = []
+            for i, e in enumerate(selected, start=1):
+                user = self.bot.get_user(int(e["user_id"]))
+                pet_name = e["pet_name"] if "pet_name" in e else f"ID:{e['pet_id']}"
+
+                mention = user.mention if user else f"<@{e['user_id']}>"
+                lines.append(
+                    f"**第{i}ゲート**　{mention}　🐣 **{pet_name}**"
+                )
+
+            embed.add_field(
+                name="出走メンバー",
+                value="\n".join(lines),
+                inline=False
+            )
+
+            embed.set_footer(text="健闘を祈ります！")
+
+            await channel.send(embed=embed)
+            for e in cancelled:
+                try:
+                    user = self.bot.get_user(int(e["user_id"]))
+                    if user:
+                        await user.send(
+                            f"🏁 **第{race['race_no']}レース 落選のお知らせ**\n"
+                            f"エントリーしたレースには落選しました。\n"
+                            f"💰 参加費は返却されています。"
+                        )
+                except Exception as dm_err:
+                    print(f"[RACE DM ERROR] user_id={e['user_id']} err={dm_err}")
 
     # レース処理
     # =========================
@@ -2264,6 +2307,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
