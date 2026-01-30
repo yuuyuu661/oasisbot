@@ -284,11 +284,7 @@ class Database:
             UNIQUE (race_date, schedule_id, pet_id)
         );
         """)
-        await self.conn.execute("""
-            UPDATE race_schedules
-            SET lottery_done = FALSE
-            WHERE lottery_done IS NULL;
-        """)
+
         # -----------------------------------------
         # race_entries に status カラムがなければ追加
         # -----------------------------------------
@@ -449,6 +445,12 @@ class Database:
                 ADD COLUMN lottery_done BOOLEAN DEFAULT FALSE;
             """)
             print("✅ lottery_done カラム追加完了")
+
+        await self.conn.execute("""
+            UPDATE race_schedules
+            SET lottery_done = FALSE
+            WHERE lottery_done IS NULL;
+        """)
 
         # -----------------------------------------
         # race_schedules テーブルに レース用
@@ -1204,7 +1206,7 @@ class Database:
             race_date, schedule_id, user_id, pet_id
         )
 
-    async def get_race_entries(self, race_date, schedule_id):
+    get_race_entries_by_schedule(self, race_date, schedule_id):
         return await self.conn.fetch(
             """
             SELECT * FROM race_entries
@@ -1241,7 +1243,7 @@ class Database:
             """
             UPDATE oasistchi_pets
             SET race_candidate = TRUE
-            WHERE id = $1 AND owner_id = $2
+            WHERE id = $1 AND user_id = $2
             """,
             pet_id,
             user_id
@@ -1368,7 +1370,7 @@ class Database:
     # -----------------------------------------
     # レース関係関数
     # -----------------------------------------
-    async def get_race_entries(self, schedule_id: int):
+    get_race_entries_for_date(self, schedule_id: int):
         return await self.conn.fetch("""
             SELECT *
             FROM race_entries
@@ -1511,6 +1513,7 @@ class Database:
             SET lottery_done = TRUE
             WHERE id = $1
         """, race_id)
+
 
 
 
