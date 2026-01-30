@@ -10,6 +10,11 @@ from io import BytesIO
 import asyncio
 from PIL import Image, ImageSequence
 from datetime import datetime, timezone, timedelta
+JST = timezone(timedelta(hours=9))
+
+def get_today_jst_date():
+    """JST基準の今日の日付を返す"""
+    return datetime.now(JST).date()
 
 def today_jst_str() -> str:
     JST = timezone(timedelta(hours=9))
@@ -2018,6 +2023,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
