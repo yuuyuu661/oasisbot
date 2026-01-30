@@ -432,6 +432,25 @@ class Database:
                 )
 
         # -----------------------------------------
+        # race_schedules に lottery_done が無ければ追加
+        # -----------------------------------------
+        col_check = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'race_schedules';
+        """)
+
+        existing_cols = {row["column_name"] for row in col_check}
+
+        if "lottery_done" not in existing_cols:
+            print("🛠 race_schedules に lottery_done カラムを追加します…")
+            await self.conn.execute("""
+                ALTER TABLE race_schedules
+                ADD COLUMN lottery_done BOOLEAN DEFAULT FALSE;
+            """)
+            print("✅ lottery_done カラム追加完了")
+
+        # -----------------------------------------
         # race_schedules テーブルに レース用
         # -----------------------------------------
         col_check = await self.conn.fetch("""
@@ -1492,6 +1511,7 @@ class Database:
             SET lottery_done = TRUE
             WHERE id = $1
         """, race_id)
+
 
 
 
