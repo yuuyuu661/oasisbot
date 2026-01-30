@@ -508,10 +508,11 @@ class Database:
             """)
 
         # ==================================================
-        # 年末ジャンボ（JUMBO）テーブル初期化
+        #テーブル初期化
         # ==================================================
         await self.init_jumbo_tables()
         await self.ensure_race_schedule_columns()
+        await self.ensure_race_schedule_time_text()
 
 
     # ------------------------------------------------------
@@ -1287,13 +1288,25 @@ class Database:
             sql = "ALTER TABLE race_schedules " + ", ".join(alter_sqls) + ";"
             print("🛠 race_schedules カラム補完:", sql)
             await self.conn.execute(sql)
+            
+    # -----------------------------------------
+    # 型修正用の補完
+    # -----------------------------------------
+    async def ensure_race_schedule_time_text(self):
+        col = await self.conn.fetchrow("""
+            SELECT data_type
+            FROM information_schema.columns
+            WHERE table_name = 'race_schedules'
+              AND column_name = 'race_time';
+        """)
 
-
-
-
-
-
-
+        if col and col["data_type"] != "text":
+            print("🛠 race_schedules.race_time を TEXT に変更します")
+            await self.conn.execute("""
+                ALTER TABLE race_schedules
+                ALTER COLUMN race_time TYPE TEXT
+                USING race_time::text;
+            """)
 
 
 
