@@ -1373,19 +1373,58 @@ class ChargeSelect(discord.ui.Select):
             )
 
         # ④ かぶりなし たまご
-        if value == "unique_egg":
-            view = ConfirmPurchaseView(
-                kind="unique_egg",
-                label="🥚 かぶりなし たまご",
-                price=300_000,
-                egg_key=None,
-                slot_price=self.slot_price
-            )
-            return await interaction.response.send_message(
-                "🥚 **かぶりなし たまご** を購入しますか？\n"
-                "未所持のおあしすっちが孵化します。",
-                ephemeral=True,
-                view=view
+        if self.kind == "unique_egg":
+            # -------------------------
+            # ① 育成枠チェック
+            # -------------------------
+            pets = await db.get_oasistchi_pets(uid)
+            user_row = await db.get_oasistchi_user(uid)
+
+            if len(pets) >= user_row["slots"]:
+                return await interaction.response.edit_message(
+                    content="❌ 育成枠がいっぱいです。",
+                    view=None
+                )
+
+            # -------------------------
+            # ② 未所持成体を抽選
+            # -------------------------
+            owned = set(await db.get_oasistchi_owned_adult_keys(uid))
+
+            candidates = [
+                a for a in ADULT_CATALOG
+                if a["key"] not in owned
+            ]
+
+            if not candidates:
+                return await interaction.response.edit_message(
+                    content="❌ すべてのおあしすっちを所持済みです。",
+                    view=None
+                )
+
+            # -------------------------
+            # ③ egg_type を決める
+            # -------------------------
+            adult = random.choice(candidates)
+            egg_type = random.choice(adult["groups"])
+
+            # -------------------------
+            # ④ 課金（ここで1回）
+            # -------------------------
+            await db.remove_balance(uid, gid, self.price)
+
+            # -------------------------
+            # ⑤ 卵を追加
+            # -------------------------
+            await db.add_oasistchi_egg(uid, egg_type)
+
+            return await interaction.response.edit_message(
+                content=(
+                    "🥚 **かぶりなし たまごを入手しました！**\n"
+                    "未所持のおあしすっちが生まれてきます。\n"
+                    "`/おあしすっち` で確認してください。"
+                ),
+                view=None
             )
 
 class NotifySelectView(discord.ui.View):
@@ -2311,7 +2350,7 @@ class PaidPetSelect(discord.ui.Select):
             ]
 
         # ★ ここが重要：メッセージを再描画
-        await interaction.edit_original_response(view=self.view_ref)
+        await interaction.message.edit(view=self.view_ref)
 
     async def callback(self, interaction: discord.Interaction):
         pet_id = self.values[0]
@@ -2613,6 +2652,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
