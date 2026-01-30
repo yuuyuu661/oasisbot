@@ -284,7 +284,23 @@ class Database:
             UNIQUE (race_date, schedule_id, pet_id)
         );
         """)
-        
+        # -----------------------------------------
+        # race_entries に status カラムがなければ追加
+        # -----------------------------------------
+        col_check = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'race_entries';
+        """)
+        existing_cols = {r["column_name"] for r in col_check}
+
+        if "status" not in existing_cols:
+            print("🛠 race_entries に status カラムを追加します…")
+            await self.conn.execute("""
+                ALTER TABLE race_entries
+                ADD COLUMN status TEXT NOT NULL DEFAULT 'pending';
+            """)
+            print("✅ status カラム追加完了")
 
         # --------------------------------------------------
         # おあしすっち：レース用カラム補完
@@ -1468,6 +1484,7 @@ class Database:
             WHERE race_schedule_id = $1
               AND status = 'cancelled'
         """, race_schedule_id)
+
 
 
 
