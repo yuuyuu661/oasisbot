@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 import asyncio
 import time
 import random
-from datetime import date
 from datetime import datetime, timezone, timedelta, date
 
 JST = timezone(timedelta(hours=9))
@@ -1257,6 +1256,7 @@ class Database:
         """, race_date)
 
         return row is not None
+
 
 
 
