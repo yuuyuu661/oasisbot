@@ -1328,13 +1328,13 @@ class Database:
     # -----------------------------------------
     # レース関係関数
     # -----------------------------------------
-    async def get_race_entries(self, race_schedule_id: int):
+    async def get_race_entries(self, schedule_id: int):
         return await self.conn.fetch("""
             SELECT *
             FROM race_entries
-            WHERE race_schedule_id = $1
+            WHERE schedule_id = $1
               AND status = 'pending'
-        """, race_schedule_id)
+        """, schedule_id)
     # -----------------------------------------
     # 参加済みを取得
     # -----------------------------------------
@@ -1370,17 +1370,17 @@ class Database:
     async def cancel_other_entries(
         self,
         pet_id: int,
-       race_date: date,
-        exclude_race_schedule_id: int
+        race_date: date,
+        exclude_schedule_id: int
     ):
         await self.conn.execute("""
             UPDATE race_entries
             SET status = 'cancelled'
             WHERE pet_id = $1
               AND race_date = $2
-              AND race_schedule_id != $3
+              AND schedule_id != $3
               AND status = 'pending'
-        """, pet_id, race_date, exclude_race_schedule_id)
+        """, pet_id, race_date, exclude_schedule_id)
 
     # =====================================================
     # レース：同一ユーザーの重複エントリーチェック
@@ -1468,6 +1468,7 @@ class Database:
             WHERE race_schedule_id = $1
               AND status = 'cancelled'
         """, race_schedule_id)
+
 
 
 
