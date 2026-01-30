@@ -2339,7 +2339,146 @@ class PaidPetSelect(discord.ui.Select):
             ephemeral=True,
             view=view
         )
+class PaidPetConfirmView(discord.ui.View):
+    """
+    課金ペット最終確認View
+    ・転生（baseステ再抽選）
+    ・特訓リセット（trainステ＆回数リセット）
+    """
+    def __init__(
+        self,
+        uid: str,
+        pet_id: int,
+        kind: str,
+        price: int,
+        slot_price: int
+    ):
+        super().__init__(timeout=30)
+        self.uid = uid
+        self.pet_id = pet_id
+        self.kind = kind            # "rebirth" or "train_reset"
+        self.price = price
+        self.slot_price = slot_price
+        self._confirmed = False     # 二重実行防止
 
+    # ---------------------------------
+    # 実行
+    # ---------------------------------
+    @discord.ui.button(label="✅ 実行する", style=discord.ButtonStyle.danger)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+        if self._confirmed:
+            return await interaction.response.send_message(
+                "すでに処理済みです。",
+                ephemeral=True
+            )
+
+        if str(interaction.user.id) != self.uid:
+            return await interaction.response.send_message(
+                "❌ この操作はあなたのものではありません。",
+                ephemeral=True
+            )
+
+        self._confirmed = True
+        button.disabled = True
+        await interaction.response.edit_message(view=self)
+
+        db = interaction.client.db
+        guild = interaction.guild
+        gid = str(guild.id)
+        uid = self.uid
+
+        # -------------------------
+        # 残高チェック
+        # -------------------------
+        settings = await db.get_settings()
+        unit = settings["currency_unit"]
+
+        user_row = await db.get_user(uid, gid)
+        balance = user_row["balance"]
+
+        if balance < self.price:
+            return await interaction.followup.send(
+                f"❌ 残高が足りません。\n"
+                f"現在: **{balance:,} {unit}** / 必要: **{self.price:,} {unit}**",
+                ephemeral=True
+            )
+
+        # -------------------------
+        # ペット取得・所有確認
+        # -------------------------
+        pet = await db.get_oasistchi_pet(self.pet_id)
+
+        if not pet or str(pet["user_id"]) != uid:
+            return await interaction.followup.send(
+                "❌ 対象のおあしすっちが見つかりません。",
+                ephemeral=True
+            )
+
+        if pet["stage"] != "adult":
+            return await interaction.followup.send(
+                "❌ 成体のおあしすっちのみ使用できます。",
+                ephemeral=True
+            )
+
+        # -------------------------
+        # 課金（ここで1回だけ）
+        # -------------------------
+        await db.remove_balance(uid, gid, self.price)
+
+        # -------------------------
+        # 処理分岐
+        # -------------------------
+        if self.kind == "rebirth":
+            stats = generate_initial_stats()
+
+            await db.update_oasistchi_pet(
+                self.pet_id,
+                base_speed=stats["speed"],
+                base_stamina=stats["stamina"],
+                base_power=stats["power"],
+            )
+
+            await interaction.followup.send(
+                f"🧬 **転生完了！**\n"
+                f"🐣 **{pet['name']}** の個体値が再抽選されました。\n\n"
+                f"🏃 {stats['speed']} / 🫀 {stats['stamina']} / 💥 {stats['power']}",
+                ephemeral=True
+            )
+            return
+
+        if self.kind == "train_reset":
+            await db.update_oasistchi_pet(
+                self.pet_id,
+                train_speed=0,
+                train_stamina=0,
+                train_power=0,
+                training_count=0,
+            )
+
+            await interaction.followup.send(
+                f"🏋️ **特訓リセット完了！**\n"
+                f"🐣 **{pet['name']}** は再び特訓できるようになりました。\n"
+                f"🏋️ 特訓回数：0 / 30",
+                ephemeral=True
+            )
+            return
+
+        # 保険
+        await interaction.followup.send(
+            "❌ 不明な課金処理です。",
+            ephemeral=True
+        )
+
+    # ---------------------------------
+    # キャンセル
+    # ---------------------------------
+    @discord.ui.button(label="キャンセル", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.edit_message(
+            content="操作をキャンセルしました。",
+            view=None
+        )
 
         # レース
 class RaceEntryConfirmView(discord.ui.View):
@@ -2474,6 +2613,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
