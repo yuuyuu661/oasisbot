@@ -5,6 +5,7 @@ import json
 import time
 import os
 import random
+from datetime import time as dtime
 from PIL import Image
 from io import BytesIO
 import asyncio
@@ -2315,6 +2316,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
