@@ -1063,7 +1063,7 @@ class OasistchiPanelRootView(discord.ui.View):
             ephemeral=True
         )
 
-    @discord.ui.button(label="🗓 レース予定", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="レース予定", style=discord.ButtonStyle.primary)
     async def show_race_schedule(
         self,
         interaction: discord.Interaction,
@@ -1073,7 +1073,6 @@ class OasistchiPanelRootView(discord.ui.View):
 
         db = interaction.client.db
 
-        # 今日のレース取得
         schedules = await db.get_today_race_schedules()
         if not schedules:
             return await interaction.followup.send(
@@ -2040,6 +2039,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
