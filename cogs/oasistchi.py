@@ -2019,83 +2019,90 @@ class TrainingConfirmButton(discord.ui.Button):
         )
         # レース
 class RaceEntryConfirmView(discord.ui.View):
-    def __init__(
-        self,
-        pet: dict,
-        entry_fee: int,
-        schedules: list[dict]
-    ):
+    def __init__(self, pet: dict, entry_fee: int, schedules: list[dict]):
         super().__init__(timeout=120)
 
         self.pet = pet
         self.entry_fee = entry_fee
         self.schedules = schedules
 
-        # ★ Select 
         self.selected_race: dict | None = None
+        self._confirmed = False  # 二重押し防止
 
         self.add_item(RaceSelect(self, schedules))
 
-    # =========================
-    # エントリー確定ボタン
-    # =========================
+    # -----------------------------------------
+    # ✅ エントリー確定
+    # -----------------------------------------
     @discord.ui.button(label="✅ エントリー確定", style=discord.ButtonStyle.success)
-    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer(ephemeral=True)
+    async def confirm(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button
+    ):
+        # 二重実行防止
+        if self._confirmed:
+            return await interaction.response.send_message(
+                "⚠️ すでにエントリー処理は完了しています。",
+                ephemeral=True
+            )
+        self._confirmed = True
 
+        # レース未選択防止
         if not self.selected_race:
-            return await interaction.followup.send(
-                "❌ レースが選択されていません。",
+            self._confirmed = False
+            return await interaction.response.send_message(
+                "❌ レースを選択してください。",
                 ephemeral=True
             )
 
+        await interaction.response.defer(ephemeral=True)
+
         db = interaction.client.db
-        guild = interaction.guild
-        user = interaction.user
-
+        pet = self.pet
         race = self.selected_race
-        race_id = race["id"]
+
+        race_schedule_id = race["id"]
         race_date = race["race_date"]
+        uid = str(interaction.user.id)
+        guild_id = str(interaction.guild.id)
 
-        uid = str(user.id)
-        pet_id = self.pet["id"]
-
-        # ① 同一レース・同一ユーザー防止
-        if await db.has_user_entry_for_race(race_id, uid):
+        # ① 同一レースに同一ユーザーが既にエントリーしていないか
+        if await db.has_user_entry_for_race(race_schedule_id, uid):
             return await interaction.followup.send(
                 "❌ このレースにはすでにエントリーしています。",
                 ephemeral=True
             )
 
-        # ② 同一ペット防止
-        if await db.has_pet_entry_for_race(race_id, pet_id):
+        # ② 同一ユーザーが本日すでに出走確定していないか
+        if await db.has_user_selected_today(uid, race_date):
             return await interaction.followup.send(
-                "❌ このおあしすっちはすでにこのレースにエントリーしています。",
+                "❌ 本日はすでに別のレースに出走しています。",
                 ephemeral=True
             )
 
-        # ③ 残高チェック
-        row = await db.get_user(uid, str(guild.id))
-        if row["balance"] < self.entry_fee:
-            return await interaction.followup.send(
-                "❌ 残高不足です。",
-                ephemeral=True
-            )
-
-        # ④ 支払い
-        await db.remove_balance(uid, str(guild.id), self.entry_fee)
-
-        # ⑤ 保存
-        await db.add_race_entry(
-            race_id=race_id,
+        # ③ エントリー保存（pending）
+        await db.insert_race_entry(
+            race_schedule_id=race_schedule_id,
             race_date=race_date,
             user_id=uid,
-            pet_id=pet_id,
+            pet_id=pet["id"],
+            guild_id=guild_id,
             entry_fee=self.entry_fee
         )
 
+        # ④ 同一おあしすっちの他レースエントリーを無効化
+        await db.cancel_other_entries(
+            pet_id=pet["id"],
+            race_date=race_date,
+            exclude_race_schedule_id=race_schedule_id
+        )
+
+        # ⑤ 完了通知
         await interaction.followup.send(
-            "🏁 **レースエントリーを受け付けました！**",
+            f"🏁 **レースエントリー完了！**\n"
+            f"🐣 **{pet['name']}** が\n"
+            f"🕘 **{race['race_time']} のレース** にエントリーしました。",
             ephemeral=True
         )
 
@@ -2152,6 +2159,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
