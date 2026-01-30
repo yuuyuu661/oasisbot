@@ -399,6 +399,33 @@ class Database:
                 await self.conn.execute(
                     f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
                 )
+
+        # -----------------------------------------
+        # race_schedules テーブルに レース用
+        # -----------------------------------------
+        col_check = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'race_schedules';
+        """)
+
+        existing_cols = {row["column_name"] for row in col_check}
+
+        if "race_date" not in existing_cols:
+            print("🛠 race_schedules テーブルに race_date カラムを追加します…")
+            await self.conn.execute("""
+                ALTER TABLE race_schedules
+                ADD COLUMN race_date DATE;
+            """)
+
+            # 既存データがあれば今日の日付を入れる
+            await self.conn.execute("""
+                UPDATE race_schedules
+                SET race_date = CURRENT_DATE
+                WHERE race_date IS NULL;
+            """)
+
+            print("✅ race_date カラム追加完了")
         # --------------------------------------------------
         # おあしすっち：通知時刻の正規化（安全版）
         # --------------------------------------------------
@@ -1184,6 +1211,7 @@ class Database:
             WHERE race_date = CURRENT_DATE
             ORDER BY race_no;
         """)
+
 
 
 
