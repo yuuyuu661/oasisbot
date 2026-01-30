@@ -1073,7 +1073,9 @@ class OasistchiPanelRootView(discord.ui.View):
 
         db = interaction.client.db
 
-        schedules = await db.get_today_race_schedules()
+        today = get_today_jst_date()
+        schedules = await db.get_today_race_schedules(today)
+        
         if not schedules:
             return await interaction.followup.send(
                 "本日のレース予定はまだ生成されていません。",
@@ -2039,6 +2041,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
