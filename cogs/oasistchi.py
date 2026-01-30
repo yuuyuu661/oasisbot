@@ -2095,7 +2095,7 @@ class RaceEntryConfirmView(discord.ui.View):
         await db.cancel_other_entries(
             pet_id=pet["id"],
             race_date=race_date,
-            exclude_race_schedule_id=race_schedule_id
+            exclude_schedule_id=schedule_id
         )
 
         # ⑤ 完了通知
@@ -2159,6 +2159,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
