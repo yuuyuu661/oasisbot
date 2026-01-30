@@ -511,6 +511,7 @@ class Database:
         # 年末ジャンボ（JUMBO）テーブル初期化
         # ==================================================
         await self.init_jumbo_tables()
+        await self.ensure_race_schedule_columns()
 
 
     # ------------------------------------------------------
@@ -1257,6 +1258,35 @@ class Database:
 
         return row is not None
 
+    # -----------------------------------------
+    # race_schedules テーブル カラム補完
+    # -----------------------------------------
+    async def ensure_race_schedule_columns(self):
+        cols = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'race_schedules';
+        """)
+        existing = {c["column_name"] for c in cols}
+
+        alter_sqls = []
+
+        if "race_date" not in existing:
+            alter_sqls.append("ADD COLUMN race_date DATE")
+
+        if "distance" not in existing:
+            alter_sqls.append("ADD COLUMN distance TEXT")
+
+        if "surface" not in existing:
+            alter_sqls.append("ADD COLUMN surface TEXT")
+
+        if "condition" not in existing:
+            alter_sqls.append("ADD COLUMN condition TEXT")
+
+        if alter_sqls:
+            sql = "ALTER TABLE race_schedules " + ", ".join(alter_sqls) + ";"
+            print("🛠 race_schedules カラム補完:", sql)
+            await self.conn.execute(sql)
 
 
 
