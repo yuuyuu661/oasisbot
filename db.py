@@ -1177,6 +1177,14 @@ class Database:
         )
         return dict(row) if row else None
 
+    async def get_today_race_schedules(self):
+        return await self.conn.fetch("""
+            SELECT *
+            FROM race_schedules
+            WHERE race_date = CURRENT_DATE
+            ORDER BY race_no;
+        """)
+
 
 
 
