@@ -452,7 +452,7 @@ class OasistchiCog(commands.Cog):
         races = await db.get_today_race_schedules(today)
 
         for race in races:
-            if race["lottery_done"]:
+            if race.get("lottery_done") is True:
                 continue
 
             race_time = race["race_time"]
@@ -2307,6 +2307,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
