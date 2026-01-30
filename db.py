@@ -1206,7 +1206,8 @@ class Database:
             race_date, schedule_id, user_id, pet_id
         )
 
-    get_race_entries_by_schedule(self, race_date, schedule_id):
+    async def get_race_entries_by_schedule(self, race_date, schedule_id):
+        await self._ensure_conn()
         return await self.conn.fetch(
             """
             SELECT * FROM race_entries
@@ -1214,7 +1215,7 @@ class Database:
             ORDER BY created_at
             """,
             race_date, schedule_id
-        )
+       )
 
     async def save_race_result(
         self, race_date, schedule_id, user_id, pet_id, position, reward
@@ -1370,7 +1371,8 @@ class Database:
     # -----------------------------------------
     # レース関係関数
     # -----------------------------------------
-    get_race_entries_for_date(self, schedule_id: int):
+    async def get_race_entries_for_date(self, schedule_id: int):
+        await self._ensure_conn()
         return await self.conn.fetch("""
             SELECT *
             FROM race_entries
@@ -1513,6 +1515,7 @@ class Database:
             SET lottery_done = TRUE
             WHERE id = $1
         """, race_id)
+
 
 
 
