@@ -2089,6 +2089,7 @@ class RaceEntryConfirmView(discord.ui.View):
             race_date=race_date,
             paid=True,
         )
+        await db.remove_balance(uid, guild_id, self.entry_fee)
 
         # ④ 同一おあしすっちの他レースエントリーを無効化
         await db.cancel_other_entries(
@@ -2158,6 +2159,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
