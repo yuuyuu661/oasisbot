@@ -1587,6 +1587,53 @@ class ConfirmPurchaseView(discord.ui.View):
                 view=None
             )
 
+        elif self.kind == "unique_egg":
+            # -------------------------
+            # 育成枠チェック
+            # -------------------------
+            pets = await db.get_oasistchi_pets(uid)
+            user_row = await db.get_oasistchi_user(uid)
+
+            if len(pets) >= user_row["slots"]:
+                return await interaction.response.send_message(
+                    "❌ 育成枠がいっぱいです。",
+                    ephemeral=True
+                )
+
+            # -------------------------
+            # 未所持成体のみ抽選
+            # -------------------------
+            owned = set(await db.get_oasistchi_owned_adult_keys(uid))
+            candidates = [a for a in ADULT_CATALOG if a["key"] not in owned]
+
+            if not candidates:
+                return await interaction.response.send_message(
+                    "❌ すべてのおあしすっちを所持済みです。",
+                    ephemeral=True
+                )
+
+            adult = random.choice(candidates)
+            egg_type = random.choice(adult["groups"])
+
+            # -------------------------
+            # 課金（1回だけ）
+            # -------------------------
+            await db.remove_balance(uid, gid, self.price)
+
+            # -------------------------
+            # 卵を追加
+            # -------------------------
+            await db.add_oasistchi_egg(uid, egg_type)
+
+            return await interaction.response.send_message(
+                (
+                    "🥚 **かぶりなし たまごを入手しました！**\n"
+                    f"孵化すると **{adult['name']}** が必ず生まれます。\n"
+                    "`/おあしすっち` で確認してください。"
+                ),
+                ephemeral=True
+            )
+
 # =========================
 # お世話ボタン（既存そのまま）
 # =========================
@@ -2549,6 +2596,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
