@@ -284,6 +284,11 @@ class Database:
             UNIQUE (race_date, schedule_id, pet_id)
         );
         """)
+        await self.conn.execute("""
+            UPDATE race_schedules
+            SET lottery_done = FALSE
+            WHERE lottery_done IS NULL;
+        """)
         # -----------------------------------------
         # race_entries に status カラムがなければ追加
         # -----------------------------------------
@@ -1487,6 +1492,7 @@ class Database:
             SET lottery_done = TRUE
             WHERE id = $1
         """, race_id)
+
 
 
 
