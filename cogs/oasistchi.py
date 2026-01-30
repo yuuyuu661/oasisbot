@@ -1984,35 +1984,152 @@ class TrainingConfirmButton(discord.ui.Button):
         # レース
 class RaceEntryConfirmView(discord.ui.View):
     def __init__(self, pet: dict, entry_fee: int):
-        super().__init__(timeout=60)
+        super().__init__(timeout=120)
+
         self.pet = pet
         self.entry_fee = entry_fee
 
-    @discord.ui.button(label="🏁 この状態で出走する", style=discord.ButtonStyle.success)
+        self.selected_race_id: int | None = None
+        self.selected_race: dict | None = None
+
+        # Select は後で動的に入れる
+        self.add_item(RaceSelect(self))
+
+    # =========================
+    # エントリー確定ボタン
+    # =========================
+    @discord.ui.button(label="✅ エントリー確定", style=discord.ButtonStyle.success)
     async def confirm(
         self,
         interaction: discord.Interaction,
         button: discord.ui.Button
     ):
-        await interaction.response.send_message(
-            "🏁 レースにエントリーしました！（※ まだ仮）",
+        await interaction.response.defer(ephemeral=True)
+
+        if not self.selected_race:
+            return await interaction.followup.send(
+                "❌ レースを選択してください。",
+                ephemeral=True
+            )
+
+        db = interaction.client.db
+        uid = str(interaction.user.id)
+        race = self.selected_race
+
+        # --- 締切チェック ---
+        now = datetime.now(JST)
+        race_time = datetime.combine(
+            race["race_date"],
+            datetime.strptime(race["race_time"], "%H:%M").time(),
+            tzinfo=JST
+        )
+        deadline = race_time - timedelta(minutes=race["entry_open_minutes"])
+
+        if now >= deadline:
+            return await interaction.followup.send(
+                "⏰ このレースはエントリー締切を過ぎています。",
+                ephemeral=True
+            )
+
+        # --- 定員チェック ---
+        count = await db.count_race_entries(race["id"])
+        if count >= race["max_entries"]:
+            return await interaction.followup.send(
+                "🚫 このレースは定員に達しています。",
+                ephemeral=True
+            )
+
+        # --- 所持金チェック ---
+        balance = await db.get_user_balance(uid, interaction.guild.id)
+        if balance < self.entry_fee:
+            return await interaction.followup.send(
+                "💸 所持金が不足しています。",
+                ephemeral=True
+            )
+
+        # --- エントリー保存 ---
+        await db.insert_race_entry(
+            race_id=race["id"],
+            user_id=uid,
+            pet_id=self.pet["id"],
+            entry_fee=self.entry_fee
+        )
+
+        # --- 支払い ---
+        await db.add_balance(uid, interaction.guild.id, -self.entry_fee)
+
+        await interaction.followup.send(
+            f"🏁 **{race['race_no']}レース** にエントリーしました！",
             ephemeral=True
         )
+
         self.stop()
 
-    @discord.ui.button(label="❌ やめる", style=discord.ButtonStyle.gray)
+    # =========================
+    # キャンセル
+    # =========================
+    @discord.ui.button(label="キャンセル", style=discord.ButtonStyle.secondary)
     async def cancel(
         self,
         interaction: discord.Interaction,
         button: discord.ui.Button
     ):
-        await interaction.response.send_message(
-            "キャンセルしました。",
-            ephemeral=True
-        )
+        await interaction.response.defer(ephemeral=True)
+        await interaction.followup.send("操作をキャンセルしました。", ephemeral=True)
         self.stop()
 
+class RaceSelect(discord.ui.Select):
+    def __init__(self, parent_view: RaceEntryConfirmView):
+        self.parent_view = parent_view
 
+        options = []
+        schedules = parent_view.pet["race_schedules"] if "race_schedules" in parent_view.pet else None
+
+        # 通常は DB から取得
+        # View 初期化時点では interaction が無いので、
+        # callback 内で fetch する構造にする
+
+        super().__init__(
+            placeholder="参加するレースを選択",
+            min_values=1,
+            max_values=1,
+            options=[]
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        db = interaction.client.db
+
+        schedules = await db.get_today_race_schedules()
+        if not schedules:
+            return await interaction.response.send_message(
+                "本日のレース予定がありません。",
+                ephemeral=True
+            )
+
+        # options を初回だけ動的生成
+        if not self.options:
+            self.options = [
+                discord.SelectOption(
+                    label=f"第{r['race_no']}レース {r['race_time']}",
+                    description=f"{r['distance']}｜{r['surface']}｜{r['condition']}",
+                    value=str(r["id"])
+                )
+                for r in schedules
+            ]
+            await interaction.response.edit_message(view=self.parent_view)
+            return
+
+        # 選択確定
+        race_id = int(self.values[0])
+        race = next(r for r in schedules if r["id"] == race_id)
+
+        self.parent_view.selected_race_id = race_id
+        self.parent_view.selected_race = race
+
+        await interaction.response.send_message(
+            f"🗓 **第{race['race_no']}レース（{race['race_time']}）** を選択しました。",
+            ephemeral=True
+        )
 
 async def setup(bot):
     cog = OasistchiCog(bot)
@@ -2021,6 +2138,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
