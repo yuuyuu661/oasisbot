@@ -2024,15 +2024,15 @@ class RaceScheduleView(discord.ui.View):
         super().__init__(timeout=60)
         self.schedules = schedules
 
-   @discord.ui.button(label="❌ 閉じる", style=discord.ButtonStyle.gray)
-   async def close(
-       self,
-       interaction: discord.Interaction,
-       button: discord.ui.Button
-   ):
-       await interaction.response.defer()
-       await interaction.delete_original_response()
-       self.stop()
+    @discord.ui.button(label="❌ 閉じる", style=discord.ButtonStyle.gray)
+    async def close(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button
+    ):
+        # defer しなくても delete_original_response は可能
+        await interaction.delete_original_response()
+        self.stop()
 
 
 async def setup(bot):
@@ -2042,6 +2042,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
