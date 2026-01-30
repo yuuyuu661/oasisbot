@@ -1446,7 +1446,7 @@ class Database:
 
     async def insert_race_entry(
         self,
-        race_schedule_id: int,
+        schedule_id: int,
         race_date: date,
         user_id: str,
         pet_id: int,
@@ -1455,7 +1455,7 @@ class Database:
     ):
         await self.conn.execute("""
             INSERT INTO race_entries (
-                race_schedule_id,
+                schedule_id,
                 race_date,
                 user_id,
                 pet_id,
@@ -1466,7 +1466,7 @@ class Database:
             )
             VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())
         """,
-        race_schedule_id,
+        schedule_id,
         race_date,
         user_id,
         pet_id,
@@ -1484,6 +1484,7 @@ class Database:
             WHERE race_schedule_id = $1
               AND status = 'cancelled'
         """, race_schedule_id)
+
 
 
 
