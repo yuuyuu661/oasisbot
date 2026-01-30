@@ -97,6 +97,7 @@ RACE_TIMES = ["09:00", "12:00", "15:00", "19:00", "22:00"]
 DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
 SURFACES = ["芝", "ダート"]
 CONDITIONS = ["良", "稍重", "重", "不良"]
+MAX_ENTRIES = 8
 
 def now_ts() -> float:
     return time.time()
@@ -426,6 +427,90 @@ class OasistchiCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.poop_check.start()
+
+    async def run_race_lottery(self, race: dict):
+    # レース抽選処理
+        db = self.bot.db
+
+        race_id = race["id"]
+        race_date = race["race_date"]
+        race_time = race["race_time"]
+
+        # ----------------------------------
+        # ① pending エントリー取得
+        # ----------------------------------
+        entries = await db.get_race_entries(race_id)
+
+        if len(entries) == 0:
+            print(f"[RACE] {race_time} エントリーなし → 中止")
+            return
+
+        # ----------------------------------
+        # ② すでに本日出走確定している pet / user を除外
+        # ----------------------------------
+        selected_pet_ids = await db.get_today_selected_pet_ids(race_date)
+        selected_user_ids = set()
+
+        valid_entries = []
+        for e in entries:
+            if e["pet_id"] in selected_pet_ids:
+                continue
+            if e["user_id"] in selected_user_ids:
+                continue
+
+            valid_entries.append(e)
+            selected_user_ids.add(e["user_id"])
+
+        # ----------------------------------
+        # ③ 出走1体のみ → レース中止
+        # ----------------------------------
+        if len(valid_entries) <= 1:
+            print(f"[RACE] {race_time} 出走1体以下 → レース中止")
+
+            for e in entries:
+                await db.update_race_entry_status(e["id"], "cancelled")
+                await db.refund_entry(
+                    e["user_id"],
+                    e["guild_id"],
+                    e["entry_fee"]
+                )
+            return
+
+        # ----------------------------------
+        # ④ 抽選（最大8体）
+        # ----------------------------------
+        selected = random.sample(
+            valid_entries,
+            min(MAX_ENTRIES, len(valid_entries))
+        )
+
+        selected_ids = {e["id"] for e in selected}
+
+        # ----------------------------------
+        # ⑤ ステータス更新
+        # ----------------------------------
+        for e in entries:
+            if e["id"] in selected_ids:
+                await db.update_race_entry_status(e["id"], "selected")
+
+                # 同一ペットの他レース pending を無効化
+                await db.cancel_other_entries(
+                    pet_id=e["pet_id"],
+                    race_date=race_date,
+                    exclude_schedule_id=race_id
+                )
+           else:
+                await db.update_race_entry_status(e["id"], "cancelled")
+                await db.refund_entry(
+                    e["user_id"],
+                    e["guild_id"],
+                    e["entry_fee"]
+                )
+
+        print(
+            f"[RACE] {race_time} 抽選完了 "
+            f"({len(selected)}/{len(entries)} 出走)"
+        )
 
     # レース処理
     # =========================
@@ -2150,6 +2235,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
