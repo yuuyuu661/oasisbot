@@ -1447,32 +1447,23 @@ class Database:
     async def insert_race_entry(
         self,
         schedule_id: int,
-        race_date: date,
         user_id: str,
         pet_id: int,
-        guild_id: str,
-        entry_fee: int
+        race_date,          # date 型（呼び出し側で作って渡す）
+        paid: int,
     ):
         await self.conn.execute("""
             INSERT INTO race_entries (
-                schedule_id,
                 race_date,
+                schedule_id,
                 user_id,
                 pet_id,
-                guild_id,
-                entry_fee,
+                paid,
                 status,
                 created_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())
-        """,
-        schedule_id,
-        race_date,
-        user_id,
-        pet_id,
-        guild_id,
-        entry_fee
-        )
+            VALUES ($1, $2, $3, $4, $5, 'pending', NOW());
+        """, race_date, schedule_id, user_id, pet_id, paid)
     # =====================================================
     # 返金対象をまとめて取得
     # =====================================================
@@ -1484,6 +1475,7 @@ class Database:
             WHERE schedule_id = $1
               AND status = 'cancelled'
         """, schedule_id)
+
 
 
 
