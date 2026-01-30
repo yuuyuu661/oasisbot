@@ -14,6 +14,8 @@ RACE_TIMES = ["09:00", "12:00", "15:00", "19:00", "22:00"]
 DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
 SURFACES = ["芝", "ダート"]
 CONDITIONS = ["良", "稍重", "重", "不良"]
+ENTRY_OPEN_MINUTES = 60  # レース開始60分前に締切
+
 
 class Database:
     def __init__(self):
@@ -1243,19 +1245,26 @@ class Database:
                 INSERT INTO race_schedules (
                     race_no,
                     race_time,
+                    entry_open_minutes,
+                    max_entries,
+                    entry_fee,
+                    created_at,
+                    race_date,
                     distance,
                     surface,
-                    condition,
-                    race_date
+                    condition
                 )
-                VALUES ($1, $2, $3, $4, $5, $6);
+                VALUES ($1, $2, $3, $4, $5, NOW(), $6, $7, $8, $9);
             """,
             i,
-            race_time,
+            race_time,                     # "09:00"
+            ENTRY_OPEN_MINUTES,            # ★ ここ！
+            8,                              # max_entries（仮）
+            50000,                          # entry_fee（仮）
+            race_date,
             random.choice(DISTANCES),
             random.choice(SURFACES),
             random.choice(CONDITIONS),
-            race_date
             )
 
     async def has_today_race_schedules(self, race_date: date) -> bool:
@@ -1316,6 +1325,7 @@ class Database:
                 ALTER COLUMN race_time TYPE TEXT
                 USING race_time::text;
             """)
+
 
 
 
