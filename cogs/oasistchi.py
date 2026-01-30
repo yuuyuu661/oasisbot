@@ -426,7 +426,6 @@ class OasistchiCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.poop_check.start()
-        self.race_daily_reset.start()
 
     # 共通：時間差分処理
     # =========================
@@ -985,35 +984,7 @@ class OasistchiCog(commands.Cog):
         for pet in pets:
             await self.process_time_tick(pet)
 
-    # -----------------------------
-    # レース日付
-    # -----------------------------
-    @tasks.loop(minutes=60)
-    async def race_daily_reset(self):
-        if not self.bot.is_ready():
-            return
-        db = self.bot.db
 
-        settings = await db.get_settings()
-        today = today_jst_str()
-        last = settings.get("oasistchi_race_reset_date")
-
-        # すでに今日リセット済み
-        if last == today:
-            return
-
-        print("🏁 おあしすっち レース日付リセット実行")
-
-        # raced_today を全リセット
-        await db.conn.execute("""
-            UPDATE oasistchi_pets
-            SET raced_today = FALSE;
-        """)
-
-        # 日付保存
-        await db.update_settings(
-            oasistchi_race_reset_date=today
-        )
 # =========================
 # ボタンView
 # =========================
@@ -2128,6 +2099,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
