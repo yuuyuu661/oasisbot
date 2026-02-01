@@ -2513,6 +2513,9 @@ class UniqueEggConfirmView(discord.ui.View):
             return
         self._confirmed = True
 
+        # ★ 必ず最初に defer
+        await interaction.response.defer(ephemeral=True)
+
         db = interaction.client.db
         uid = self.uid
         gid = self.guild_id
@@ -2520,34 +2523,43 @@ class UniqueEggConfirmView(discord.ui.View):
         # 育成枠チェック
         pets = await db.get_oasistchi_pets(uid)
         user_row = await db.get_oasistchi_user(uid)
+
         if len(pets) >= user_row["slots"]:
-            return await interaction.response.send_message(
-                "❌ 育成枠がいっぱいです。",
-                ephemeral=True
+            return await interaction.edit_original_response(
+                content="❌ 育成枠がいっぱいです。",
+                view=None
             )
 
         owned = set(await db.get_oasistchi_owned_adult_keys(uid))
         candidates = [a for a in ADULT_CATALOG if a["key"] not in owned]
+
         if not candidates:
-            return await interaction.response.send_message(
-                "❌ 全種所持済みです。",
-                ephemeral=True
+            return await interaction.edit_original_response(
+                content="❌ 全種所持済みです。",
+                view=None
             )
 
         adult = random.choice(candidates)
         egg_type = random.choice(adult["groups"])
 
+        # 課金
         await db.remove_balance(uid, gid, self.price)
+
+        # 卵追加
         await db.add_oasistchi_egg(
             uid,
             egg_type,
-            fixed_adult_key=adult["key"]  
+            fixed_adult_key=adult["key"]
         )
 
-        await interaction.response.send_message(
-            f"🥚 **かぶりなし たまご獲得！**\n"
-            f"孵化すると **{adult['name']}** が生まれます。",
-            ephemeral=True
+        # 完了通知（名前なし仕様もOK）
+        return await interaction.edit_original_response(
+            content=(
+                "🥚 **かぶりなし たまごを入手しました！**\n"
+                "このたまごからは、未所持のおあしすっちが必ず生まれます。\n"
+                "`/おあしすっち` で確認してください。"
+            ),
+            view=None
         )
         # レース
 class RaceEntryConfirmView(discord.ui.View):
@@ -2682,6 +2694,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
