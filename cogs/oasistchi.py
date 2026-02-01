@@ -1357,20 +1357,17 @@ class ChargeSelect(discord.ui.Select):
                 )
                 return
 
-            elif value == "unique_egg":
-                view = ConfirmPurchaseView(
-                    uid=str(interaction.user.id),
-                    guild_id=str(interaction.guild.id),
-                    kind="unique_egg",
-                    price=300_000,
-                    slot_price=self.slot_price
-                )
-
-                await interaction.response.send_message(
-                    "🥚 **かぶりなし たまご** を購入しますか？",
-                    ephemeral=True,
-                    view=view
-                )
+        elif value == "unique_egg":
+            view = UniqueEggConfirmView(
+                uid=str(interaction.user.id),
+                guild_id=str(interaction.guild.id),
+                price=300_000
+            )
+            await interaction.response.send_message(
+                "🥚 **かぶりなし たまご** を購入しますか？",
+                ephemeral=True,
+                view=view
+            )
                 return
 
 class NotifySelectView(discord.ui.View):
@@ -2463,6 +2460,52 @@ class PaidPetConfirmView(discord.ui.View):
             view=None
         )
 
+class UniqueEggConfirmView(discord.ui.View):
+    def __init__(self, uid: str, guild_id: str, price: int):
+        super().__init__(timeout=30)
+        self.uid = uid
+        self.guild_id = guild_id
+        self.price = price
+        self._confirmed = False
+
+    @discord.ui.button(label="購入する", style=discord.ButtonStyle.success)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self._confirmed:
+            return
+        self._confirmed = True
+
+        db = interaction.client.db
+        uid = self.uid
+        gid = self.guild_id
+
+        # 育成枠チェック
+        pets = await db.get_oasistchi_pets(uid)
+        user_row = await db.get_oasistchi_user(uid)
+        if len(pets) >= user_row["slots"]:
+            return await interaction.response.send_message(
+                "❌ 育成枠がいっぱいです。",
+                ephemeral=True
+            )
+
+        owned = set(await db.get_oasistchi_owned_adult_keys(uid))
+        candidates = [a for a in ADULT_CATALOG if a["key"] not in owned]
+        if not candidates:
+            return await interaction.response.send_message(
+                "❌ 全種所持済みです。",
+                ephemeral=True
+            )
+
+        adult = random.choice(candidates)
+        egg_type = random.choice(adult["groups"])
+
+        await db.remove_balance(uid, gid, self.price)
+        await db.add_oasistchi_egg(uid, egg_type)
+
+        await interaction.response.send_message(
+            f"🥚 **かぶりなし たまご獲得！**\n"
+            f"孵化すると **{adult['name']}** が生まれます。",
+            ephemeral=True
+        )
         # レース
 class RaceEntryConfirmView(discord.ui.View):
     def __init__(self, pet: dict, entry_fee: int, schedules: list[dict]):
@@ -2596,6 +2639,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
