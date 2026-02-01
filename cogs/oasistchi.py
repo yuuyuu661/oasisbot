@@ -1343,28 +1343,35 @@ class ChargeSelect(discord.ui.Select):
         elif value in ("rebirth", "train_reset"):
             price = 100_000 if value == "rebirth" else 50_000
 
+            # ===== ① 成体おあしすっちを取得 =====
+            pets = await interaction.client.db.get_oasistchi_pets(uid)
+
+            options = [
+                discord.SelectOption(
+                    label=f"{p['name'] or 'ななし'}（ID:{p['id']}）",
+                    value=str(p["id"])
+                )
+                for p in pets
+                if p["stage"] == "adult"
+            ]
+
+            if not options:
+                return await interaction.response.send_message(
+                    "❌ 成体のおあしすっちがいません。",
+                    ephemeral=True
+                )
+
+            # ===== ② options を渡して View を作る =====
             view = PaidPetSelectView(
                 uid=uid,
                 kind=value,
                 price=price,
-                slot_price=self.slot_price
+                slot_price=self.slot_price,
+                options=options,   # ←★ここが超重要
             )
 
             return await interaction.response.send_message(
                 "対象のおあしすっちを選択してください。",
-                ephemeral=True,
-                view=view
-            )
-
-        # ③ かぶりなし たまご
-        elif value == "unique_egg":
-            view = UniqueEggConfirmView(
-                uid=str(interaction.user.id),
-                guild_id=str(interaction.guild.id),
-                price=300_000
-            )
-            return await interaction.response.send_message(
-                "🥚 **かぶりなし たまご** を購入しますか？",
                 ephemeral=True,
                 view=view
             )
@@ -2664,6 +2671,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
