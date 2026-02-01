@@ -1503,13 +1503,21 @@ class ConfirmPurchaseView(discord.ui.View):
 
     @discord.ui.button(label="購入する", style=discord.ButtonStyle.green)
     async def ok(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # 二重押し防止
+        if getattr(self, "_confirmed", False):
+            return
+        self._confirmed = True
+
+        # ★ 最初に defer（ここが超重要）
+        await interaction.response.defer(ephemeral=True)
+
         bot = interaction.client
         guild = interaction.guild
         user = interaction.user
-        uid = str(user.id) 
+        uid = str(user.id)
 
         if guild is None:
-            return await interaction.response.edit_message(
+            return await interaction.edit_original_response(
                 content="❌ サーバー内でのみ購入できます。",
                 view=None
             )
@@ -1523,12 +1531,11 @@ class ConfirmPurchaseView(discord.ui.View):
         settings = await db.get_settings()
         unit = settings["currency_unit"]
 
-        uid = str(interaction.user.id)
         row = await db.get_user(uid, gid)
         balance = row["balance"]
 
         if balance < self.price:
-            return await interaction.response.edit_message(
+            return await interaction.edit_original_response(
                 content=(
                     f"❌ 残高が足りません。\n"
                     f"現在: **{balance:,} {unit}** / 必要: **{self.price:,} {unit}**"
@@ -1570,7 +1577,7 @@ class ConfirmPurchaseView(discord.ui.View):
             current_slots = user_row["slots"]
 
             if current_slots >= 10:
-                return await interaction.response.edit_message(
+                return await interaction.edit_original_response(
                     content="❌ 育成枠は最大 **10枠** までです。",
                     view=None
                 )
@@ -1578,7 +1585,7 @@ class ConfirmPurchaseView(discord.ui.View):
             price = self.slot_price * 2 if current_slots >= 5 else self.slot_price
 
             if balance < price:
-                return await interaction.response.edit_message(
+                return await interaction.edit_original_response(
                     content=(
                         f"❌ 残高が足りません。\n"
                         f"現在: **{balance:,} {unit}** / 必要: **{price:,} {unit}**"
@@ -1586,11 +1593,11 @@ class ConfirmPurchaseView(discord.ui.View):
                     view=None
                 )
 
-            # ✅ 課金はここで1回だけ
+            # 課金（1回だけ）
             await db.remove_balance(uid, gid, price)
             await db.add_oasistchi_slot(uid, 1)
 
-            return await interaction.response.edit_message(
+            return await interaction.edit_original_response(
                 content=(
                     f"✅ **育成枠を1つ増築しました！**\n"
                     f"現在の育成枠: **{current_slots + 1} / 10**\n"
@@ -1600,26 +1607,20 @@ class ConfirmPurchaseView(discord.ui.View):
             )
 
         elif self.kind == "unique_egg":
-            # -------------------------
-            # 育成枠チェック
-            # -------------------------
             pets = await db.get_oasistchi_pets(uid)
             user_row = await db.get_oasistchi_user(uid)
 
             if len(pets) >= user_row["slots"]:
-                return await interaction.response.send_message(
+                return await interaction.followup.send(
                     "❌ 育成枠がいっぱいです。",
                     ephemeral=True
                 )
 
-            # -------------------------
-            # 未所持成体のみ抽選
-            # -------------------------
             owned = set(await db.get_oasistchi_owned_adult_keys(uid))
             candidates = [a for a in ADULT_CATALOG if a["key"] not in owned]
 
             if not candidates:
-                return await interaction.response.send_message(
+                return await interaction.followup.send(
                     "❌ すべてのおあしすっちを所持済みです。",
                     ephemeral=True
                 )
@@ -1627,21 +1628,17 @@ class ConfirmPurchaseView(discord.ui.View):
             adult = random.choice(candidates)
             egg_type = random.choice(adult["groups"])
 
-            # -------------------------
-            # 課金（1回だけ）
-            # -------------------------
+            # 課金
             await db.remove_balance(uid, gid, self.price)
 
-            # -------------------------
-            # 卵を追加
-            # -------------------------
+            # 卵追加（固定）
             await db.add_oasistchi_egg(
                 uid,
                 egg_type,
                 fixed_adult_key=adult["key"]
             )
 
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 (
                     "🥚 **かぶりなし たまごを入手しました！**\n"
                     "このたまごからは、未所持のおあしすっちが必ず生まれます。\n"
@@ -2680,6 +2677,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
