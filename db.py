@@ -427,6 +427,8 @@ class Database:
                     f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
                 )
 
+
+        
         # -----------------------------------------
         # race_schedules に lottery_done が無ければ追加
         # -----------------------------------------
@@ -1067,18 +1069,23 @@ class Database:
     # -------------------------------
     # おあしすっち：追加（たまご購入）
     # -------------------------------
-    async def add_oasistchi_egg(self, user_id: str, egg_type: str):
+    async def add_oasistchi_egg(
+        self,
+        user_id: str,
+        egg_type: str,
+        fixed_adult_key: str | None = None   # ★ 追加
+    ):
         now = time.time()
         await self.conn.execute("""
             INSERT INTO oasistchi_pets (
-                user_id, stage, egg_type,
+                user_id, stage, egg_type, fixed_adult_key,
                 growth, hunger, happiness, poop,
                 last_interaction,
                 last_growth_tick,
                 last_poop_tick,
                 next_poop_check_at
             ) VALUES (
-                $1, 'egg', $2,
+                $1, 'egg', $2, $3,
                 0::REAL,          -- ← 明示
                 100,
                 50,
@@ -1517,9 +1524,22 @@ class Database:
         """, race_id)
 
 
+    # =====================================================
+    # かぶりなしたまご
+    # =====================================================
 
+    async def _ensure_column(self, table: str, column: str, coldef: str):
+        rows = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = $1;
+        """, table)
 
-
+        existing = {r["column_name"] for r in rows}
+        if column not in existing:
+            print(f"🛠 {table} テーブルに {column} カラムを追加します…")
+            await self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coldef};")
+            print(f"✅ {column} カラム追加完了")
 
 
 
