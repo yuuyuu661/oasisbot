@@ -426,7 +426,24 @@ class Database:
                 await self.conn.execute(
                     f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
                 )
+        # -----------------------------------------
+        # oasistchi_pets カラム補完
+        # -----------------------------------------
+        col_check = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'oasistchi_pets';
+        """)
 
+        existing_cols = {row["column_name"] for row in col_check}
+
+        if "fixed_adult_key" not in existing_cols:
+            print("🛠 oasistchi_pets に fixed_adult_key カラムを追加します…")
+            await self.conn.execute("""
+                ALTER TABLE oasistchi_pets
+                ADD COLUMN fixed_adult_key TEXT;
+            """)
+            print("✅ fixed_adult_key カラム追加完了")
 
         
         # -----------------------------------------
@@ -1540,6 +1557,7 @@ class Database:
             print(f"🛠 {table} テーブルに {column} カラムを追加します…")
             await self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coldef};")
             print(f"✅ {column} カラム追加完了")
+
 
 
 
