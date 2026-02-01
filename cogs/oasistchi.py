@@ -2292,17 +2292,28 @@ class TrainingConfirmButton(discord.ui.Button):
     # 課金要素
     # -----------------------------------------
 class PaidPetSelectView(discord.ui.View):
-    def __init__(self, uid: str, kind: str, price: int, slot_price: int):
+    def __init__(
+        self,
+        uid: str,
+        kind: str,
+        price: int,
+        slot_price: int,
+        options: list[discord.SelectOption] 
+    ):
         super().__init__(timeout=60)
         self.uid = uid
-        self.kind = kind            
+        self.kind = kind
         self.price = price
         self.slot_price = slot_price
 
-        self.add_item(PaidPetSelect(self))
+        self.add_item(PaidPetSelect(self, options))
 
 class PaidPetSelect(discord.ui.Select):
-    def __init__(self, view: "PaidPetSelectView", options: list[discord.SelectOption]):
+    def __init__(
+        self,
+        view: "PaidPetSelectView",
+        options: list[discord.SelectOption]
+    ):
         self.view_ref = view
         super().__init__(
             placeholder="対象のおあしすっちを選択",
@@ -2653,6 +2664,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
