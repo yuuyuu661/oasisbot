@@ -1090,6 +1090,7 @@ class Database:
         self,
         user_id: str,
         egg_type: str,
+        *,
         fixed_adult_key: str | None = None   # ★ 追加
     ):
         now = time.time()
@@ -1557,6 +1558,7 @@ class Database:
             print(f"🛠 {table} テーブルに {column} カラムを追加します…")
             await self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coldef};")
             print(f"✅ {column} カラム追加完了")
+
 
 
 
