@@ -1573,8 +1573,46 @@ class Database:
             print(f"✅ {column} カラム追加完了")
 
 
+    # -------------------------------
+    # おあしすっち：転生
+    # -------------------------------
+    async def rebirth_oasistchi(self, pet_id: int):
+        base_speed = random.randint(30, 50)
+        base_stamina = random.randint(30, 50)
+        base_power = random.randint(30, 50)
 
+        await self.conn.execute("""
+            UPDATE oasistchi_pets
+            SET
+                base_speed = $1,
+                base_stamina = $2,
+                base_power = $3,
+                train_speed = 0,
+                train_stamina = 0,
+                train_power = 0,
+                training_count = 0
+            WHERE id = $4
+              AND stage = 'adult'
+        """,
+        base_speed,
+        base_stamina,
+        base_power,
+        pet_id)
 
+    # -------------------------------
+    # おあしすっち：特訓リセット
+    # -------------------------------
+    async def reset_training_oasistchi(self, pet_id: int):
+        await self.conn.execute("""
+            UPDATE oasistchi_pets
+            SET
+                train_speed = 0,
+                train_stamina = 0,
+                train_power = 0,
+                training_count = 0
+            WHERE id = $1
+              AND stage = 'adult'
+        """, pet_id)
 
 
 
