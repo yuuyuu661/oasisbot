@@ -1643,7 +1643,7 @@ class ConfirmPurchaseView(discord.ui.View):
             return await interaction.response.send_message(
                 (
                     "🥚 **かぶりなし たまごを入手しました！**\n"
-                    f"孵化すると **{adult['name']}** が必ず生まれます。\n"
+                    "このたまごからは、未所持のおあしすっちが必ず生まれます。\n"
                     "`/おあしすっち` で確認してください。"
                 ),
                 ephemeral=True
@@ -2679,6 +2679,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
