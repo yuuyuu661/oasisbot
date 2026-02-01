@@ -86,7 +86,12 @@ ADULT_CATALOG = [
     {"key": "rei","name": "れい","groups": ["red"]},  
     {"key": "tumu","name": "つむ","groups": ["blue"]},
     {"key": "urufu","name": "うるふ","groups": ["green"]},
-
+    
+    {"key": "cyoumi","name": "ちょうみりょう","groups": ["purple"]},
+    {"key": "erechima","name": "ういえれ","groups": ["yellow"]},
+    {"key": "tenshi","name": "てんし","groups": ["red"]},  
+    {"key": "muku","name": "むく","groups": ["blue"]},
+    {"key": "shigu","name": "シグ","groups": ["green"]},
 
 
 ]
@@ -2677,6 +2682,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
