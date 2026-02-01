@@ -81,8 +81,16 @@ ADULT_CATALOG = [
     {"key": "remi","name": "れみたん","groups": ["green"]},
     {"key": "tonbo","name": "トンボ","groups": ["purple"]},
     {"key": "yuyu","name": "ゆゆ","groups": ["yellow"]},
-    
+    {"key": "naruse","name": "なるせ","groups": ["purple"]},
+    {"key": "rapi","name": "ラピ","groups": ["yellow"]},
+    {"key": "rei","name": "れい","groups": ["red"]},  
+    {"key": "tumu","name": "つむ","groups": ["blue"]},
+    {"key": "urufu","name": "うるふ","groups": ["green"]},
+
+
+
 ]
+
 
 TRAIN_RESULTS = [
     (1, "今回はダメかも..."),
@@ -2671,6 +2679,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
