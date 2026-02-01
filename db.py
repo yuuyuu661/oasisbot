@@ -1091,29 +1091,42 @@ class Database:
         user_id: str,
         egg_type: str,
         *,
-        fixed_adult_key: str | None = None   # ★ 追加
+        fixed_adult_key: str | None = None
     ):
         now = time.time()
         await self.conn.execute("""
             INSERT INTO oasistchi_pets (
-                user_id, stage, egg_type, fixed_adult_key,
-                growth, hunger, happiness, poop,
+                user_id,
+                stage,
+                egg_type,
+                fixed_adult_key,
+                growth,
+                hunger,
+                happiness,
+                poop,
                 last_interaction,
                 last_growth_tick,
                 last_poop_tick,
                 next_poop_check_at
             ) VALUES (
-                $1, 'egg', $2, $3,
-                0::REAL,          -- ← 明示
+                $1,
+                'egg',
+                $2,
+                $3,
+                0::REAL,
                 100,
                 50,
                 FALSE,
-                $3::REAL,
-                $3::REAL,
-                $3::REAL,
-                ($3 + 3600)::REAL
+                $4::REAL,
+                $4::REAL,
+                $4::REAL,
+                ($4 + 3600)::REAL
             )
-        """, user_id, egg_type, now)
+        """,
+        user_id,
+        egg_type,
+        fixed_adult_key,
+        now)
 
     # -------------------------------
     # おあしすっち：更新
@@ -1558,6 +1571,7 @@ class Database:
             print(f"🛠 {table} テーブルに {column} カラムを追加します…")
             await self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coldef};")
             print(f"✅ {column} カラム追加完了")
+
 
 
 
