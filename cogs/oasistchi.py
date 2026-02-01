@@ -1557,18 +1557,17 @@ class ConfirmPurchaseView(discord.ui.View):
             user_row = await db.get_oasistchi_user(uid)
 
             if len(pets) >= user_row["slots"]:
-                return await interaction.response.edit_message(
+                return await interaction.edit_original_response(
                     content="❌ 育成枠がいっぱいです。",
                     view=None
                 )
 
-            # ✅ ここで初めて課金
             await db.remove_balance(uid, gid, self.price)
             await db.add_oasistchi_egg(uid, self.egg_key or "red")
 
             new_balance = balance - self.price
 
-            return await interaction.response.edit_message(
+            return await interaction.edit_original_response(
                 content=(
                     f"✅ **たまごを購入しました！**\n"
                     f"残高: **{new_balance:,} {unit}**\n"
@@ -2694,6 +2693,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
