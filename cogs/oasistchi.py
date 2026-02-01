@@ -1390,6 +1390,22 @@ class ChargeSelect(discord.ui.Select):
                 view=view
             )
 
+        elif value == "unique_egg":
+            view = ConfirmPurchaseView(
+                kind="unique_egg",
+                label="🥚 かぶりなし たまご",
+                price=300_000,
+                egg_key=None,
+                slot_price=self.slot_price
+            )
+
+            return await interaction.response.send_message(
+                "🥚 **かぶりなし たまご** を購入しますか？\n"
+                "※ 未所持のおあしすっちのみが生まれます。",
+                ephemeral=True,
+                view=view
+            )
+
 class NotifySelectView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=60)
@@ -2693,6 +2709,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
