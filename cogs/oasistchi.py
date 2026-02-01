@@ -2509,7 +2509,11 @@ class UniqueEggConfirmView(discord.ui.View):
         egg_type = random.choice(adult["groups"])
 
         await db.remove_balance(uid, gid, self.price)
-        await db.add_oasistchi_egg(uid, egg_type)
+        await db.add_oasistchi_egg(
+            uid,
+            egg_type,
+            fixed_adult_key=adult["key"]  
+        )
 
         await interaction.response.send_message(
             f"🥚 **かぶりなし たまご獲得！**\n"
@@ -2649,6 +2653,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
