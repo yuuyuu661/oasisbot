@@ -1619,7 +1619,11 @@ class ConfirmPurchaseView(discord.ui.View):
             # -------------------------
             # 卵を追加
             # -------------------------
-            await db.add_oasistchi_egg(uid, egg_type)
+            await db.add_oasistchi_egg(
+                uid,
+                egg_type,
+                fixed_adult_key=adult["key"]
+            )
 
             return await interaction.response.send_message(
                 (
@@ -1936,7 +1940,14 @@ class CareView(discord.ui.View):
                 ephemeral=True
             )
 
-        adult = random.choice(candidates)
+        # ★ここが重要
+        if pet.get("fixed_adult_key"):
+            adult = next(
+                a for a in ADULT_CATALOG
+                if a["key"] == pet["fixed_adult_key"]
+            )
+        else:
+            adult = random.choice(candidates)
 
         hatch_gif = os.path.join(ASSET_BASE, "egg", pet["egg_type"], "hatch.gif")
         await interaction.response.defer()
@@ -2638,6 +2649,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
