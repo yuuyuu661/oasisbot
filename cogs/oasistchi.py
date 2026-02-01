@@ -1339,16 +1339,16 @@ class ChargeSelect(discord.ui.Select):
                 view=view
             )
 
-            # ② 転生 / 特訓リセット
-            elif value in ("rebirth", "train_reset"):
-                price = 100_000 if value == "rebirth" else 50_000
+        # ② 転生 / 特訓リセット
+        elif value in ("rebirth", "train_reset"):
+            price = 100_000 if value == "rebirth" else 50_000
 
-                view = PaidPetSelectView(
-                    uid=uid,
-                    kind=value,
-                    price=price,
-                    slot_price=self.slot_price
-                )
+            view = PaidPetSelectView(
+                uid=uid,
+                kind=value,
+                price=price,
+                slot_price=self.slot_price
+            )
 
             return await interaction.response.send_message(
                 "対象のおあしすっちを選択してください。",
@@ -2638,6 +2638,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
