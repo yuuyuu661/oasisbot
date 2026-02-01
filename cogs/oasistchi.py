@@ -1339,8 +1339,8 @@ class ChargeSelect(discord.ui.Select):
                 view=view
             )
 
-        # 転生
-        elif value in ("rebirth", "train_reset"):
+            # ② 転生 / 特訓リセット
+            elif value in ("rebirth", "train_reset"):
                 price = 100_000 if value == "rebirth" else 50_000
 
                 view = PaidPetSelectView(
@@ -1350,25 +1350,24 @@ class ChargeSelect(discord.ui.Select):
                     slot_price=self.slot_price
                 )
 
-                await interaction.response.send_message(
-                    "対象のおあしすっちを選択してください。",
-                    ephemeral=True,
-                    view=view
-                )
-                return
+            return await interaction.response.send_message(
+                "対象のおあしすっちを選択してください。",
+                ephemeral=True,
+                view=view
+            )
 
+        # ③ かぶりなし たまご
         elif value == "unique_egg":
             view = UniqueEggConfirmView(
                 uid=str(interaction.user.id),
                 guild_id=str(interaction.guild.id),
                 price=300_000
             )
-            await interaction.response.send_message(
+            return await interaction.response.send_message(
                 "🥚 **かぶりなし たまご** を購入しますか？",
                 ephemeral=True,
                 view=view
             )
-                return
 
 class NotifySelectView(discord.ui.View):
     def __init__(self):
@@ -2639,6 +2638,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
