@@ -711,6 +711,27 @@ class OasistchiCog(commands.Cog):
                 updates["last_hunger_tick"] = now
 
         # -------------------
+        # 幸福度ダウン（空腹度5以下で1時間ごと）
+        # -------------------
+        if pet["stage"] == "adult":
+            hunger_after = int(
+                updates.get("hunger", pet.get("hunger", 100))
+            )
+
+            if hunger_after <= 5:
+                elapsed = now - pet.get("last_unhappy_tick", now)
+                ticks = int(elapsed // 3600)  # 1時間ごと
+
+                if ticks > 0:
+                    new_happiness = max(
+                        0,
+                        pet.get("happiness", 50) - ticks * 2
+                    )
+                    updates["happiness"] = new_happiness
+                    updates["last_unhappy_tick"] = now
+
+
+        # -------------------
         # うんち（1時間ごと）
         # -------------------
         next_check = pet.get("next_poop_check_at", 0)
@@ -2480,6 +2501,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
