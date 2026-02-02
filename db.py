@@ -1371,6 +1371,7 @@ class Database:
         for i, race_time in enumerate(RACE_TIMES, start=1):
             await self.conn.execute("""
                 INSERT INTO race_schedules (
+                    guild_id,               
                     race_no,
                     race_time,
                     entry_open_minutes,
@@ -1382,7 +1383,7 @@ class Database:
                     surface,
                     condition
                 )
-                VALUES ($1, $2, $3, $4, $5, NOW(), $6, $7, $8, $9);
+                VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10);
             """,
             i,
             race_time,                     # "09:00"
@@ -1729,5 +1730,6 @@ class Database:
               AND race_finished = FALSE
         """, race_id)
         return row is not None
+
 
 
