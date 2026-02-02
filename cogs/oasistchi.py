@@ -496,26 +496,28 @@ class OasistchiCog(commands.Cog):
                 print(f"[RACE ERROR] lottery failed: {e}")
 
     # =========================
-    # レース処理（正規版）
+    # レース処理（正規版・完成）
     # =========================
     async def run_race_lottery(self, race: dict):
         db = self.db
         race_id = race["id"]
         race_date = race["race_date"]
-        guild_id = str(race["guild_id"]) if "guild_id" in race else None
+        guild_id = str(race["guild_id"])
+
+        max_entries = race.get("max_entries", 8)
+        entry_fee = race.get("entry_fee", 0)
 
         entries = await db.get_race_entries(race_id)
 
-        # --- 中止条件（参加1体以下） ---
+        # --- 中止条件 ---
         if len(entries) <= 1:
             for e in entries:
                 await db.update_race_entry_status(e["id"], "cancelled")
-                if guild_id:
-                    await db.refund_entry(e["user_id"], guild_id, e["entry_fee"])
+                await db.refund_entry(e["user_id"], guild_id, entry_fee)
             print(f"[RACE] レース {race_id} 中止（参加1体以下）")
             return
 
-        # --- 当日すでに出走しているペット除外 ---
+        # --- 当日出走済み除外 ---
         already_selected = await db.get_today_selected_pet_ids(race_date)
 
         candidates = [
@@ -523,116 +525,61 @@ class OasistchiCog(commands.Cog):
             if e["pet_id"] not in already_selected
         ]
 
-        # 候補不足でも中止
         if len(candidates) <= 1:
             for e in entries:
                 await db.update_race_entry_status(e["id"], "cancelled")
-                if guild_id:
-                    await db.refund_entry(e["user_id"], guild_id, e["entry_fee"])
+                await db.refund_entry(e["user_id"], guild_id, entry_fee)
             print(f"[RACE] レース {race_id} 中止（有効候補不足）")
             return
 
         # --- 抽選 ---
         winners = random.sample(
             candidates,
-            k=min(8, len(candidates))
+            k=min(max_entries, len(candidates))
         )
-
         winner_ids = {w["id"] for w in winners}
+
+        selected = []
+        cancelled = []
 
         for e in entries:
             if e["id"] in winner_ids:
+                selected.append(e)
                 await db.update_race_entry_status(e["id"], "selected")
                 await db.cancel_other_entries(e["pet_id"], race_date, race_id)
             else:
-                await db.update_race_entry_status(e["id"], "rejected")
-                if guild_id:
-                    await db.refund_entry(e["user_id"], guild_id, e["entry_fee"])
+                cancelled.append(e)
+                await db.update_race_entry_status(e["id"], "cancelled")
+                await db.refund_entry(e["user_id"], guild_id, entry_fee)
 
-        print(f"[RACE] レース {race_id} 抽選完了（{len(winners)}体）")
+        print(f"[RACE] 抽選完了 race_id={race_id} selected={len(selected)}")
 
-        # -------------------------
-        # ④ 抽選対象シャッフル
-        # -------------------------
-        entries = list(entries)
-        random.shuffle(entries)
+        # --- 通知 ---
+        await self.notify_race_result(race, selected, cancelled)
 
-        # -------------------------
-        # ⑤ selected / cancelled 分岐
-        # -------------------------
-        selected = entries[:max_entries]
-        cancelled = entries[max_entries:]
 
-        # -------------------------
-        # ⑥ selected 確定
-        # -------------------------
-        for e in selected:
-            await db.update_race_entry_status(e["id"], "selected")
-
-            # 同日・他レース pending をキャンセル
-            await db.cancel_other_entries(
-                pet_id=e["pet_id"],
-                race_date=race_date,
-                exclude_schedule_id=race_id
-            )
-
-        # -------------------------
-        # ⑦ cancelled ＋ 返金
-        # -------------------------
-        for e in cancelled:
-            await db.update_race_entry_status(e["id"], "cancelled")
-            await db.refund_entry(
-                e["user_id"],
-                e["guild_id"],
-                entry_fee
-            )
-
-        print(
-           f"[RACE] 抽選完了 race_id={race_id} "
-            f"selected={len(selected)} cancelled={len(cancelled)}"
-        )
-        # =========================
-        # ⑧ 抽選結果通知
-        # =========================
+    # =========================
+    # レース通知
+    # =========================
+    async def notify_race_result(self, race, selected, cancelled):
         channel = self.bot.get_channel(RACE_RESULT_CHANNEL_ID)
+        if not channel:
+            return
 
-        if channel and selected:
-            embed = discord.Embed(
-                title=f"🏁 第{race['race_no']}レース 抽選結果",
-                description="出走が確定したおあしすっちはこちら！",
-                color=discord.Color.gold()
-            )
+        embed = discord.Embed(
+            title=f"🏁 第{race['race_no']}レース 抽選結果",
+            description="出走が確定したおあしすっちはこちら！",
+            color=discord.Color.gold()
+        )
 
-            lines = []
-            for i, e in enumerate(selected, start=1):
-                user = self.bot.get_user(int(e["user_id"]))
-                pet_name = e["pet_name"] if "pet_name" in e else f"ID:{e['pet_id']}"
+        lines = []
+        for i, e in enumerate(selected, start=1):
+            user = self.bot.get_user(int(e["user_id"]))
+            mention = user.mention if user else f"<@{e['user_id']}>"
+            lines.append(f"**第{i}ゲート** {mention} 🐣 ID:{e['pet_id']}")
 
-                mention = user.mention if user else f"<@{e['user_id']}>"
-                lines.append(
-                    f"**第{i}ゲート**　{mention}　🐣 **{pet_name}**"
-                )
-
-            embed.add_field(
-                name="出走メンバー",
-                value="\n".join(lines),
-                inline=False
-            )
-
-            embed.set_footer(text="健闘を祈ります！")
-
-            await channel.send(embed=embed)
-            for e in cancelled:
-                try:
-                    user = self.bot.get_user(int(e["user_id"]))
-                    if user:
-                        await user.send(
-                            f"🏁 **第{race['race_no']}レース 落選のお知らせ**\n"
-                            f"エントリーしたレースには落選しました。\n"
-                            f"💰 参加費は返却されています。"
-                        )
-                except Exception as dm_err:
-                    print(f"[RACE DM ERROR] user_id={e['user_id']} err={dm_err}")
+        embed.add_field(name="出走メンバー", value="\n".join(lines), inline=False)
+        await channel.send(embed=embed)
 
 
     # 共通：時間差分処理
@@ -2487,6 +2434,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
