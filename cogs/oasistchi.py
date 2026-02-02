@@ -970,7 +970,7 @@ class OasistchiCog(commands.Cog):
         return embed
 
     def get_pet_image(self, pet: dict, state: str = "idle"):
-        state = resolve_pet_state(pet, state)
+        state = self.resolve_pet_state(pet, state)
 
         if pet["stage"] == "adult":
             key = pet["adult_key"]
@@ -2470,6 +2470,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
