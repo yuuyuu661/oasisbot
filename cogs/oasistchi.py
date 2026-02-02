@@ -112,7 +112,7 @@ DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
 SURFACES = ["芝", "ダート"]
 CONDITIONS = ["良", "稍重", "重", "不良"]
 MAX_ENTRIES = 8
-RACE_RESULT_CHANNEL_ID = 1466693608366276793
+RACE_RESULT_CHANNEL_ID = 1445007471289696267
 
 def now_ts() -> float:
     return time.time()
@@ -888,156 +888,7 @@ class OasistchiCog(commands.Cog):
                 await self.process_time_tick(pet)
             except Exception as e:
                 print(f"[OASISTCHI INIT TICK ERROR] pet_id={pet['id']} err={e}")
-    # =========================
-    # レースデバッグ
-    # =========================
-    @app_commands.command(name="race_debug", description="レース用ステータス確認（デバッグ）")
-    @app_commands.describe(name="確認したいおあしすっち")
-    async def race_debug(
-        self,
-        interaction: discord.Interaction,
-        name: str | None = None
-    ):
-        await interaction.response.defer(ephemeral=True)
-        
 
-        db = interaction.client.db
-        uid = str(interaction.user.id)
-
-        pets = await db.get_oasistchi_pets(uid)
-        if not pets:
-            return await interaction.followup.send(
-                "おあしすっちを持っていません。",
-                ephemeral=True
-            )
-
-        # 成体のみ抽出
-        adults = [dict(p) for p in pets if p["stage"] == "adult"]
-        if not adults:
-            return await interaction.followup.send(
-                "成体のおあしすっちがいません。",
-                ephemeral=True
-            )
-
-        pet = None
-
-        if name:
-            for p in adults:
-                if p.get("name") == name:
-                    pet = p
-                    break
-            if not pet:
-                return await interaction.followup.send(
-                    "指定されたおあしすっちが見つかりません。",
-                    ephemeral=True
-                )
-        else:
-            pet = adults[0]
-
-        # ★追加：レース前コンディション
-        condition, condition_emoji, face_count = get_race_condition(pet.get("happiness", 0))
-
-        # ---- レース計算 ----
-        stats = calc_effective_stats(pet)
-        score = calc_race_score(stats)
-
-        # ---- 表示 ----
-        embed = discord.Embed(
-            title="🏁 レースデバッグ",
-            description=f"**{pet['name']}**",
-            color=discord.Color.orange()
-        )
-
-        # ★追加：コンディション表示フィールド
-        embed.add_field(
-            name="🧠 レース前コンディション",
-            value=f"{condition_emoji} **{condition}**（😊×{face_count}）",
-            inline=False
-        )
-
-        embed.add_field(
-            name="📊 実効ステータス",
-            value=(
-                f"🏃 スピード：{stats['speed']}\n"
-                f"🫀 スタミナ：{stats['stamina']}\n"
-                f"💥 パワー：{stats['power']}"
-            ),
-            inline=False
-        )
-
-        embed.add_field(
-            name="🔥 根性判定",
-            value=(
-                f"発動率：{stats['guts_chance']}%\n"
-                f"結果：{'🔥 発動！' if stats['guts'] else '— 不発'}"
-            ),
-            inline=False
-        )
-
-        embed.add_field(
-            name="🏁 レーススコア",
-            value=f"**{score:.2f}**",
-            inline=False
-        )
-
-        embed.set_footer(text="※ デバッグ用。結果は保存されません。")
-
-        await interaction.followup.send(embed=embed, ephemeral=True)
-
-    # =========================
-    # 仮想レース（順位確認）
-    # =========================
-    @app_commands.command(name="race_sim", description="成体おあしすっちで仮想レースを行います（デバッグ）")
-    async def race_sim(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-
-        db = interaction.client.db
-        uid = str(interaction.user.id)
-
-        pets = await db.get_oasistchi_pets(uid)
-        if not pets:
-            return await interaction.followup.send(
-                "おあしすっちを持っていません。",
-                ephemeral=True
-            )
-
-        # 成体のみ
-        adults = [dict(p) for p in pets if p["stage"] == "adult"]
-
-        if len(adults) < 2:
-            return await interaction.followup.send(
-                "仮想レースには成体が2体以上必要です。",
-                ephemeral=True
-            )
-
-        # ---- 順位決定 ----
-        results = decide_race_order(adults)
-
-        # ---- 表示 ----
-        embed = discord.Embed(
-            title="🏁 仮想レース結果（デバッグ）",
-            description="※ 実際のレース結果には影響しません",
-            color=discord.Color.gold()
-        )
-
-        lines = []
-        for i, r in enumerate(results, start=1):
-            guts_mark = "🔥" if r["stats"]["guts"] else ""
-            lines.append(
-                f"**{i}位** {r['name']} {guts_mark}\n"
-                f"　🏃 {r['stats']['speed']} / 🫀 {r['stats']['stamina']} / 💥 {r['stats']['power']}\n"
-                f"　🏁 スコア：{r['score']:.2f}"
-            )
-
-        embed.add_field(
-            name="順位",
-            value="\n".join(lines),
-            inline=False
-        )
-
-        embed.set_footer(text="幸福度・根性・乱数すべて含めた仮想結果です")
-
-        await interaction.followup.send(embed=embed, ephemeral=True)
     # -----------------------------
     # ユーザー：おあしすっち表示（既存）
     # -----------------------------
@@ -1524,18 +1375,18 @@ class ConfirmPurchaseView(discord.ui.View):
 
     @discord.ui.button(label="購入する", style=discord.ButtonStyle.green)
     async def ok(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # 二重押し防止
-        if getattr(self, "_confirmed", False):
+
+        if self._confirmed:
             return
         self._confirmed = True
 
-        # ★ 最初に defer（ここが超重要）
         await interaction.response.defer(ephemeral=True)
 
         bot = interaction.client
-        guild = interaction.guild
         user = interaction.user
+        guild = interaction.guild
         uid = str(user.id)
+        gid = str(guild.id)
 
         if guild is None:
             return await interaction.edit_original_response(
@@ -1544,129 +1395,111 @@ class ConfirmPurchaseView(discord.ui.View):
             )
 
         db = bot.db
-        gid = str(guild.id)
 
-        # -------------------------
-        # 残高チェック
-        # -------------------------
-        settings = await db.get_settings()
-        unit = settings["currency_unit"]
+        try:
+            # =========================
+            # 🥚 通常たまご
+            # =========================
+            if self.kind == "egg":
+                pets = await db.get_oasistchi_pets(uid)
+                user_row = await db.get_oasistchi_user(uid)
 
-        row = await db.get_user(uid, gid)
-        balance = row["balance"]
+                if len(pets) >= user_row["slots"]:
+                    return await interaction.edit_original_response(
+                        content="❌ 育成枠がいっぱいです。",
+                        view=None
+                    )
 
-        if balance < self.price:
-            return await interaction.edit_original_response(
-                content=(
-                    f"❌ 残高が足りません。\n"
-                    f"現在: **{balance:,} {unit}** / 必要: **{self.price:,} {unit}**"
-                ),
-                view=None
-            )
-
-        # -------------------------
-        # 購入内容の反映
-        # -------------------------
-
-        if self.kind == "egg":
-            pets = await db.get_oasistchi_pets(uid)
-            user_row = await db.get_oasistchi_user(uid)
-
-            if len(pets) >= user_row["slots"]:
-                return await interaction.edit_original_response(
-                    content="❌ 育成枠がいっぱいです。",
-                    view=None
+                await db.purchase_oasistchi_egg_safe(
+                    user_id=uid,
+                    guild_id=gid,
+                    egg_type=self.egg_key or "red",
+                    price=self.price
                 )
 
-            await db.remove_balance(uid, gid, self.price)
-            await db.add_oasistchi_egg(uid, self.egg_key or "red")
+                unit = (await db.get_settings())["currency_unit"]
 
-            new_balance = balance - self.price
-
-            return await interaction.edit_original_response(
-                content=(
-                    f"✅ **たまごを購入しました！**\n"
-                    f"残高: **{new_balance:,} {unit}**\n"
-                    f"`/おあしすっち` で確認できます"
-                ),
-                view=None
-            )
-
-        if self.kind == "slot":
-            user_row = await db.get_oasistchi_user(uid)
-            current_slots = user_row["slots"]
-
-            if current_slots >= 10:
-                return await interaction.edit_original_response(
-                    content="❌ 育成枠は最大 **10枠** までです。",
-                    view=None
-                )
-
-            price = self.slot_price * 2 if current_slots >= 5 else self.slot_price
-
-            if balance < price:
                 return await interaction.edit_original_response(
                     content=(
-                        f"❌ 残高が足りません。\n"
-                        f"現在: **{balance:,} {unit}** / 必要: **{price:,} {unit}**"
+                        f"✅ **たまごを購入しました！**\n"
+                        f"消費: **{self.price:,} {unit}**\n"
+                        "`/おあしすっち` で確認できます"
                     ),
                     view=None
                 )
 
-            # 課金（1回だけ）
-            await db.remove_balance(uid, gid, price)
-            await db.add_oasistchi_slot(uid, 1)
+            # =========================
+            # 🧺 育成枠
+            # =========================
+            elif self.kind == "slot":
+                new_slots = await db.purchase_oasistchi_slot_safe(
+                    user_id=uid,
+                    guild_id=gid,
+                    base_price=self.slot_price,
+                    max_slots=10
+                )
 
+                unit = (await db.get_settings())["currency_unit"]
+
+                return await interaction.edit_original_response(
+                    content=(
+                        "✅ **育成枠を1つ増築しました！**\n"
+                        f"現在の育成枠: **{new_slots} / 10**\n"
+                        f"消費: **{self.slot_price:,} {unit}**"
+                    ),
+                    view=None
+                )
+
+            # =========================
+            # 🥚 かぶりなし
+            # =========================
+            elif self.kind == "unique_egg":
+
+                # -------------------------
+                # 育成枠チェック
+                # -------------------------
+                pets = await db.get_oasistchi_pets(uid)
+                user_row = await db.get_oasistchi_user(uid)
+
+                if len(pets) >= user_row["slots"]:
+                    return await interaction.edit_original_response(
+                        content="❌ 育成枠がいっぱいです。先にお別れするか、育成枠を増やしてください。",
+                        view=None
+                    )
+
+
+
+                adult, egg_type = await db.purchase_unique_egg_safe(
+                    user_id=uid,
+                    guild_id=gid,
+                    price=self.price,
+                    adult_catalog=ADULT_CATALOG
+                )
+
+                return await interaction.edit_original_response(
+                    content=(
+                        "🥚 **かぶりなし たまごを入手しました！**\n"
+                        "このたまごからは、未所持のおあしすっちが必ず生まれます。\n"
+                        "`/おあしすっち` で確認してください。"
+                    ),
+                    view=None
+                )
+
+            # =========================
+            # 保険
+            # =========================
+            else:
+                return await interaction.edit_original_response(
+                    content="❌ 不明な購入種別です。",
+                    view=None
+                )
+
+        except Exception as e:
+            print("[PURCHASE ERROR]", repr(e))
             return await interaction.edit_original_response(
-                content=(
-                    f"✅ **育成枠を1つ増築しました！**\n"
-                    f"現在の育成枠: **{current_slots + 1} / 10**\n"
-                    f"消費: **{price:,} {unit}**"
-                ),
+                content=f"❌ エラーが発生しました：{e}",
                 view=None
-            )
-
-        elif self.kind == "unique_egg":
-            pets = await db.get_oasistchi_pets(uid)
-            user_row = await db.get_oasistchi_user(uid)
-
-            if len(pets) >= user_row["slots"]:
-                return await interaction.followup.send(
-                    "❌ 育成枠がいっぱいです。",
-                    ephemeral=True
-                )
-
-            owned = set(await db.get_oasistchi_owned_adult_keys(uid))
-            candidates = [a for a in ADULT_CATALOG if a["key"] not in owned]
-
-            if not candidates:
-                return await interaction.followup.send(
-                    "❌ すべてのおあしすっちを所持済みです。",
-                    ephemeral=True
-                )
-
-            adult = random.choice(candidates)
-            egg_type = random.choice(adult["groups"])
-
-            # 課金
-            await db.remove_balance(uid, gid, self.price)
-
-            # 卵追加（固定）
-            await db.add_oasistchi_egg(
-                uid,
-                egg_type,
-                fixed_adult_key=adult["key"]
-            )
-
-            return await interaction.followup.send(
-                (
-                    "🥚 **かぶりなし たまごを入手しました！**\n"
-                    "このたまごからは、未所持のおあしすっちが必ず生まれます。\n"
-                    "`/おあしすっち` で確認してください。"
-                ),
-                ephemeral=True
-            )
-
+            )     
 # =========================
 # お世話ボタン（既存そのまま）
 # =========================
@@ -1710,12 +1543,12 @@ class CareView(discord.ui.View):
         now = now_ts()
 
         # ④ クールタイム判定（defer後は followup を使う）
-        # if now - pet.get("last_pet", 0) < 10800:
-        #     await interaction.followup.send(
-        #         "まだなでなでできません。（3時間クールタイム）",
-        #         ephemeral=True
-        #     )
-        #     return
+        if now - pet.get("last_pet", 0) < 10800:
+            await interaction.followup.send(
+                "まだなでなでできません。（3時間クールタイム）",
+                ephemeral=True
+            )
+            return
 
         # ⑤ ステータス更新
         new_happiness = min(100, pet["happiness"] + 10)
@@ -2099,7 +1932,7 @@ class CareView(discord.ui.View):
             pet.get("happiness", 0)
         )
 
-        ENTRY_FEE = 50000
+        ENTRY_FEE = 0
 
         embed = discord.Embed(
             title="🏁 レース出走確認",
@@ -2514,68 +2347,6 @@ class PaidPetConfirmView(discord.ui.View):
             view=None
         )
 
-class UniqueEggConfirmView(discord.ui.View):
-    def __init__(self, uid: str, guild_id: str, price: int):
-        super().__init__(timeout=30)
-        self.uid = uid
-        self.guild_id = guild_id
-        self.price = price
-        self._confirmed = False
-
-    @discord.ui.button(label="購入する", style=discord.ButtonStyle.success)
-    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self._confirmed:
-            return
-        self._confirmed = True
-
-        # ★ 必ず最初に defer
-        await interaction.response.defer(ephemeral=True)
-
-        db = interaction.client.db
-        uid = self.uid
-        gid = self.guild_id
-
-        # 育成枠チェック
-        pets = await db.get_oasistchi_pets(uid)
-        user_row = await db.get_oasistchi_user(uid)
-
-        if len(pets) >= user_row["slots"]:
-            return await interaction.edit_original_response(
-                content="❌ 育成枠がいっぱいです。",
-                view=None
-            )
-
-        owned = set(await db.get_oasistchi_owned_adult_keys(uid))
-        candidates = [a for a in ADULT_CATALOG if a["key"] not in owned]
-
-        if not candidates:
-            return await interaction.edit_original_response(
-                content="❌ 全種所持済みです。",
-                view=None
-            )
-
-        adult = random.choice(candidates)
-        egg_type = random.choice(adult["groups"])
-
-        # 課金
-        await db.remove_balance(uid, gid, self.price)
-
-        # 卵追加
-        await db.add_oasistchi_egg(
-            uid,
-            egg_type,
-            fixed_adult_key=adult["key"]
-        )
-
-        # 完了通知（名前なし仕様もOK）
-        return await interaction.edit_original_response(
-            content=(
-                "🥚 **かぶりなし たまごを入手しました！**\n"
-                "このたまごからは、未所持のおあしすっちが必ず生まれます。\n"
-                "`/おあしすっち` で確認してください。"
-            ),
-            view=None
-        )
         # レース
 class RaceEntryConfirmView(discord.ui.View):
     def __init__(self, pet: dict, entry_fee: int, schedules: list[dict]):
@@ -2709,69 +2480,6 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
