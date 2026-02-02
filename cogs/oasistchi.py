@@ -580,6 +580,24 @@ class OasistchiCog(commands.Cog):
 
         embed.add_field(name="出走メンバー", value="\n".join(lines), inline=False)
         await channel.send(embed=embed)
+        
+        # 落選者へDM（任意）
+        for e in cancelled:
+            try:
+                user = self.bot.get_user(int(e["user_id"]))
+                if user is None:
+                    user = await self.bot.fetch_user(int(e["user_id"]))
+
+                if user:
+                    await user.send(
+                        f"🏁 **第{race['race_no']}レース 落選のお知らせ**\n"
+                        f"エントリーしたレースには落選しました。\n"
+                        f"💰 参加費は返却されています。"
+                    )
+            except Exception as dm_err:
+                print(f"[RACE DM ERROR] user_id={e['user_id']} err={dm_err!r}")
+
+    
 
 
     # 共通：時間差分処理
@@ -2434,6 +2452,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
