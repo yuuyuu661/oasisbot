@@ -2398,12 +2398,16 @@ class RaceEntryConfirmView(discord.ui.View):
             )
 
         # ③ エントリー保存（pending）
+        guild_id = str(interaction.guild.id)
+
         await db.insert_race_entry(
             schedule_id=schedule_id,
-            user_id=uid,
-            pet_id=pet["id"],
+            guild_id=guild_id,
+            user_id=str(interaction.user.id),
+            pet_id=pet_id,
             race_date=race_date,
-            paid=True,
+            entry_fee=50000,   # race_schedules と同じ値
+            paid=1
         )
         await db.remove_balance(uid, guild_id, self.entry_fee)
 
@@ -2475,6 +2479,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
