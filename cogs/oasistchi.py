@@ -443,6 +443,8 @@ class OasistchiCog(commands.Cog):
         self.bot = bot
         self.db = bot.db
         self.poop_check.start()
+        self._race_lock = asyncio.Lock()
+        self.race_tick.start()
 
     async def trigger_race_daily_process(self):
         db = self.bot.db
@@ -493,44 +495,61 @@ class OasistchiCog(commands.Cog):
             except Exception as e:
                 print(f"[RACE ERROR] lottery failed: {e}")
 
+    # =========================
+    # レース処理（正規版）
+    # =========================
     async def run_race_lottery(self, race: dict):
-        db = self.bot.db
-
+        db = self.db
         race_id = race["id"]
         race_date = race["race_date"]
-        max_entries = race["max_entries"]
-        entry_fee = race["entry_fee"]
+        guild_id = str(race["guild_id"]) if "guild_id" in race else None
 
-        # -------------------------
-        # ① pending エントリー取得
-        # -------------------------
         entries = await db.get_race_entries(race_id)
-        entry_count = len(entries)
 
-        print(f"[RACE] 抽選開始 race_id={race_id} entries={entry_count}")
-
-        # -------------------------
-        # ② エントリー0件 → 中止
-        # -------------------------
-        if entry_count == 0:
-            print(f"[RACE] race_id={race_id} エントリー0件 → 中止")
+        # --- 中止条件（参加1体以下） ---
+        if len(entries) <= 1:
+            for e in entries:
+                await db.update_race_entry_status(e["id"], "cancelled")
+                if guild_id:
+                    await db.refund_entry(e["user_id"], guild_id, e["entry_fee"])
+            print(f"[RACE] レース {race_id} 中止（参加1体以下）")
             return
 
-        # -------------------------
-        # ③ エントリー1件 → 中止＋返金
-        # -------------------------
-        if entry_count == 1:
-            entry = entries[0]
+        # --- 当日すでに出走しているペット除外 ---
+        already_selected = await db.get_today_selected_pet_ids(race_date)
 
-            await db.update_race_entry_status(entry["id"], "cancelled")
-            await db.refund_entry(
-                entry["user_id"],
-                entry["guild_id"],
-                entry_fee
-            )
+        candidates = [
+            e for e in entries
+            if e["pet_id"] not in already_selected
+        ]
 
-            print(f"[RACE] race_id={race_id} 1件のみ → 中止＆返金")
+        # 候補不足でも中止
+        if len(candidates) <= 1:
+            for e in entries:
+                await db.update_race_entry_status(e["id"], "cancelled")
+                if guild_id:
+                    await db.refund_entry(e["user_id"], guild_id, e["entry_fee"])
+            print(f"[RACE] レース {race_id} 中止（有効候補不足）")
             return
+
+        # --- 抽選 ---
+        winners = random.sample(
+            candidates,
+            k=min(8, len(candidates))
+        )
+
+        winner_ids = {w["id"] for w in winners}
+
+        for e in entries:
+            if e["id"] in winner_ids:
+                await db.update_race_entry_status(e["id"], "selected")
+                await db.cancel_other_entries(e["pet_id"], race_date, race_id)
+            else:
+                await db.update_race_entry_status(e["id"], "rejected")
+                if guild_id:
+                    await db.refund_entry(e["user_id"], guild_id, e["entry_fee"])
+
+        print(f"[RACE] レース {race_id} 抽選完了（{len(winners)}体）")
 
         # -------------------------
         # ④ 抽選対象シャッフル
@@ -615,58 +634,6 @@ class OasistchiCog(commands.Cog):
                 except Exception as dm_err:
                     print(f"[RACE DM ERROR] user_id={e['user_id']} err={dm_err}")
 
-    # レース処理
-    # =========================
-
-    async def run_race_lottery(bot, race: dict):
-        db = bot.db
-        race_id = race["id"]
-        race_date = race["race_date"]
-        guild_id = str(race["guild_id"])  # あるなら
-
-        entries = await db.get_race_entries(race_id)
-
-        # --- 中止条件 ---
-        if len(entries) <= 1:
-            for e in entries:
-                await db.update_race_entry_status(e["id"], "cancelled")
-                await db.refund_entry(e["user_id"], guild_id, e["entry_fee"])
-            print(f"[RACE] レース {race_id} 中止（参加1体以下）")
-            return
-
-        # --- 当日すでに出走しているペット除外 ---
-        already_selected = await db.get_today_selected_pet_ids(race_date)
-
-        candidates = [
-            e for e in entries
-            if e["pet_id"] not in already_selected
-        ]
-
-        # 念のため：候補が1体以下になった場合も中止
-        if len(candidates) <= 1:
-            for e in entries:
-                await db.update_race_entry_status(e["id"], "cancelled")
-                await db.refund_entry(e["user_id"], guild_id, e["entry_fee"])
-            print(f"[RACE] レース {race_id} 中止（有効候補不足）")
-            return
-
-        # --- 抽選 ---
-        winners = random.sample(
-            candidates,
-            k=min(8, len(candidates))
-        )
-
-        winner_ids = {w["id"] for w in winners}
-
-        for e in entries:
-            if e["id"] in winner_ids:
-                await db.update_race_entry_status(e["id"], "selected")
-                await db.cancel_other_entries(e["pet_id"], race_date, race_id)
-            else:
-                await db.update_race_entry_status(e["id"], "rejected")
-                await db.refund_entry(e["user_id"], guild_id, e["entry_fee"])
-
-        print(f"[RACE] レース {race_id} 抽選完了（{len(winners)}体）")
 
     # 共通：時間差分処理
     # =========================
@@ -1087,6 +1054,25 @@ class OasistchiCog(commands.Cog):
 
         for pet in pets:
             await self.process_time_tick(pet)
+
+    # -----------------------------
+    # レース作成
+    # -----------------------------
+
+    @tasks.loop(minutes=1)
+    async def race_tick(self):
+        if not self.bot.is_ready():
+            return
+
+        # 多重実行ガード
+        if self._race_lock.locked():
+            return
+
+        async with self._race_lock:
+            try:
+                await self.trigger_race_daily_process()
+            except Exception as e:
+                print(f"[RACE TICK ERROR] {e!r}")
 
 
 # =========================
@@ -2501,6 +2487,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
