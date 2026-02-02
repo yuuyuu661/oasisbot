@@ -1662,13 +1662,72 @@ class Database:
         """, pet_id)
 
 
+    # --------------------------------------------------
+    # 出走確定エントリー取得
+    # --------------------------------------------------
+    async def get_selected_entries(self, race_id: int):
+        await self._ensure_conn()
+        return await self.conn.fetch("""
+            SELECT *
+            FROM race_entries
+            WHERE race_id = $1
+              AND status = 'selected'
+            ORDER BY id
+        """, race_id)
 
+    # --------------------------------------------------
+    # レース結果保存
+    # --------------------------------------------------
+    async def update_race_entry_result(
+        self,
+        race_id: int,
+        pet_id: int,
+        rank: int,
+        score: float
+    ):
+        await self._ensure_conn()
+        await self.conn.execute("""
+            UPDATE race_entries
+            SET rank = $1,
+               score = $2
+            WHERE race_id = $3
+              AND pet_id = $4
+        """, rank, score, race_id, pet_id)
 
+    # --------------------------------------------------
+    # レース完了
+    # --------------------------------------------------
+    async def mark_race_finished(self, race_id: int):
+        await self._ensure_conn()
+        await self.conn.execute("""
+            UPDATE race_schedules
+            SET race_finished = TRUE
+            WHERE id = $1
+        """, race_id)
 
+    # --------------------------------------------------
+    # 未完了レース取得（日付）
+    # --------------------------------------------------
+    async def get_unfinished_races_by_date(self, race_date):
+        await self._ensure_conn()
+        return await self.conn.fetch("""
+            SELECT *
+            FROM race_schedules
+            WHERE race_date = $1
+              AND race_finished = FALSE
+        """, race_date)
 
-
-
-
-
+    # --------------------------------------------------
+    # 未完了レース存在チェック
+    # --------------------------------------------------
+    async def has_unfinished_race(self, race_id: int) -> bool:
+        await self._ensure_conn()
+        row = await self.conn.fetchrow("""
+            SELECT 1
+            FROM race_schedules
+            WHERE id = $1
+              AND race_finished = FALSE
+        """, race_id)
+        return row is not None
 
 
