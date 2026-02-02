@@ -445,6 +445,53 @@ class Database:
             """)
             print("✅ fixed_adult_key カラム追加完了")
 
+        # --------------------------------------------------
+        # レース関連カラム補完2.2
+        # --------------------------------------------------
+
+        # race_schedules
+        cols = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'race_schedules';
+        """)
+        race_schedule_cols = {r["column_name"] for r in cols}
+
+        if "race_finished" not in race_schedule_cols:
+            print("🛠 race_schedules に race_finished を追加します…")
+            await self.conn.execute("""
+                ALTER TABLE race_schedules
+                ADD COLUMN race_finished BOOLEAN DEFAULT FALSE;
+            """)
+            print("✅ race_finished 追加完了")
+
+        # race_entries
+        cols = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'race_entries';
+        """)
+        race_entry_cols = {r["column_name"] for r in cols}
+
+        if "rank" not in race_entry_cols:
+            print("🛠 race_entries に rank を追加します…")
+            await self.conn.execute("""
+                ALTER TABLE race_entries
+                ADD COLUMN rank INTEGER;
+            """)
+            print("✅ rank 追加完了")
+
+        if "score" not in race_entry_cols:
+            print("🛠 race_entries に score を追加します…")
+            await self.conn.execute("""
+                ALTER TABLE race_entries
+                ADD COLUMN score REAL;
+            """)
+            print("✅ score 追加完了")
+
+
+        
+
         
         # -----------------------------------------
         # race_schedules に lottery_done が無ければ追加
@@ -1613,6 +1660,7 @@ class Database:
             WHERE id = $1
               AND stage = 'adult'
         """, pet_id)
+
 
 
 
