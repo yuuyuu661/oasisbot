@@ -1587,23 +1587,35 @@ class Database:
     async def insert_race_entry(
         self,
         schedule_id: int,
+        guild_id: str,
         user_id: str,
         pet_id: int,
-        race_date,          # date 型（呼び出し側で作って渡す）
+        race_date,          # date 型
+        entry_fee: int,
         paid: int,
     ):
         await self.conn.execute("""
             INSERT INTO race_entries (
                 race_date,
                 schedule_id,
+                guild_id,
                 user_id,
                 pet_id,
+                entry_fee,
                 paid,
                 status,
                 created_at
             )
-            VALUES ($1, $2, $3, $4, $5, 'pending', NOW());
-        """, race_date, schedule_id, user_id, pet_id, paid)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', NOW());
+        """,
+        race_date,
+        schedule_id,
+        guild_id,
+        user_id,
+        pet_id,
+        entry_fee,
+        paid
+        )
     # =====================================================
     # 返金対象をまとめて取得
     # =====================================================
@@ -1753,6 +1765,7 @@ class Database:
               AND race_finished = FALSE
         """, race_id)
         return row is not None
+
 
 
 
