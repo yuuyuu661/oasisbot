@@ -446,6 +446,18 @@ class OasistchiCog(commands.Cog):
         self._race_lock = asyncio.Lock()
         self.race_tick.start()
 
+    # =========================
+    # 表示用 state 解決
+    # =========================
+    def resolve_pet_state(self, pet: dict, default: str = "idle") -> str:
+        """
+        表示用state決定
+        poop状態は常に最優先
+        """
+        if pet.get("poop"):
+            return "poop"
+        return default
+
     async def trigger_race_daily_process(self):
         db = self.bot.db
         now = datetime.now(JST)
@@ -957,13 +969,14 @@ class OasistchiCog(commands.Cog):
 
         return embed
 
-    def get_pet_image(self, pet: dict):
+    def get_pet_image(self, pet: dict, state: str = "idle"):
+        state = resolve_pet_state(pet, state)
+
         if pet["stage"] == "adult":
             key = pet["adult_key"]
-            path = os.path.join(ASSET_BASE, "adult", key, "idle.gif")
+            path = os.path.join(ASSET_BASE, "adult", key, f"{state}.gif")
         else:
             egg = pet.get("egg_type", "red")
-            state = "poop" if pet.get("poop") else "idle"
             path = os.path.join(ASSET_BASE, "egg", egg, f"{state}.gif")
 
         return discord.File(path, filename="pet.gif")
@@ -1564,7 +1577,7 @@ class CareView(discord.ui.View):
 
         # ⑧ idle に戻す（また元メッセージ編集）
         embed = cog.make_status_embed(pet)
-        pet_file = get_pet_file(pet, "idle")
+        pet_file = self.get_pet_image(pet, "idle")
         gauge_file = build_growth_gauge_file(pet["growth"])
 
         await interaction.edit_original_response(
@@ -1635,7 +1648,7 @@ class CareView(discord.ui.View):
         # ③ idle に戻す
         # -------------------------
         embed = cog.make_status_embed(pet)
-        pet_file = get_pet_file(pet, "idle")
+        pet_file = self.get_pet_image(pet, "idle")
         gauge_file = build_growth_gauge_file(pet["growth"])
 
         await interaction.edit_original_response(
@@ -1744,7 +1757,7 @@ class CareView(discord.ui.View):
         cog = interaction.client.get_cog("OasistchiCog")
 
         embed = cog.make_status_embed(pet)
-        pet_file = get_pet_file(pet, "idle")
+        pet_file = self.get_pet_image(pet, "idle")
         gauge_file = build_growth_gauge_file(pet["growth"])
 
         await interaction.response.edit_message(
@@ -1840,7 +1853,7 @@ class CareView(discord.ui.View):
 
         cog = interaction.client.get_cog("OasistchiCog")
         embed = cog.make_status_embed(pet)
-        pet_file = get_pet_file(pet, "idle")
+        pet_file = self.get_pet_image(pet, "idle")
         gauge_file = build_growth_gauge_file(pet["growth"])
 
         await interaction.edit_original_response(
@@ -2457,6 +2470,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
