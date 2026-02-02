@@ -1371,7 +1371,7 @@ class Database:
         for i, race_time in enumerate(RACE_TIMES, start=1):
             await self.conn.execute("""
                 INSERT INTO race_schedules (
-                    guild_id,               
+                    guild_id,
                     race_no,
                     race_time,
                     entry_open_minutes,
@@ -1385,11 +1385,12 @@ class Database:
                 )
                 VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10);
             """,
-            i,
-            race_time,                     # "09:00"
-            ENTRY_OPEN_MINUTES,            # ★ ここ！
-            8,                              # max_entries（仮）
-            50000,                          # entry_fee（仮）
+            str(guild_id),          # ← ★ これが必須
+            i,                      # race_no
+            race_time,
+            ENTRY_OPEN_MINUTES,
+            8,
+            50000,
             race_date,
             random.choice(DISTANCES),
             random.choice(SURFACES),
@@ -1666,34 +1667,31 @@ class Database:
     # --------------------------------------------------
     # 出走確定エントリー取得
     # --------------------------------------------------
-    async def get_selected_entries(self, race_id: int):
-        await self._ensure_conn()
+    async def get_selected_entries(self, schedule_id: int):
         return await self.conn.fetch("""
             SELECT *
             FROM race_entries
-            WHERE race_id = $1
+            WHERE schedule_id = $1
               AND status = 'selected'
-            ORDER BY id
-        """, race_id)
+        """, schedule_id)
 
     # --------------------------------------------------
     # レース結果保存
     # --------------------------------------------------
     async def update_race_entry_result(
         self,
-        race_id: int,
+        schedule_id: int,
         pet_id: int,
         rank: int,
         score: float
     ):
-        await self._ensure_conn()
         await self.conn.execute("""
             UPDATE race_entries
             SET rank = $1,
-               score = $2
-            WHERE race_id = $3
+                score = $2
+            WHERE schedule_id = $3
               AND pet_id = $4
-        """, rank, score, race_id, pet_id)
+        """, rank, score, schedule_id, pet_id)
 
     # --------------------------------------------------
     # レース完了
@@ -1730,6 +1728,7 @@ class Database:
               AND race_finished = FALSE
         """, race_id)
         return row is not None
+
 
 
 
