@@ -651,14 +651,19 @@ class OasistchiCog(commands.Cog):
             )
 
             if hunger_after <= 5:
-                elapsed = now - pet.get("last_unhappy_tick", now)
+                last_unhappy = pet.get("last_unhappy_tick", now)
+                if last_unhappy is None:
+                    last_unhappy = now
+
+                elapsed = now - last_unhappy
                 ticks = int(elapsed // 3600)  # 1時間ごと
 
                 if ticks > 0:
-                    new_happiness = max(
-                        0,
-                        pet.get("happiness", 50) - ticks * 2
+                    base_happiness = int(
+                        updates.get("happiness", pet.get("happiness", 50))
                     )
+                    new_happiness = max(0, base_happiness - ticks * 2)
+
                     updates["happiness"] = new_happiness
                     updates["last_unhappy_tick"] = now
 
@@ -2452,6 +2457,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
