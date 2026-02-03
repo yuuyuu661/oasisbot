@@ -902,7 +902,7 @@ class OasistchiCog(commands.Cog):
         await self.process_time_tick(pet)
 
         # 最新状態を取り直す
-        pet = await db.get_oasistchi_pet(self.pet_id)
+        pet = await db.get_oasistchi_pet(pet["id"])
 
         embed = self.make_status_embed(pet)
         pet_file = self.get_pet_image(pet)
@@ -2486,6 +2486,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
