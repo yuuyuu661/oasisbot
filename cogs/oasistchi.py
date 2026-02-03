@@ -497,8 +497,10 @@ class OasistchiCog(commands.Cog):
         # ① 今日のレース生成
         # -------------------------
         try:
+            
+            guild_id = str(self.bot.guilds[0].id)  # もしくは race["guild_id"] 等
             if not await db.has_today_race_schedules(today):
-                await db.generate_today_races(today)
+                await db.generate_today_races(guild_id, today)
                 print(f"[RACE] {today} のレースを生成しました")
         except Exception as e:
             print(f"[RACE ERROR] generate failed: {e}")
@@ -2518,6 +2520,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
