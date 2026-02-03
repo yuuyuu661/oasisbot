@@ -551,7 +551,10 @@ class OasistchiCog(commands.Cog):
         max_entries = race.get("max_entries", 8)
         entry_fee = race.get("entry_fee", 0)
 
-        entries = await db.get_race_entries(race_id)
+        entries = await db.get_race_entries_by_schedule(
+            race_date=race_date,
+            schedule_id=race_id
+        )
 
         # --- 中止条件 ---
         if len(entries) <= 1:
@@ -2520,6 +2523,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
