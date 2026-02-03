@@ -1441,29 +1441,29 @@ class Database:
             print("🛠 race_schedules カラム補完:", sql)
             await self.conn.execute(sql)
 
-        # -----------------------------------------
-        # race_entries テーブル カラム補完
-        # -----------------------------------------
-        async def ensure_race_entry_columns(self):
-            cols = await self.conn.fetch("""
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_name = 'race_entries';
-            """)
-            existing = {c["column_name"] for c in cols}
+    # -----------------------------------------
+    # race_entries テーブル カラム補完
+    # -----------------------------------------
+    async def ensure_race_entry_columns(self):
+        cols = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'race_entries';
+        """)
+        existing = {c["column_name"] for c in cols}
 
-            alter_sqls = []
+        alter_sqls = []
 
-            if "guild_id" not in existing:
-                alter_sqls.append("ADD COLUMN guild_id TEXT")
+        if "guild_id" not in existing:
+            alter_sqls.append("ADD COLUMN guild_id TEXT")
 
-            if "entry_fee" not in existing:
-                alter_sqls.append("ADD COLUMN entry_fee INTEGER DEFAULT 50000")
+        if "entry_fee" not in existing:
+            alter_sqls.append("ADD COLUMN entry_fee INTEGER DEFAULT 50000")
 
-            if alter_sqls:
-                sql = "ALTER TABLE race_entries " + ", ".join(alter_sqls) + ";"
-                print("🛠 race_entries カラム補完:", sql)
-                await self.conn.execute(sql)
+        if alter_sqls:
+            sql = "ALTER TABLE race_entries " + ", ".join(alter_sqls) + ";"
+            print("🛠 race_entries カラム補完:", sql)
+            await self.conn.execute(sql)
             
     # -----------------------------------------
     # 型修正用の補完
@@ -1768,6 +1768,7 @@ class Database:
               AND race_finished = FALSE
         """, race_id)
         return row is not None
+
 
 
 
