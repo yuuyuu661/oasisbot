@@ -1552,6 +1552,7 @@ class CareView(discord.ui.View):
             pet_ready_at=now + 10800,      # ← 次になでなで可能な時刻
             pet_ready_notified_at=0,       # ← 通知リセット
             last_interaction=now,
+            last_unhappy_tick=now,
         )
         pet = await db.get_oasistchi_pet(self.pet_id)
 
@@ -1621,6 +1622,7 @@ class CareView(discord.ui.View):
             next_poop_check_at=now + 3600,  
             poop_notified_at=0,
             last_interaction=now,
+            last_unhappy_tick=now,
         )
 
         cog = interaction.client.get_cog("OasistchiCog")
@@ -2486,6 +2488,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
