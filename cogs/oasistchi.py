@@ -902,7 +902,7 @@ class OasistchiCog(commands.Cog):
         await self.process_time_tick(pet)
 
         # 最新状態を取り直す
-        pet = await db.get_oasistchi_pet(pet["id"])
+        pet = await db.get_oasistchi_pet(self.pet_id)
 
         embed = self.make_status_embed(pet)
         pet_file = self.get_pet_image(pet)
@@ -1575,6 +1575,10 @@ class CareView(discord.ui.View):
         wait_seconds = get_gif_duration_seconds(pet_gif_path, fallback=2.0)
         await asyncio.sleep(wait_seconds)
 
+        pet = await db.get_oasistchi_pet(self.pet_id)
+
+
+
         # ⑧ idle に戻す（また元メッセージ編集）
         embed = cog.make_status_embed(pet)
         cog = interaction.client.get_cog("OasistchiCog")
@@ -1645,6 +1649,7 @@ class CareView(discord.ui.View):
         clean_gif_path = os.path.join(ASSET_BASE, "egg", egg, "clean.gif")
         wait_seconds = get_gif_duration_seconds(clean_gif_path, fallback=2.0)
         await asyncio.sleep(wait_seconds)
+        pet = await db.get_oasistchi_pet(self.pet_id)
 
         # -------------------------
         # ③ idle に戻す
@@ -2481,6 +2486,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
