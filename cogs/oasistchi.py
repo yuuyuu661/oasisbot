@@ -442,21 +442,51 @@ class OasistchiCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.db = bot.db
-        self.poop_check.start()
         self._race_lock = asyncio.Lock()
+
+    async def cog_load(self):
+        self.poop_check.start()
         self.race_tick.start()
+        self.oasistchi_tick.start()
+
+    async def cog_unload(self):
+        self.poop_check.cancel()
+        self.race_tick.cancel()
+        self.oasistchi_tick.cancel()
+
 
     # =========================
     # 表示用 state 解決
     # =========================
+
+
+
     def resolve_pet_state(self, pet: dict, default: str = "idle") -> str:
-        """
-        表示用state決定
-        poop状態は常に最優先
-        """
+        now = time.time()
+
+        state = pet.get("display_state")
+        until = pet.get("display_until", 0) or 0
+
+        if state and now < until:
+            return state
+
         if pet.get("poop"):
             return "poop"
+
         return default
+
+    @tasks.loop(minutes=5)
+    async def oasistchi_tick(self):
+        if not self.bot.is_ready():
+            return
+
+        pets = await self.db.get_all_oasistchi_pets()
+        for pet in pets:
+            try:
+                await self.process_time_tick(pet)
+            except Exception as e:
+                print(f"[OASISTCHI TICK ERROR] pet_id={pet['id']} err={e}")
+
 
     async def trigger_race_daily_process(self):
         db = self.bot.db
@@ -2488,6 +2518,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
