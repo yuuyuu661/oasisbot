@@ -1353,7 +1353,7 @@ class Database:
             ORDER BY race_time
         """, race_date)
 
-    async def generate_today_races(self, race_date: date):
+    async def generate_today_races(self, guild_id: str, race_date: date):
         cols = await self.conn.fetch("""
             SELECT column_name, is_nullable
             FROM information_schema.columns
@@ -1768,6 +1768,7 @@ class Database:
               AND race_finished = FALSE
         """, race_id)
         return row is not None
+
 
 
 
