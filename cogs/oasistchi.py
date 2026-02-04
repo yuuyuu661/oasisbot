@@ -784,7 +784,7 @@ class OasistchiCog(commands.Cog):
         # ⑥ 出走ペット取得
         pets = []
         for e in selected:
-           pet = await db.get_oasistchi_pet(e["pet_id"])
+            pet = await db.get_oasistchi_pet(e["pet_id"])
             if pet:
                 pets.append(dict(pet))
 
@@ -2712,6 +2712,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
