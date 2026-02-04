@@ -20,15 +20,17 @@ class RaceDebug(commands.Cog):
     async def debug_race_lottery(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
-            today = datetime.now(JST).date()
-            guild_id = str(interaction.guild.id)
+        # ❌ async with self.db._lock: ← これは消す！
 
-            races = await self.db.get_today_race_schedules(today)
-            if not races:
-                return await interaction.followup.send(
-                    "❌ 本日のレースがありません",
-                    ephemeral=True
-                )
+        today = datetime.now(JST).date()
+        guild_id = str(interaction.guild.id)
+
+        races = await self.db.get_today_race_schedules(today)
+        if not races:
+            return await interaction.followup.send(
+                "❌ 本日のレースがありません",
+                ephemeral=True
+            )
 
             # =========================
             # ★ pending 2体以上のレースを探す
@@ -202,6 +204,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
