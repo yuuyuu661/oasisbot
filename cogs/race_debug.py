@@ -14,11 +14,12 @@ class RaceDebug(commands.Cog):
         self.db = bot.db
 
     @app_commands.command(
-       name="レース即抽選",
+        name="レース即抽選",
         description="【デバッグ】pending中のエントリーから即抽選して出走決定パネルを表示"
     )
     async def debug_race_lottery(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
+
         async with self.db._lock:
 
             today = datetime.now(JST).date()
@@ -34,15 +35,19 @@ class RaceDebug(commands.Cog):
             race = races[0]
 
             # 🔴 pending のみ取得（ここが超重要）
-            entries = await self.db.conn.fetch("""
+            entries = await self.db.conn.fetch(
+                """
                 SELECT *
                 FROM race_entries
                 WHERE race_date = $1
                   AND schedule_id = $2
                   AND status = 'pending'
-            """, today, race["id"])
+                """,
+                today,
+                race["id"]
+            )
 
-           if len(entries) <= 1:
+            if len(entries) <= 1:
                 selected = await self.db.get_race_entries_by_status(
                     race_id=race["id"],
                     status="selected"
@@ -59,7 +64,7 @@ class RaceDebug(commands.Cog):
                     ephemeral=True
                 )
 
-           selected = random.sample(entries, k=min(8, len(entries)))
+            selected = random.sample(entries, k=min(8, len(entries)))
 
             # 🔵 表示のみ（DB更新なし）
             await self.send_race_entry_panel(race, selected)
@@ -188,6 +193,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
