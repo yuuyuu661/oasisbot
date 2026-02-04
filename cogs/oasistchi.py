@@ -572,31 +572,33 @@ class OasistchiCog(commands.Cog):
         now = datetime.now(JST)
         today = now.date()
 
-        # -------------------------
-        # ① 今日のレース生成
-        # -------------------------
+        # =========================
+        # ① 今日のレース生成（DBのみ）
+        # =========================
         try:
-            
-            guild_id = str(self.bot.guilds[0].id)  # もしくは race["guild_id"] 等
-            if not await db.has_today_race_schedules(today):
-                await db.generate_today_races(guild_id, today)
-                print(f"[RACE] {today} のレースを生成しました")
+            async with db._lock:
+                guild_id = str(self.bot.guilds[0].id)
+                if not await db.has_today_race_schedules(today):
+                    await db.generate_today_races(guild_id, today)
+                    print(f"[RACE] {today} のレースを生成しました")
         except Exception as e:
             print(f"[RACE ERROR] generate failed: {e}")
             return
 
-        # -------------------------
-        # ② 抽選チェック
-        # -------------------------
-        races = await db.get_today_race_schedules(today)
+        # =========================
+        # ② レース一覧取得（DB）
+        # =========================
+        async with db._lock:
+            races = await db.get_today_race_schedules(today)
 
+        # =========================
+        # ③ 抽選判定ループ
+        # =========================
         for race in races:
             if race.get("lottery_done") is True:
                 continue
 
             race_time_raw = race["race_time"]
-
-            # race_time が "HH:MM" 文字列の場合
             if isinstance(race_time_raw, str):
                 h, m = map(int, race_time_raw.split(":"))
                 race_time = dtime(hour=h, minute=m)
@@ -608,31 +610,37 @@ class OasistchiCog(commands.Cog):
                 - timedelta(minutes=race["entry_open_minutes"])
             )
 
-            # ⛔ 締切前は抽選しない
             if now < entry_close:
                 continue
 
-            # 🔥 ここを必ず入れる
-            pending_count = await db.conn.fetchval("""
-                SELECT COUNT(*)
-                FROM race_entries
-                WHERE guild_id = $1
-                  AND race_date = $2
-                  AND schedule_id = $3
-                  AND status = 'pending'
-            """,
-                str(race["guild_id"]),
-                race["race_date"],
-                race["id"],
-            )
+            # =========================
+            # ④ pending 数チェック（DB）
+            # =========================
+            async with db._lock:
+                pending_count = await db.conn.fetchval(
+                    """
+                    SELECT COUNT(*)
+                    FROM race_entries
+                    WHERE guild_id = $1
+                      AND race_date = $2
+                      AND schedule_id = $3
+                      AND status = 'pending'
+                    """,
+                    str(race["guild_id"]),
+                    race["race_date"],
+                    race["id"],
+                )
 
-            # ⛔ pending が2未満なら抽選しない（中止処理もしない）
             if pending_count < 2:
                 continue
 
+            # =========================
+            # ⑤ 抽選実行（lock 外！）
+            # =========================
             try:
-                await self.run_race_lottery(race)
-                await db.mark_race_lottery_done(race["id"])
+                await self.run_race_lottery(race)  # ← 中で db._lock を取る
+                async with db._lock:
+                    await db.mark_race_lottery_done(race["id"])
                 print(f"[RACE] 抽選完了 race_id={race['id']} selected={pending_count}")
             except Exception as e:
                 print(f"[RACE ERROR] lottery failed: {e}")
@@ -1309,10 +1317,10 @@ class OasistchiCog(commands.Cog):
             return
 
         db = self.bot.db
-        pets = await db.get_all_oasistchi_pets()
-
-        for pet in pets:
-            await self.process_time_tick(pet)
+        async with db._lock:
+            pets = await db.get_all_oasistchi_pets()
+            for pet in pets:
+                await self.process_time_tick(pet)
 
     # -----------------------------
     # レース作成
@@ -2763,6 +2771,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
