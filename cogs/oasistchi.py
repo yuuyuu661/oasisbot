@@ -418,7 +418,41 @@ def decide_race_order(pets: list[dict]):
 
     results.sort(key=lambda x: x["score"], reverse=True)
     return results
+# -------------------------
+# 計算だけ
+# -------------------------
 
+def process_time_tick_calc_only(self, pet: dict):
+    updates = {}
+    notify_jobs = []  # DMしたいメッセージなど
+
+    now = time.time()
+
+    # 例：うんち発生
+    next_check = pet.get("next_poop_check_at", 0)
+    if now >= next_check and not pet.get("poop", False):
+        if random.random() < (0.4 if pet["stage"] == "adult" else 0.3):
+            updates["poop"] = True
+            notify_jobs.append("💩 うんちしたよ！")
+        updates["next_poop_check_at"] = now + 3600
+
+    # 例：孵化成長
+    if pet["stage"] == "egg":
+        before = pet.get("growth", 0.0)
+        elapsed = now - pet.get("last_growth_tick", now)
+        hours = int(elapsed // 3600)
+        if hours > 0:
+            gain = (100/12) * hours
+            after = min(100.0, before + gain)
+            updates["growth"] = after
+            updates["last_growth_tick"] = now
+
+            if before < 100 <= after and not pet.get("notified_hatch", False):
+                updates["notified_hatch"] = True
+                notify_jobs.append("🐣 孵化できるよ！")
+
+    return updates, notify_jobs
+    
 # -------------------------
 # レース予定関数
 # -------------------------
@@ -1123,39 +1157,33 @@ class OasistchiCog(commands.Cog):
 
         pets = await db.get_oasistchi_pets(uid)
         if not pets:
-            return await interaction.followup.send(
-                "まだおあしすっちを持っていません。",
-                ephemeral=True
-            )
+            return await interaction.followup.send("まだおあしすっちを持っていません。", ephemeral=True)
 
-        # pet は autocomplete 経由の「文字列ID」のみ許可
+        # pet_id を決定（この部分はあなたのままでOK）
         if pet is not None:
-            # 自分のペット一覧を先に取得
             my_pet_ids = {str(p["id"]) for p in pets}
-
-            # プルダウン由来でない入力はすべて拒否
             if pet not in my_pet_ids:
-                return await interaction.followup.send(
-                    "❌ プルダウンから選択してください。",
-                    ephemeral=True
-                )
-
+                return await interaction.followup.send("❌ プルダウンから選択してください。", ephemeral=True)
             pet_id = int(pet)
-            pet = await db.get_oasistchi_pet(pet_id)
-
         else:
-            pet = dict(pets[0])
+            pet_id = int(pets[0]["id"])
 
+        # ★ ここから「DBだけ」ゾーン（短く終わらせる）
+        async with db._lock:
+            pet_row = await db.get_oasistchi_pet(pet_id)
 
-        await self.process_time_tick(pet)
+            # ★ ここで “DB更新だけのtick” を実行する（DMしない版）
+            updates, notify_jobs = self.process_time_tick_calc_only(pet_row)
 
-        # 最新状態を取り直す
-        pet = await db.get_oasistchi_pet(pet["id"])
+            if updates:
+                await db.update_oasistchi_pet(pet_id, **updates)
 
-        embed = self.make_status_embed(pet)
-        pet_file = self.get_pet_image(pet)
-        gauge_file = build_growth_gauge_file(pet["growth"])
-        view = CareView(uid, pet["id"], pet)
+            pet_row = await db.get_oasistchi_pet(pet_id)
+
+        embed = self.make_status_embed(pet_row)
+        pet_file = self.get_pet_image(pet_row)
+        gauge_file = build_growth_gauge_file(pet_row["growth"])
+        view = CareView(uid, pet_row["id"], pet_row)
 
         await interaction.followup.send(
             embed=embed,
@@ -2735,6 +2763,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
