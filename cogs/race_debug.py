@@ -20,38 +20,26 @@ class RaceDebug(commands.Cog):
     async def debug_race_lottery(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
-        today = datetime.now(JST).date()
+        today = today_jst_date()
         guild_id = str(interaction.guild.id)
 
-        races = await self.db.get_today_race_schedules(today)
+        races = await self.db.get_today_race_schedules(today, guild_id)
         if not races:
-            return await interaction.followup.send(
-                "❌ 本日のレースがありません",
-                ephemeral=True
-            )
+            return await interaction.followup.send("❌ 本日のレースがありません", ephemeral=True)
 
-        # =========================
-        # ★ pending 2体以上のレースを探す
-        # =========================
         target_race = None
         pending_count = 0
 
         for race in races:
-            count = await self.db.conn.fetchval(
-                """
-                SELECT COUNT(*)
-                FROM race_entries
-                WHERE race_date = $1
-                  AND schedule_id = $2
-                  AND status = 'pending'
-                """,
+            pending = await self.db.get_race_entries_pending(
+                guild_id,
                 today,
                 race["id"]
             )
 
-            if count >= 2:
+            if len(pending) >= 2:
                 target_race = race
-                pending_count = count
+                pending_count = len(pending)
                 break
 
         if not target_race:
@@ -60,18 +48,11 @@ class RaceDebug(commands.Cog):
                 ephemeral=True
             )
 
-        # =========================
-        # ★ 本番と同じ処理を呼ぶ
-        # =========================
         race_cog = self.bot.get_cog("OasistchiCog")
         if not race_cog:
-            return await interaction.followup.send(
-                "❌ レース処理Cogが見つかりません",
-                ephemeral=True
-            )
+            return await interaction.followup.send("❌ レース処理Cogが見つかりません", ephemeral=True)
 
         await race_cog.run_race_lottery(target_race)
-        await self.db.mark_race_lottery_done(target_race["id"])
 
         await interaction.followup.send(
             (
@@ -179,6 +160,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
