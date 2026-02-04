@@ -1526,14 +1526,15 @@ class Database:
     # -------------------------------
     async def add_oasistchi_dex(self, user_id: str, adult_key: str):
         await self._ensure_conn()
-        await self.conn.execute(
-            """
-            INSERT INTO oasistchi_dex (user_id, adult_key)
-            VALUES ($1, $2)
-            ON CONFLICT DO NOTHING
-            """,
-            user_id, adult_key
-        )
+        async with self._lock:
+            await self.conn.execute(
+                """
+                INSERT INTO oasistchi_dex (user_id, adult_key)
+                VALUES ($1, $2)
+                ON CONFLICT DO NOTHING
+                """,
+                user_id, adult_key
+            )
 
     # -------------------------------
     # おあしすっち：通知設定（取得）
@@ -1568,10 +1569,11 @@ class Database:
 
     async def delete_oasistchi_pet(self, pet_id: int):
         await self._ensure_conn()
-        await self.conn.execute(
-            "DELETE FROM oasistchi_pets WHERE id=$1",
-            pet_id
-        )
+        async with self._lock:
+            await self.conn.execute(
+                "DELETE FROM oasistchi_pets WHERE id=$1",
+                pet_id
+            )
     async def get_race_schedules(self):
         return await self.conn.fetch(
             "SELECT * FROM race_schedules ORDER BY race_time"
@@ -2075,6 +2077,7 @@ class Database:
             WHERE schedule_id = $1
               AND status = $2
         """, race_id, status)
+
 
 
 
