@@ -81,12 +81,12 @@ class RaceDebug(commands.Cog):
 
     @app_commands.command(
         name="race_entries_debug",
-        description="【デバッグ】本日のレースエントリー状況を表示"
+        description="【デバッグ】本日のレースエントリー状況（race_id表示）"
     )
     async def race_entries_debug(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
-        race_date = today_jst_date()
+        race_date = datetime.now(JST).date()
         races = await self.db.get_today_race_schedules(race_date)
 
         if not races:
@@ -102,33 +102,33 @@ class RaceDebug(commands.Cog):
         )
 
         for race in races:
-            guild_id = str(interaction.guild.id)
-
-            entries = await self.db.get_race_entries_by_schedule(
-                race_date=race_date,
-                schedule_id=race["id"],
-                guild_id=guild_id
-            )
+           entries = await self.db.conn.fetch("""
+                SELECT *
+                FROM race_entries
+                WHERE race_date = $1
+                  AND schedule_id = $2
+            """, race_date, race["id"])
 
             pending = [e for e in entries if e["status"] == "pending"]
             selected = [e for e in entries if e["status"] == "selected"]
             cancelled = [e for e in entries if e["status"] == "cancelled"]
 
-            value_lines = [
-                f"🕘 {race['race_time']}",
-                f"📝 pending: {len(pending)}",
-                f"✅ selected: {len(selected)}",
-                f"❌ cancelled: {len(cancelled)}",
-            ]
+            value = (
+                f"🆔 race_id: `{race['id']}`\n"
+                f"📝 pending: {len(pending)}\n"
+                f"✅ selected: {len(selected)}\n"
+                f"❌ cancelled: {len(cancelled)}"
+            )
 
-            for e in pending:
-                value_lines.append(
-                    f"・{e['pet_id']} / <@{e['user_id']}>"
-                )
+            if pending:
+                lines = []
+                for e in pending:
+                    lines.append(f"・pet_id `{e['pet_id']}` / <@{e['user_id']}>")
+                value += "\n" + "\n".join(lines)
 
             embed.add_field(
-                name=f"第{race['race_no']}レース",
-                value="\n".join(value_lines),
+                name=f"第{race['race_no']}レース｜🕘 {race['race_time']}",
+                value=value,
                 inline=False
             )
 
@@ -174,6 +174,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
