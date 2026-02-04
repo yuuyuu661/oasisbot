@@ -577,51 +577,50 @@ class OasistchiCog(commands.Cog):
                 print(f"[RACE ERROR] lottery failed: {e}")
 
 
+    RACE_RESULT_CHANNEL_ID = 1466693608366276793
 
     async def send_race_result_embed(self, race: dict, results: list[dict]):
-    """
-    レース結果をEmbedで表示する
-    race: race_schedules の dict
-    results: decide_race_order の戻り値
-    """
+        """
+        レース結果をEmbedで表示する
+        race: race_schedules の dict
+        results: decide_race_order の戻り値
+        """
 
-    # 結果送信先（設定 or 仮）
-    channel_id = race.get("result_channel_id")
-    channel = self.bot.get_channel(channel_id) if channel_id else None
-    if channel is None:
-        print("[RACE] result channel not found, skip embed")
-        return
+        channel = self.bot.get_channel(RACE_RESULT_CHANNEL_ID)
+        if channel is None:
+            print("[RACE] result channel not found")
+            return
 
-    embed = discord.Embed(
-        title=f"🏁 第{race['race_no']}レース 結果",
-        description=(
-            f"🕘 {race['race_time']}｜"
-            f"{race['distance']}｜"
-            f"{race['surface']}｜"
-            f"{race['condition']}"
-        ),
-        color=discord.Color.gold()
-    )
-
-    medals = ["🥇", "🥈", "🥉"]
-
-    for i, r in enumerate(results, start=1):
-        medal = medals[i - 1] if i <= 3 else f"{i}着"
-        guts = "🔥 根性" if r["stats"].get("guts") else ""
-
-        embed.add_field(
-            name=f"{medal} {r['name']}",
-            value=(
-                f"<@{r['user_id']}>\n"
-                f"🏃 スピード {r['stats']['speed']}\n"
-                f"🫀 スタミナ {r['stats']['stamina']}\n"
-                f"💥 パワー {r['stats']['power']} {guts}\n"
-                f"📊 score {r['score']:.1f}"
+        embed = discord.Embed(
+            title=f"🏁 第{race['race_no']}レース 結果",
+            description=(
+                f"🕘 {race['race_time']}｜"
+                f"{race['distance']}｜"
+                f"{race['surface']}｜"
+                f"{race['condition']}"
             ),
-            inline=False
+            color=discord.Color.gold()
         )
 
-    await channel.send(embed=embed)
+        medals = ["🥇", "🥈", "🥉"]
+
+        for i, r in enumerate(results, start=1):
+            medal = medals[i - 1] if i <= 3 else f"{i}着"
+            guts = "🔥 根性" if r["stats"].get("guts") else ""
+
+            embed.add_field(
+                name=f"{medal} {r['name']}",
+                value=(
+                    f"<@{r['user_id']}>\n"
+                    f"🏃 スピード {r['stats']['speed']}\n"
+                    f"🫀 スタミナ {r['stats']['stamina']}\n"
+                    f"💥 パワー {r['stats']['power']} {guts}\n"
+                    f"📊 score {r['score']:.1f}"
+                ),
+                inline=False
+            )
+
+        await channel.send(embed=embed)
 
 
     
@@ -2640,6 +2639,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
