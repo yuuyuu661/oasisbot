@@ -662,7 +662,7 @@ class OasistchiCog(commands.Cog):
         selected_entries: status='selected' の race_entries
         """
 
-        channel = await self.get_race_result_channel()
+        channel = await self.get_race_result_channel(race)
         if channel is None:
             print("[RACE] 出走決定チャンネルが見つかりません")
             return
@@ -818,6 +818,7 @@ class OasistchiCog(commands.Cog):
             # ⑧ 結果Embed（※ここで1回だけ送る）
             await self.send_race_result_embed(race, results)
             print("[RACE] run_race_lottery END")
+            return
 
 
     # =========================
@@ -2737,6 +2738,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
