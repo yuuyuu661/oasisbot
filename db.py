@@ -1176,6 +1176,296 @@ class Database:
         fixed_adult_key,
         now)
 
+    # ==================================================
+    # おあしすっち：たまご購入（完全安全版）
+    # ==================================================
+    async def purchase_oasistchi_egg_safe(
+        self,
+        user_id: str,
+        guild_id: str,
+        egg_type: str,
+        price: int,
+        *,
+        fixed_adult_key: str | None = None
+    ):
+        await self._ensure_conn()
+
+        async with self._lock:
+            async with self.conn.transaction():
+
+                # ① 残高取得（ロック）
+                row = await self.conn.fetchrow(
+                    """
+                    SELECT balance
+                    FROM users
+                    WHERE user_id=$1 AND guild_id=$2
+                    FOR UPDATE
+                    """,
+                    user_id,
+                    guild_id
+                )
+
+                if not row:
+                    raise RuntimeError("ユーザーが存在しません")
+
+                if row["balance"] < price:
+                    raise RuntimeError("残高不足")
+
+                # ② 残高減算
+                await self.conn.execute(
+                    """
+                    UPDATE users
+                    SET balance = balance - $1
+                    WHERE user_id=$2 AND guild_id=$3
+                    """,
+                    price, user_id, guild_id
+                )
+
+                # ③ たまご追加
+                now = time.time()
+                await self.conn.execute(
+                    """
+                    INSERT INTO oasistchi_pets (
+                        user_id,
+                        stage,
+                        egg_type,
+                        fixed_adult_key,
+                        growth,
+                        hunger,
+                        happiness,
+                        poop,
+                        last_interaction,
+                        last_growth_tick,
+                        last_poop_tick,
+                        next_poop_check_at
+                    ) VALUES (
+                        $1,
+                        'egg',
+                        $2,
+                        $3,
+                        0,
+                        100,
+                        50,
+                        FALSE,
+                        $4::REAL,
+                        $4::REAL,
+                        $4::REAL,
+                        ($4::REAL + 3600)
+                    )
+                    """,
+                    user_id,
+                    egg_type,
+                    fixed_adult_key,
+                    now
+                )
+
+    # ==================================================
+    # おあしすっち：かぶりなし たまご（完全安全）
+    # ==================================================
+    async def purchase_unique_egg_safe(
+        self,
+        user_id: str,
+        guild_id: str,
+        price: int,
+        adult_catalog: list[dict]
+    ):
+        """
+        ・残高チェック
+        ・残高減算
+        ・未所持 adult 抽選
+        ・卵追加
+        を1トランザクションで行う
+        """
+        await self._ensure_pool()
+
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+
+                # -------------------------
+                # 残高ロック
+                # -------------------------
+                row = await conn.fetchrow(
+                    """
+                    SELECT balance
+                    FROM users
+                    WHERE user_id=$1 AND guild_id=$2
+                    FOR UPDATE
+                    """,
+                    user_id, guild_id
+                )
+
+                if not row or row["balance"] < price:
+                    raise RuntimeError("残高が足りません")
+
+                # -------------------------
+                # 所持済み成体取得（ロック不要）
+                # -------------------------
+                owned_rows = await conn.fetch(
+                "SELECT adult_key FROM oasistchi_dex WHERE user_id=$1",
+                    user_id
+                )
+                owned = {r["adult_key"] for r in owned_rows}
+
+                candidates = [
+                    a for a in adult_catalog
+                    if a["key"] not in owned
+                ]
+
+                if not candidates:
+                    raise RuntimeError("すべてのおあしすっちを所持済みです")
+
+                adult = random.choice(candidates)
+                egg_type = random.choice(adult["groups"])
+                now = time.time()
+
+                # -------------------------
+                # 残高減算
+                # -------------------------
+                await conn.execute(
+                    """
+                    UPDATE users
+                    SET balance = balance - $1
+                    WHERE user_id=$2 AND guild_id=$3
+                    """,
+                    price, user_id, guild_id
+                )
+
+                # -------------------------
+                # 卵追加（固定成体）
+                # -------------------------
+                await conn.execute(
+                    """
+                    INSERT INTO oasistchi_pets (
+                        user_id, stage, egg_type, fixed_adult_key,
+                        growth, hunger, happiness, poop,
+                        last_interaction,
+                        last_growth_tick,
+                        last_poop_tick,
+                        next_poop_check_at
+                    ) VALUES (
+                        $1, 'egg', $2, $3,
+                        0::REAL,
+                        100,
+                        50,
+                        FALSE,
+                        $4::REAL,
+                        $4::REAL,
+                        $4::REAL,
+                        ($4 + 3600)::REAL
+                    )
+                    """,
+                    user_id,
+                    egg_type,
+                    adult["key"],
+                    now
+                )
+
+                return adult, egg_type
+
+
+
+    # ==================================================
+    # おあしすっち：育成枠購入（完全安全）
+    # ==================================================
+    async def purchase_oasistchi_slot_safe(
+        self,
+        user_id: str,
+        guild_id: str,
+        base_price: int,
+        max_slots: int = 10
+    ) -> int:
+        """
+        ・残高チェック
+        ・現在の育成枠チェック
+        ・価格計算（5枠以上で2倍）
+        ・残高減算
+        ・育成枠 +1
+        を1トランザクションで行う
+
+        return: 購入後の slots 数
+        """
+        await self._ensure_pool()
+
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+
+                # -------------------------
+                # 残高ロック
+                # -------------------------
+                bal = await conn.fetchrow(
+                    """
+                    SELECT balance
+                    FROM users
+                    WHERE user_id=$1 AND guild_id=$2
+                    FOR UPDATE
+                    """,
+                    user_id, guild_id
+                )
+
+                if not bal:
+                    raise RuntimeError("残高情報が見つかりません")
+
+                # -------------------------
+                # 育成枠ロック
+                # -------------------------
+                row = await conn.fetchrow(
+                    """
+                    SELECT slots
+                    FROM oasistchi_users
+                    WHERE user_id=$1
+                    FOR UPDATE
+                    """,
+                    user_id
+                )
+
+                # 初回ユーザー対策
+                if not row:
+                    await conn.execute(
+                        "INSERT INTO oasistchi_users (user_id, slots) VALUES ($1, 1)",
+                        user_id
+                    )
+                    slots = 1
+                else:
+                    slots = row["slots"]
+
+                if slots >= max_slots:
+                    raise RuntimeError("育成枠は最大まで拡張されています")
+
+                # -------------------------
+                # 価格計算
+                # -------------------------
+                price = base_price * 2 if slots >= 5 else base_price
+
+                if bal["balance"] < price:
+                    raise RuntimeError("残高が足りません")
+
+                # -------------------------
+                # 残高減算
+                # -------------------------
+                await conn.execute(
+                    """
+                    UPDATE users
+                    SET balance = balance - $1
+                    WHERE user_id=$2 AND guild_id=$3
+                    """,
+                    price, user_id, guild_id
+                )
+
+                # -------------------------
+                # 育成枠 +1
+                # -------------------------
+                await conn.execute(
+                    """
+                    UPDATE oasistchi_users
+                    SET slots = slots + 1
+                    WHERE user_id=$1
+                    """,
+                    user_id
+                )
+
+                return slots + 1
+
+
     # -------------------------------
     # おあしすっち：更新
     # -------------------------------
@@ -1768,6 +2058,7 @@ class Database:
               AND race_finished = FALSE
         """, race_id)
         return row is not None
+
 
 
 
