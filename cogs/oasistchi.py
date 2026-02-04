@@ -778,6 +778,21 @@ class OasistchiCog(commands.Cog):
 
         print(f"[RACE] 抽選完了 race_id={race_id} selected={len(selected)} cancelled={len(cancelled)}")
 
+        # =========================
+        # ★ ここで DB から selected を取り直す
+        # =========================
+        selected = await db.conn.fetch("""
+            SELECT *
+            FROM race_entries
+            WHERE race_date = $1
+              AND schedule_id = $2
+                      AND status = 'selected'
+        """, race_date, race_id)
+
+        if len(selected) < 2:
+            print("[RACE] selected が2体未満のため出走決定パネルを送信しません")
+            return
+
         # ⑤ 出走決定パネル（Discord）
         await self.send_race_entry_panel(race, selected)
 
@@ -2712,6 +2727,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
