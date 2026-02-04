@@ -74,6 +74,58 @@ class RaceDebug(commands.Cog):
 
         await channel.send(embed=embed)
 
+    @app_commands.command(
+        name="race_entries_debug",
+        description="【デバッグ】本日のレースエントリー状況を表示"
+    )
+    async def race_entries_debug(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
+        race_date = today_jst_date()
+        races = await self.db.get_today_race_schedules(race_date)
+
+        if not races:
+            return await interaction.followup.send(
+                "❌ 本日のレースが存在しません。",
+                ephemeral=True
+            )
+
+        embed = discord.Embed(
+            title="🧪 本日のレースエントリー状況",
+            description=f"📅 {race_date}",
+            color=discord.Color.blue()
+        )
+
+        for race in races:
+            entries = await self.db.get_race_entries_by_schedule(
+                race_date=race_date,
+                schedule_id=race["id"]
+            )
+
+            pending = [e for e in entries if e["status"] == "pending"]
+            selected = [e for e in entries if e["status"] == "selected"]
+            cancelled = [e for e in entries if e["status"] == "cancelled"]
+
+            value_lines = [
+                f"🕘 {race['race_time']}",
+                f"📝 pending: {len(pending)}",
+                f"✅ selected: {len(selected)}",
+                f"❌ cancelled: {len(cancelled)}",
+            ]
+
+            for e in pending:
+                value_lines.append(
+                    f"・{e['pet_id']} / <@{e['user_id']}>"
+                )
+
+            embed.add_field(
+                name=f"第{race['race_no']}レース",
+                value="\n".join(value_lines),
+                inline=False
+            )
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
 
 async def setup(bot):
     cog = RaceDebug(bot)
@@ -82,5 +134,6 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
