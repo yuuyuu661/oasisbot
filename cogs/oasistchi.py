@@ -462,36 +462,36 @@ class OasistchiCog(commands.Cog):
     # レース結果
     # =========================
     def build_race_result_embed(self, race: dict, results: list[dict]) -> discord.Embed:
-    embed = discord.Embed(
-        title=f"🏁 第{race['race_no']}レース 結果発表！",
-        description=f"{race['distance']}｜{race['surface']}｜{race['condition']}",
-        color=discord.Color.gold()
-    )
-
-    medals = ["🥇", "🥈", "🥉"]
-
-    for i, r in enumerate(results):
-        medal = medals[i] if i < 3 else f"{i+1}位"
-
-        stats = r["stats"]
-        line = (
-            f"**{medal} {r['name']}**\n"
-            f"スコア：**{r['score']:.1f}**\n"
-            f"🏃{stats['speed']} 🫀{stats['stamina']} 💥{stats['power']}\n"
-            f"😊×{stats['guts_chance']}"
+        embed = discord.Embed(
+            title=f"🏁 第{race['race_no']}レース 結果発表！",
+            description=f"{race['distance']}｜{race['surface']}｜{race['condition']}",
+            color=discord.Color.gold()
         )
 
-        if stats["guts"]:
-            line += " ｜🔥 **根性発動！**"
+        medals = ["🥇", "🥈", "🥉"]
 
-        embed.add_field(
-            name="\u200b",
-            value=line,
-            inline=False
-        )
+        for i, r in enumerate(results):
+            medal = medals[i] if i < 3 else f"{i+1}位"
 
-    embed.set_footer(text="幸福度と根性が勝敗に影響します")
-    return embed
+            stats = r["stats"]
+            line = (
+                f"**{medal} {r['name']}**\n"
+                f"スコア：**{r['score']:.1f}**\n"
+                f"🏃{stats['speed']} 🫀{stats['stamina']} 💥{stats['power']}\n"
+                f"😊×{stats['guts_chance']}"
+            )
+
+            if stats["guts"]:
+                line += " ｜🔥 **根性発動！**"
+
+            embed.add_field(
+                name="\u200b",
+                value=line,
+                inline=False
+            )
+
+        embed.set_footer(text="幸福度と根性が勝敗に影響します")
+        return embed
     # =========================
     # 表示用 state 解決
     # =========================
@@ -2639,6 +2639,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
