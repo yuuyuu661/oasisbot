@@ -755,6 +755,8 @@ class OasistchiCog(commands.Cog):
 
         print(f"[RACE] 抽選完了 race_id={race_id} selected={len(selected)}")
 
+        await self.send_race_entry_panel(race, selected)
+
         # --- 出走ペット取得 ---
         pets = []
         for e in selected:
@@ -2711,6 +2713,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
