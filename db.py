@@ -10,7 +10,7 @@ JST = timezone(timedelta(hours=9))
 
 load_dotenv()
 
-RACE_TIMES = ["09:00", "12:00", "15:00", "19:00", "22:00"]
+RACE_TIMES = ["09:00", "12:00", "15:00", "18:00", "21:00"]
 DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
 SURFACES = ["芝", "ダート"]
 CONDITIONS = ["良", "稍重", "重", "不良"]
@@ -1768,6 +1768,7 @@ class Database:
               AND race_finished = FALSE
         """, race_id)
         return row is not None
+
 
 
 
