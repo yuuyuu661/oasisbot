@@ -1495,16 +1495,18 @@ class Database:
     # ----------------------------------------
     async def get_all_oasistchi_pets(self):
         await self._ensure_conn()
-        return await self.conn.fetch(
-            "SELECT * FROM oasistchi_pets"
-        )
+        async with self._lock:
+            return await self.conn.fetch(
+                "SELECT * FROM oasistchi_pets"
+            )
 
     async def get_oasistchi_pet(self, pet_id: int):
         await self._ensure_conn()
-        return await self.conn.fetchrow(
-            "SELECT * FROM oasistchi_pets WHERE id=$1",
-            pet_id
-        )
+        async with self._lock:
+            return await self.conn.fetchrow(
+                "SELECT * FROM oasistchi_pets WHERE id=$1",
+                pet_id
+            )
 
     # -------------------------------
     # おあしすっち：図鑑（取得）
@@ -2071,6 +2073,7 @@ class Database:
             WHERE schedule_id = $1
               AND status = $2
         """, race_id, status)
+
 
 
 
