@@ -6,6 +6,9 @@ from datetime import datetime, timezone, timedelta
 
 JST = timezone(timedelta(hours=9))
 
+def today_jst_date():
+    return datetime.now(JST).date()
+
 class RaceDebug(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -134,6 +137,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
