@@ -83,29 +83,6 @@ class RaceDebug(commands.Cog):
             ephemeral=True
         )
 
-    # =========================
-    # 出走決定パネル（仮）
-    # =========================
-    async def send_race_entry_panel(self, race: dict, entries: list[dict]):
-        channel = self.bot.get_channel(1466693608366276793)
-        if not channel:
-            return
-
-        embed = discord.Embed(
-            title=f"🏁 第{race['race_no']}レース 出走決定（デバッグ）",
-            description=f"{race['race_time']}｜{race['distance']}｜{race['surface']}｜{race['condition']}",
-            color=discord.Color.orange()
-        )
-
-        for i, e in enumerate(entries, start=1):
-            pet = await self.db.get_oasistchi_pet(e["pet_id"])
-            embed.add_field(
-                name=f"枠 {i}",
-                value=f"<@{e['user_id']}>\n🐣 {pet['name']}",
-                inline=False
-            )
-
-        await channel.send(embed=embed)
 
     @app_commands.command(
         name="race_entries_debug",
@@ -202,6 +179,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
