@@ -1471,24 +1471,25 @@ class Database:
     # -------------------------------
     async def update_oasistchi_pet(self, pet_id: int, **fields):
         await self._ensure_conn()
+        async with self._lock:
 
-        cols = []
-        vals = []
-        idx = 1
+            cols = []
+            vals = []
+            idx = 1
 
-        for k, v in fields.items():
-            cols.append(f"{k} = ${idx}")
-            vals.append(v)
-            idx += 1
+            for k, v in fields.items():
+                cols.append(f"{k} = ${idx}")
+                vals.append(v)
+                idx += 1
 
-        sql = f"""
-            UPDATE oasistchi_pets
-            SET {', '.join(cols)}
-            WHERE id = ${idx}
-        """
-        vals.append(pet_id)
+            sql = f"""
+                UPDATE oasistchi_pets
+                SET {', '.join(cols)}
+                WHERE id = ${idx}
+            """
+            vals.append(pet_id)
 
-        await self.conn.execute(sql, *vals)
+            await self.conn.execute(sql, *vals)
 
     # ----------------------------------------
     # おあしすっち：全ペット取得（poop_check用）
@@ -1513,11 +1514,12 @@ class Database:
     # -------------------------------
     async def get_oasistchi_owned_adult_keys(self, user_id: str) -> set[str]:
         await self._ensure_conn()
-        rows = await self.conn.fetch(
-            "SELECT adult_key FROM oasistchi_dex WHERE user_id=$1",
-            user_id
-        )
-        return {r["adult_key"] for r in rows}
+        async with self._lock:
+            rows = await self.conn.fetch(
+                "SELECT adult_key FROM oasistchi_dex WHERE user_id=$1",
+                user_id
+            )
+            return {r["adult_key"] for r in rows}
 
     # -------------------------------
     # おあしすっち：図鑑（追加）
@@ -2073,6 +2075,7 @@ class Database:
             WHERE schedule_id = $1
               AND status = $2
         """, race_id, status)
+
 
 
 
