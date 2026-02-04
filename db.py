@@ -1775,14 +1775,17 @@ class Database:
     # -----------------------------------------
     # レース関係関数
     # -----------------------------------------
-    async def get_race_entries_for_date(self, schedule_id: int):
+    async def get_race_entries_pending(self, guild_id: str, race_date, schedule_id: int):
         await self._ensure_conn()
         return await self.conn.fetch("""
             SELECT *
             FROM race_entries
-            WHERE schedule_id = $1
+            WHERE guild_id = $1
+              AND race_date = $2
+              AND schedule_id = $3
               AND status = 'pending'
-        """, schedule_id)
+            ORDER BY created_at
+        """, str(guild_id), race_date, schedule_id)
     # -----------------------------------------
     # 参加済みを取得
     # -----------------------------------------
@@ -2059,6 +2062,7 @@ class Database:
               AND race_finished = FALSE
         """, race_id)
         return row is not None
+
 
 
 
