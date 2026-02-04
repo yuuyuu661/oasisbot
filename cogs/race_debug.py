@@ -64,7 +64,8 @@ class RaceDebug(commands.Cog):
             # =========================
             # ★ 本番と同じ処理を呼ぶ
             # =========================
-            await self.run_race_lottery(target_race)
+            race_cog = self.bot.get_cog("OasistchiCog")
+            await race_cog.run_race_lottery(target_race)
             await self.db.mark_race_lottery_done(target_race["id"])
 
             await interaction.followup.send(
@@ -196,6 +197,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
