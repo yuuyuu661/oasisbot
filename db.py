@@ -2063,6 +2063,14 @@ class Database:
         """, race_id)
         return row is not None
 
+    async def get_race_entries_by_status(self, race_id: int, status: str):
+        await self._ensure_conn()
+        return await self.conn.fetch("""
+            SELECT *
+            FROM race_entries
+            WHERE schedule_id = $1
+              AND status = $2
+        """, race_id, status)
 
 
 
