@@ -31,9 +31,12 @@ class RaceDebug(commands.Cog):
 
         race = races[0]
 
+        guild_id = str(interaction.guild.id)
+
         entries = await self.db.get_race_entries_by_schedule(
             race_date=today,
-            schedule_id=race["id"]
+            schedule_id=race["id"],
+            guild_id=guild_id
         )
 
         if len(entries) <= 1:
@@ -99,9 +102,12 @@ class RaceDebug(commands.Cog):
         )
 
         for race in races:
+            guild_id = str(interaction.guild.id)
+
             entries = await self.db.get_race_entries_by_schedule(
                 race_date=race_date,
-                schedule_id=race["id"]
+                schedule_id=race["id"],
+                guild_id=guild_id
             )
 
             pending = [e for e in entries if e["status"] == "pending"]
@@ -168,6 +174,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
