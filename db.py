@@ -1582,16 +1582,15 @@ class Database:
             race_date, schedule_id, user_id, pet_id
         )
 
-    async def get_race_entries_by_schedule(self, race_date, schedule_id):
+    async def get_race_entries_by_schedule(self, race_date, schedule_id, guild_id: str):
         await self._ensure_conn()
-        return await self.conn.fetch(
-            """
+        return await self.conn.fetch("""
             SELECT * FROM race_entries
-            WHERE race_date = $1 AND schedule_id = $2
+            WHERE race_date = $1
+              AND schedule_id = $2
+              AND guild_id = $3
             ORDER BY created_at
-            """,
-            race_date, schedule_id
-       )
+        """, race_date, schedule_id, str(guild_id))
 
     async def save_race_result(
         self, race_date, schedule_id, user_id, pet_id, position, reward
@@ -2037,14 +2036,16 @@ class Database:
     # --------------------------------------------------
     # 未完了レース取得（日付）
     # --------------------------------------------------
-    async def get_unfinished_races_by_date(self, race_date):
+    async def get_unfinished_races_by_date(self, race_date: date, guild_id: str):
         await self._ensure_conn()
         return await self.conn.fetch("""
             SELECT *
             FROM race_schedules
             WHERE race_date = $1
+              AND guild_id = $2
               AND race_finished = FALSE
-        """, race_date)
+            ORDER BY race_time
+        """, race_date, str(guild_id))
 
     # --------------------------------------------------
     # 未完了レース存在チェック
@@ -2058,6 +2059,7 @@ class Database:
               AND race_finished = FALSE
         """, race_id)
         return row is not None
+
 
 
 
