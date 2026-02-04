@@ -112,7 +112,6 @@ DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
 SURFACES = ["芝", "ダート"]
 CONDITIONS = ["良", "稍重", "重", "不良"]
 MAX_ENTRIES = 8
-RACE_RESULT_CHANNEL_ID = 1445007471289696267
 
 def now_ts() -> float:
     return time.time()
@@ -2737,6 +2736,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
