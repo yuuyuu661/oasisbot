@@ -21,7 +21,6 @@ class RaceDebug(commands.Cog):
         await interaction.response.defer(ephemeral=True)
 
         async with self.db._lock:
-
             today = datetime.now(JST).date()
             guild_id = str(interaction.guild.id)
 
@@ -32,45 +31,49 @@ class RaceDebug(commands.Cog):
                     ephemeral=True
                 )
 
-            race = races[0]
+            # =========================
+            # ★ pending 2体以上のレースを探す
+            # =========================
+            target_race = None
+            pending_count = 0
 
-            # 🔴 pending のみ取得（ここが超重要）
-            entries = await self.db.conn.fetch(
-                """
-                SELECT *
-                FROM race_entries
-                WHERE race_date = $1
-                  AND schedule_id = $2
-                  AND status = 'pending'
-                """,
-                today,
-                race["id"]
-            )
-
-            if len(entries) <= 1:
-                selected = await self.db.get_race_entries_by_status(
-                    race_id=race["id"],
-                    status="selected"
+            for race in races:
+                count = await self.db.conn.fetchval(
+                    """
+                    SELECT COUNT(*)
+                    FROM race_entries
+                    WHERE race_date = $1
+                      AND schedule_id = $2
+                      AND status = 'pending'
+                    """,
+                    today,
+                    race["id"]
                 )
 
-                if len(selected) >= 2:
-                    return await interaction.followup.send(
-                        "⚠️ すでに抽選済みです（selected を確認してください）",
-                        ephemeral=True
-                    )
+                if count >= 2:
+                    target_race = race
+                    pending_count = count
+                    break
 
+            if not target_race:
                 return await interaction.followup.send(
-                    "❌ エントリーが2体未満です",
+                    "❌ 抽選可能なレースがありません（pending が2体以上なし）",
                     ephemeral=True
                 )
 
-            selected = random.sample(entries, k=min(8, len(entries)))
-
-            # 🔵 表示のみ（DB更新なし）
-            await self.send_race_entry_panel(race, selected)
+            # =========================
+            # ★ 本番と同じ処理を呼ぶ
+            # =========================
+            await self.run_race_lottery(target_race)
+            await self.db.mark_race_lottery_done(target_race["id"])
 
             await interaction.followup.send(
-                f"✅ デバッグ抽選完了（pending {len(entries)}体 → 表示 {len(selected)}体）",
+                (
+                    "✅ **デバッグ抽選完了！**\n"
+                    f"🆔 race_id: `{target_race['id']}`\n"
+                    f"🕘 第{target_race['race_no']}レース（{target_race['race_time']}）\n"
+                    f"👥 pending: {pending_count}体"
+                ),
                 ephemeral=True
             )
 
@@ -193,6 +196,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
