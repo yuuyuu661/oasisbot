@@ -817,6 +817,7 @@ class OasistchiCog(commands.Cog):
 
             # ⑧ 結果Embed（※ここで1回だけ送る）
             await self.send_race_result_embed(race, results)
+            print("[RACE] run_race_lottery END")
 
 
     # =========================
@@ -2736,6 +2737,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
