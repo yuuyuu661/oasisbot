@@ -41,10 +41,20 @@ class RaceDebug(commands.Cog):
               AND status = 'pending'
         """, today, race["id"])
 
-        if len(entries) < 2:
+        if len(entries) <= 1:
+            selected = await self.db.get_race_entries_by_status(
+                race_id=race["id"],
+                status="selected"
+            )
+
+            if len(selected) >= 2:
+                return await interaction.followup.send(
+                    "⚠️ すでに抽選済みです（selected を確認してください）",
+                    ephemeral=True
+                )
+
             return await interaction.followup.send(
-                "❌ pending中のエントリーが2体未満です\n"
-                "※すでに抽選済みの可能性があります",
+                "❌ エントリーが2体未満です",
                 ephemeral=True
             )
 
@@ -177,6 +187,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
