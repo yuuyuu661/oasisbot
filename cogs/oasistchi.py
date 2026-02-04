@@ -524,10 +524,7 @@ class OasistchiCog(commands.Cog):
         if not self.bot.is_ready():
             return
 
-        if self._race_lock.locked():
-            return
-
-        async with self._race_lock:
+        async with self.db._lock:   # ★ ここを統一！
             pets = await self.db.get_all_oasistchi_pets()
             for pet in pets:
                 try:
@@ -2738,6 +2735,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
