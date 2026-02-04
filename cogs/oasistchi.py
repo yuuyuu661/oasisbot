@@ -525,12 +525,16 @@ class OasistchiCog(commands.Cog):
         if not self.bot.is_ready():
             return
 
-        pets = await self.db.get_all_oasistchi_pets()
-        for pet in pets:
-            try:
-                await self.process_time_tick(pet)
-            except Exception as e:
-                print(f"[OASISTCHI TICK ERROR] pet_id={pet['id']} err={e}")
+        if self._race_lock.locked():
+            return
+
+        async with self._race_lock:
+            pets = await self.db.get_all_oasistchi_pets()
+            for pet in pets:
+                try:
+                    await self.process_time_tick(pet)
+                except Exception as e:
+                    print(f"[OASISTCHI TICK ERROR] pet_id={pet['id']} err={e}")
 
 
     async def trigger_race_daily_process(self):
@@ -2712,6 +2716,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
