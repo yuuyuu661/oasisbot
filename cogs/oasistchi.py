@@ -615,13 +615,7 @@ class OasistchiCog(commands.Cog):
     # レース処理（正規版・完成）
     # =========================
     async def send_race_result_embed(self, race: dict, results: list[dict]):
-        """
-        レース結果をEmbedで表示する
-        race: race_schedules の dict
-        results: decide_race_order の戻り値
-        """
-
-        channel = self.bot.get_channel(RACE_RESULT_CHANNEL_ID)
+        channel = await self.get_race_result_channel()
         if channel is None:
             print("[RACE] result channel not found")
             return
@@ -669,7 +663,7 @@ class OasistchiCog(commands.Cog):
         selected_entries: status='selected' の race_entries
         """
 
-        channel = self.bot.get_channel(RACE_RESULT_CHANNEL_ID)
+        channel = await self.get_race_result_channel()
         if channel is None:
             print("[RACE] 出走決定チャンネルが見つかりません")
             return
@@ -715,6 +709,21 @@ class OasistchiCog(commands.Cog):
         embed.set_footer(text="このあとWebサイトでレースを観戦・投票できます")
 
         await channel.send(embed=embed)
+
+    # =========================
+    # ★ レース用チャンネル取得（追加）
+    # =========================
+    async def get_race_result_channel(self):
+        channel = self.bot.get_channel(RACE_RESULT_CHANNEL_ID)
+        if channel:
+            return channel
+
+        try:
+            channel = await self.bot.fetch_channel(RACE_RESULT_CHANNEL_ID)
+            return channel
+        except Exception as e:
+            print(f"[RACE] チャンネル取得失敗: {e}")
+            return None
     
     # =========================
     # レース処理（正規版・完成） ※1本化版
@@ -2728,6 +2737,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
