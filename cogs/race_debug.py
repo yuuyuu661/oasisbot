@@ -38,7 +38,7 @@ class RaceDebug(commands.Cog):
 
         for race in races:
             count = await self.db.conn.fetchval(
-               """
+                """
                 SELECT COUNT(*)
                 FROM race_entries
                 WHERE race_date = $1
@@ -49,7 +49,7 @@ class RaceDebug(commands.Cog):
                 race["id"]
             )
 
-           if count >= 2:
+            if count >= 2:
                 target_race = race
                 pending_count = count
                 break
@@ -202,6 +202,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
