@@ -1,8 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import random
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 
 JST = timezone(timedelta(hours=9))
 
@@ -129,6 +128,38 @@ class RaceDebug(commands.Cog):
 
         await interaction.followup.send(embed=embed, ephemeral=True)
 
+    @app_commands.command(
+        name="race_entries_reset",
+        description="【デバッグ】本日のレースエントリーを全リセット"
+    )
+    async def race_entries_reset(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
+        race_date = today_jst_date()
+
+        # race_entries 全削除
+        await self.db.conn.execute("""
+            DELETE FROM race_entries
+            WHERE race_date = $1
+        """, race_date)
+
+        # race_schedules 状態リセット
+        await self.db.conn.execute("""
+            UPDATE race_schedules
+            SET
+                lottery_done = FALSE,
+                race_finished = FALSE
+            WHERE race_date = $1
+        """, race_date)
+
+        await interaction.followup.send(
+            f"🧹 **本日のレースエントリーをリセットしました**\n"
+            f"📅 {race_date}\n"
+            f"・エントリー全削除\n"
+            f"・抽選／完了フラグ初期化",
+            ephemeral=True
+        )
+
 
 async def setup(bot):
     cog = RaceDebug(bot)
@@ -137,6 +168,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
