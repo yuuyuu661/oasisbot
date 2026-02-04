@@ -1642,13 +1642,14 @@ class Database:
         )
         return dict(row) if row else None
 
-    async def get_today_race_schedules(self, race_date: date):
+    async def get_today_race_schedules(self, race_date: date, guild_id: str):
         return await self.conn.fetch("""
             SELECT *
             FROM race_schedules
             WHERE race_date = $1
+              AND guild_id = $2
             ORDER BY race_time
-        """, race_date)
+        """, race_date, guild_id)
 
     async def generate_today_races(self, guild_id: str, race_date: date):
         cols = await self.conn.fetch("""
@@ -2079,6 +2080,7 @@ class Database:
             WHERE schedule_id = $1
               AND status = $2
         """, race_id, status)
+
 
 
 
