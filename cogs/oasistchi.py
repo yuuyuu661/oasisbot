@@ -193,7 +193,15 @@ def calc_effective_stats(pet: dict):
         "rate": rate,              # デバッグ・表示用
         "guts_chance": guts_chance # ログ・演出用
     }
-
+    
+def get_condition_text(self, happiness: int) -> str:
+    if happiness >= 80:
+        return "好調 😄"
+    elif happiness >= 50:
+        return "普通 😐"
+    else:
+        return "不調 😰"
+        
 def generate_initial_stats():
     """
     孵化時ステータス生成
@@ -579,6 +587,10 @@ class OasistchiCog(commands.Cog):
 
     RACE_RESULT_CHANNEL_ID = 1466693608366276793
 
+
+    # =========================
+    # レース処理（正規版・完成）
+    # =========================
     async def send_race_result_embed(self, race: dict, results: list[dict]):
         """
         レース結果をEmbedで表示する
@@ -622,7 +634,64 @@ class OasistchiCog(commands.Cog):
 
         await channel.send(embed=embed)
 
+    # =========================
+    # レース処理（正規版・完成）
+    # =========================
 
+    async def send_race_entry_panel(self, race: dict, selected_entries: list[dict]):
+        """
+        出走決定パネルをDiscordに送信する
+
+        race: race_schedules の row(dict)
+        selected_entries: status='selected' の race_entries
+        """
+
+        channel = self.bot.get_channel(RACE_RESULT_CHANNEL_ID)
+        if channel is None:
+            print("[RACE] 出走決定チャンネルが見つかりません")
+            return
+
+        # 念のためシャッフル（＝枠番ランダム）
+        entries = selected_entries[:]
+        random.shuffle(entries)
+
+        embed = discord.Embed(
+            title=f"🏇 第{race['race_no']}レース 出走決定（{race['race_time']}）",
+            description=(
+                f"{race['distance']}｜{race['surface']}｜{race['condition']}\n"
+                f"出走頭数：{len(entries)} / 8"
+            ),
+            color=discord.Color.green()
+        )
+
+        for frame_no, entry in enumerate(entries, start=1):
+            # ペット取得
+            pet = await self.db.get_oasistchi_pet(entry["pet_id"])
+            if not pet:
+                continue
+
+            condition = self.get_condition_text(pet["happiness"])
+
+            # ステータス（表示用）
+            speed = pet["speed"]
+            stamina = pet["stamina"]
+            power = pet["power"]
+
+            embed.add_field(
+                name=f"【枠番 {frame_no}】🐣 {pet['name']}",
+                value=(
+                    f"👤 <@{entry['user_id']}>\n"
+                    f"📉 コンディション：{condition}\n\n"
+                    f"🏃 スピード：{speed}\n"
+                    f"🫀 スタミナ：{stamina}\n"
+                    f"💥 パワー：{power}"
+                ),
+                inline=False
+            )
+
+        embed.set_footer(text="このあとWebサイトでレースを観戦・投票できます")
+
+        await channel.send(embed=embed)
     
     # =========================
     # レース処理（正規版・完成）
@@ -2632,6 +2701,9 @@ class RaceSelect(discord.ui.Select):
             ephemeral=True
         )
 
+
+
+
 async def setup(bot):
     cog = OasistchiCog(bot)
     await bot.add_cog(cog)
@@ -2639,6 +2711,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
