@@ -588,8 +588,10 @@ class OasistchiCog(commands.Cog):
         # =========================
         # ② レース一覧取得（DB）
         # =========================
+        guild_id = str(guild.id)
+
         async with db._lock:
-            races = await db.get_today_race_schedules(today)
+            races = await db.get_today_race_schedules(today, guild_id)
 
         # =========================
         # ③ 抽選判定ループ
@@ -2771,6 +2773,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
