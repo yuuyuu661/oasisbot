@@ -1411,8 +1411,10 @@ class OasistchiPanelRootView(discord.ui.View):
 
         db = interaction.client.db
 
-        today = get_today_jst_date()
-        schedules = await db.get_today_race_schedules(today)
+        today = today_jst_date()
+        guild_id = str(interaction.guild.id)
+
+        schedules = await db.get_today_race_schedules(today, guild_id)
         
         if not schedules:
             return await interaction.followup.send(
@@ -2216,8 +2218,10 @@ class CareView(discord.ui.View):
         pet = self.pet
 
         # ★ 今日のレース予定を取得
-        today = get_today_jst_date()
-        schedules = await db.get_today_race_schedules(today)
+        today = today_jst_date()
+        guild_id = str(interaction.guild.id)
+
+        schedules = await db.get_today_race_schedules(today, guild_id)
 
         if not schedules:
             return await interaction.followup.send(
@@ -2784,6 +2788,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
