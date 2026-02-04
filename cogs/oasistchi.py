@@ -705,12 +705,15 @@ class OasistchiCog(commands.Cog):
         max_entries = race.get("max_entries", 8)
         entry_fee = race.get("entry_fee", 0)
 
-        entries = await db.get_race_entries_by_schedule(
-            race_date=race_date,
-            schedule_id=race_id
-        )
+        entries = await db.conn.fetch("""
+            SELECT *
+            FROM race_entries
+            WHERE race_date = $1
+              AND schedule_id = $2
+              AND status = 'pending'
+        """, race_date, race_id)
 
-        # --- 中止条件 ---
+        # 🔴 ここが重要：中止判定は pending 基準
         if len(entries) <= 1:
             for e in entries:
                 await db.update_race_entry_status(e["id"], "cancelled")
@@ -718,7 +721,7 @@ class OasistchiCog(commands.Cog):
             print(f"[RACE] レース {race_id} 中止（参加1体以下）")
             return
 
-        # --- 当日出走済み除外 ---
+        # 念のため当日出走済み除外
         already_selected = await db.get_today_selected_pet_ids(race_date)
 
         candidates = [
@@ -2713,6 +2716,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
