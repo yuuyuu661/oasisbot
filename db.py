@@ -1365,7 +1365,7 @@ class Database:
 
 
     # ==================================================
-    # おあしすっち：育成枠購入（完全安全）
+    # おあしすっち：育成枠購入（完全安全・単一接続版）
     # ==================================================
     async def purchase_oasistchi_slot_safe(
         self,
@@ -1384,18 +1384,20 @@ class Database:
 
         return: 購入後の slots 数
         """
-        await self._ensure_pool()
 
-        async with self.pool.acquire() as conn:
-            async with conn.transaction():
+        await self._ensure_conn()
+
+        # 🔒 Bot 全体で排他
+        async with self._lock:
+            async with self.conn.transaction():
 
                 # -------------------------
                 # 残高ロック
                 # -------------------------
-                bal = await conn.fetchrow(
+                bal = await self.conn.fetchrow(
                     """
                     SELECT balance
-                    FROM users
+                   FROM users
                     WHERE user_id=$1 AND guild_id=$2
                     FOR UPDATE
                     """,
@@ -1408,7 +1410,7 @@ class Database:
                 # -------------------------
                 # 育成枠ロック
                 # -------------------------
-                row = await conn.fetchrow(
+                row = await self.conn.fetchrow(
                     """
                     SELECT slots
                     FROM oasistchi_users
@@ -1420,7 +1422,7 @@ class Database:
 
                 # 初回ユーザー対策
                 if not row:
-                    await conn.execute(
+                    await self.conn.execute(
                         "INSERT INTO oasistchi_users (user_id, slots) VALUES ($1, 1)",
                         user_id
                     )
@@ -1442,7 +1444,7 @@ class Database:
                 # -------------------------
                 # 残高減算
                 # -------------------------
-                await conn.execute(
+                await self.conn.execute(
                     """
                     UPDATE users
                     SET balance = balance - $1
@@ -1454,7 +1456,7 @@ class Database:
                 # -------------------------
                 # 育成枠 +1
                 # -------------------------
-                await conn.execute(
+                await self.conn.execute(
                     """
                     UPDATE oasistchi_users
                     SET slots = slots + 1
@@ -2077,6 +2079,7 @@ class Database:
             WHERE schedule_id = $1
               AND status = $2
         """, race_id, status)
+
 
 
 
