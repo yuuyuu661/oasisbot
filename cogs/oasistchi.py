@@ -1272,10 +1272,6 @@ class OasistchiCog(commands.Cog):
         if not self.bot.is_ready():
             return
 
-        # 多重実行ガード
-        if self._race_lock.locked():
-            return
-
         async with self._race_lock:
             try:
                 await self.trigger_race_daily_process()
@@ -2716,6 +2712,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
