@@ -2635,7 +2635,7 @@ class RaceEntryConfirmView(discord.ui.View):
             schedule_id=schedule_id,
             guild_id=guild_id,
             user_id=str(interaction.user.id),
-            pet_id=pet_id,
+            pet_id=self.pet["id"],
             race_date=race_date,
             entry_fee=50000,   # race_schedules と同じ値
             paid=1
@@ -2713,6 +2713,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
