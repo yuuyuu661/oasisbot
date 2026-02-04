@@ -193,7 +193,7 @@ def calc_effective_stats(pet: dict):
         "guts_chance": guts_chance # ログ・演出用
     }
     
-def get_condition_text(self, happiness: int) -> str:
+def get_condition_text(happiness: int) -> str:
     if happiness >= 80:
         return "好調 😄"
     elif happiness >= 50:
@@ -662,7 +662,7 @@ class OasistchiCog(commands.Cog):
         selected_entries: status='selected' の race_entries
         """
 
-        channel = await self.get_race_result_channel(race)
+        channel = await self.get_race_result_channel()
         if channel is None:
             print("[RACE] 出走決定チャンネルが見つかりません")
             return
@@ -2738,6 +2738,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
