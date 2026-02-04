@@ -717,7 +717,7 @@ class OasistchiCog(commands.Cog):
         await channel.send(embed=embed)
     
     # =========================
-    # レース処理（正規版・完成）
+    # レース処理（正規版・完成） ※1本化版
     # =========================
     async def run_race_lottery(self, race: dict):
         db = self.db
@@ -725,9 +725,10 @@ class OasistchiCog(commands.Cog):
         race_date = race["race_date"]
         guild_id = str(race["guild_id"])
 
-        max_entries = race.get("max_entries", 8)
-        entry_fee = race.get("entry_fee", 0)
+        max_entries = int(race.get("max_entries", 8))
+        entry_fee = int(race.get("entry_fee", 0))
 
+        # ① 抽選対象は pending のみ
         entries = await db.conn.fetch("""
             SELECT *
             FROM race_entries
@@ -736,89 +737,62 @@ class OasistchiCog(commands.Cog):
               AND status = 'pending'
         """, race_date, race_id)
 
-        # 🔴 ここが重要：中止判定は pending 基準
-        if len(entries) <= 1:
+        # 中止判定（pending 基準）
+        if len(entries) < 2:
             for e in entries:
                 await db.update_race_entry_status(e["id"], "cancelled")
                 await db.refund_entry(e["user_id"], guild_id, entry_fee)
             print(f"[RACE] レース {race_id} 中止（参加1体以下）")
             return
 
-        # 念のため当日出走済み除外
-        candidates = entries
+        # ② 当日すでに出走確定(selected)の pet は除外
+        already_selected = await db.get_today_selected_pet_ids(race_date)
+        candidates = [e for e in entries if e["pet_id"] not in already_selected]
 
-        # 抽選
-        selected = random.sample(
-            candidates,
-            k=min(max_entries, len(candidates))
-        )
-
-        selected_ids = {e["id"] for e in selected}
-
-        for e in candidates:
-            if e["id"] in selected_ids:
-                await db.update_race_entry_status(e["id"], "selected")
-            else:
+        # 有効候補が2未満なら中止（このレースで成立しない）
+        if len(candidates) < 2:
+            for e in entries:
                 await db.update_race_entry_status(e["id"], "cancelled")
                 await db.refund_entry(e["user_id"], guild_id, entry_fee)
+            print(f"[RACE] レース {race_id} 中止（有効候補不足）")
+            return
 
-        # --- 抽選 ---
-        winners = random.sample(
-            candidates,
-            k=min(max_entries, len(candidates))
-        )
+        # ③ 抽選（最大8体）
+        winners = random.sample(candidates, k=min(max_entries, len(candidates)))
         winner_ids = {w["id"] for w in winners}
 
         selected = []
         cancelled = []
 
+        # ④ status更新＋返金（落選者/除外者も返金）
         for e in entries:
             if e["id"] in winner_ids:
                 selected.append(e)
                 await db.update_race_entry_status(e["id"], "selected")
+                # 同じpetの同日別レース pending をキャンセル（保険）
                 await db.cancel_other_entries(e["pet_id"], race_date, race_id)
             else:
                 cancelled.append(e)
                 await db.update_race_entry_status(e["id"], "cancelled")
                 await db.refund_entry(e["user_id"], guild_id, entry_fee)
 
-        print(f"[RACE] 抽選完了 race_id={race_id} selected={len(selected)}")
+        print(f"[RACE] 抽選完了 race_id={race_id} selected={len(selected)} cancelled={len(cancelled)}")
 
+        # ⑤ 出走決定パネル（Discord）
         await self.send_race_entry_panel(race, selected)
 
-        # --- 出走ペット取得 ---
+        # ⑥ 出走ペット取得
         pets = []
         for e in selected:
-            pet = await db.get_oasistchi_pet(e["pet_id"])
+           pet = await db.get_oasistchi_pet(e["pet_id"])
             if pet:
-                pets.append(pet)
+                pets.append(dict(pet))
 
-        # --- 順位決定 ---
+        # ⑦ 順位決定
         results = decide_race_order(pets)
 
-        # --- 結果通知（関数化） ---
+        # ⑧ 結果Embed（※ここで1回だけ送る）
         await self.send_race_result_embed(race, results)
-
-
-        # --- 最低限の結果通知 ---
-        channel = self.bot.get_channel(RACE_RESULT_CHANNEL_ID)
-        if channel:
-            embed = discord.Embed(
-                title=f"🏁 第{race['race_no']}レース 結果",
-                color=discord.Color.gold()
-            )
-
-            for i, r in enumerate(results, start=1):
-                embed.add_field(
-                    name=f"{i}着 {r['name']}",
-                    value=f"<@{r['user_id']}>｜score {r['score']:.1f}",
-                    inline=False
-                )
-
-            await channel.send(embed=embed)
-
-        # --- 通知 ---
-        await self.notify_race_result(race, selected, cancelled)
 
 
     # =========================
@@ -2738,6 +2712,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
