@@ -572,81 +572,81 @@ class OasistchiCog(commands.Cog):
         now = datetime.now(JST)
         today = now.date()
 
-        # =========================
-        # ① 今日のレース生成（DBのみ）
-        # =========================
-        try:
-            async with db._lock:
-                guild_id = str(self.bot.guilds[0].id)
-                if not await db.has_today_race_schedules(today):
-                    await db.generate_today_races(guild_id, today)
-                    print(f"[RACE] {today} のレースを生成しました")
-        except Exception as e:
-            print(f"[RACE ERROR] generate failed: {e}")
-            return
-
-        # =========================
-        # ② レース一覧取得（DB）
-        # =========================
-        guild = interaction.guild
-        guild_id = str(guild.id)
-
-        async with db._lock:
-            races = await db.get_today_race_schedules(today, guild_id)
-
-        # =========================
-        # ③ 抽選判定ループ
-        # =========================
-        for race in races:
-            if race.get("lottery_done") is True:
-                continue
-
-            race_time_raw = race["race_time"]
-            if isinstance(race_time_raw, str):
-                h, m = map(int, race_time_raw.split(":"))
-                race_time = dtime(hour=h, minute=m)
-            else:
-                race_time = race_time_raw
-
-            entry_close = (
-                datetime.combine(today, race_time, JST)
-                - timedelta(minutes=race["entry_open_minutes"])
-            )
-
-            if now < entry_close:
-                continue
+        # 🔑 Bot が参加している全 guild を処理
+        for guild in self.bot.guilds:
+            guild_id = str(guild.id)
 
             # =========================
-            # ④ pending 数チェック（DB）
-            # =========================
-            async with db._lock:
-                pending_count = await db.conn.fetchval(
-                    """
-                    SELECT COUNT(*)
-                    FROM race_entries
-                    WHERE guild_id = $1
-                      AND race_date = $2
-                      AND schedule_id = $3
-                      AND status = 'pending'
-                    """,
-                    str(race["guild_id"]),
-                    race["race_date"],
-                    race["id"],
-                )
-
-            if pending_count < 2:
-                continue
-
-            # =========================
-            # ⑤ 抽選実行（lock 外！）
+            # ① 今日のレース生成
             # =========================
             try:
-                await self.run_race_lottery(race)  # ← 中で db._lock を取る
                 async with db._lock:
-                    await db.mark_race_lottery_done(race["id"])
-                print(f"[RACE] 抽選完了 race_id={race['id']} selected={pending_count}")
+                    if not await db.has_today_race_schedules(today, guild_id):
+                        await db.generate_today_races(guild_id, today)
+                        print(f"[RACE] {today} のレースを生成しました guild={guild_id}")
             except Exception as e:
-                print(f"[RACE ERROR] lottery failed: {e}")
+                print(f"[RACE ERROR] generate failed guild={guild_id}: {e}")
+                continue
+
+            # =========================
+            # ② レース一覧取得
+            # =========================
+            async with db._lock:
+                races = await db.get_today_race_schedules(today, guild_id)
+
+            # =========================
+            # ③ 抽選判定ループ
+            # =========================
+            for race in races:
+                if race.get("lottery_done"):
+                    continue
+
+                race_time_raw = race["race_time"]
+                if isinstance(race_time_raw, str):
+                    h, m = map(int, race_time_raw.split(":"))
+                    race_time = dtime(hour=h, minute=m)
+                else:
+                    race_time = race_time_raw
+
+                entry_close = (
+                    datetime.combine(today, race_time, JST)
+                    - timedelta(minutes=race["entry_open_minutes"])
+                )
+
+                if now < entry_close:
+                    continue
+
+                # =========================
+                # ④ pending 数チェック
+                # =========================
+                async with db._lock:
+                    pending_count = await db.conn.fetchval(
+                        """
+                        SELECT COUNT(*)
+                        FROM race_entries
+                        WHERE guild_id = $1
+                          AND race_date = $2
+                         AND schedule_id = $3
+                          AND status = 'pending'
+                        """,
+                        guild_id,
+                        race["race_date"],
+                        race["id"],
+                    )
+
+                if pending_count < 2:
+                    continue
+
+                # =========================
+                # ⑤ 抽選実行
+                # =========================
+                try:
+                    await self.run_race_lottery(race)  # 中で lock を取る想定
+                    async with db._lock:
+                        await db.mark_race_lottery_done(race["id"])
+                    print(f"[RACE] 抽選完了 race_id={race['id']} guild={guild_id}")
+                except Exception as e:
+                    print(f"[RACE ERROR] lottery failed race_id={race['id']} guild={guild_id}: {e}")
 
 
 
@@ -2784,6 +2784,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
