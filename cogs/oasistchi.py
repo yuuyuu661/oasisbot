@@ -726,19 +726,22 @@ class OasistchiCog(commands.Cog):
             return
 
         # 念のため当日出走済み除外
-        already_selected = await db.get_today_selected_pet_ids(race_date)
+        candidates = entries
 
-        candidates = [
-            e for e in entries
-            if e["pet_id"] not in already_selected
-        ]
+        # 抽選
+        selected = random.sample(
+            candidates,
+            k=min(max_entries, len(candidates))
+        )
 
-        if len(candidates) <= 1:
-            for e in entries:
+        selected_ids = {e["id"] for e in selected}
+
+        for e in candidates:
+            if e["id"] in selected_ids:
+                await db.update_race_entry_status(e["id"], "selected")
+            else:
                 await db.update_race_entry_status(e["id"], "cancelled")
                 await db.refund_entry(e["user_id"], guild_id, entry_fee)
-            print(f"[RACE] レース {race_id} 中止（有効候補不足）")
-            return
 
         # --- 抽選 ---
         winners = random.sample(
@@ -2716,6 +2719,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
