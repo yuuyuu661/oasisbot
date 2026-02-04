@@ -1885,7 +1885,7 @@ class Database:
         pet_id: int,
         race_date,          # date 型
         entry_fee: int,
-        paid: int,
+        paid: bool,
     ):
         await self.conn.execute("""
             INSERT INTO race_entries (
@@ -2058,6 +2058,7 @@ class Database:
               AND race_finished = FALSE
         """, race_id)
         return row is not None
+
 
 
 
