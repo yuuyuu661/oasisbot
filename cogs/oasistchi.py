@@ -571,20 +571,39 @@ class OasistchiCog(commands.Cog):
                 h, m = map(int, race_time_raw.split(":"))
                 race_time = dtime(hour=h, minute=m)
             else:
-                race_time = race_time_raw  # すでに time 型ならそのまま
+                race_time = race_time_raw
 
             entry_close = (
                 datetime.combine(today, race_time, JST)
                 - timedelta(minutes=race["entry_open_minutes"])
             )
 
+            # ⛔ 締切前は抽選しない
             if now < entry_close:
+                continue
+
+            # 🔥 ここを必ず入れる
+            pending_count = await db.conn.fetchval("""
+                SELECT COUNT(*)
+                FROM race_entries
+                WHERE guild_id = $1
+                  AND race_date = $2
+                  AND schedule_id = $3
+                  AND status = 'pending'
+            """,
+                str(race["guild_id"]),
+                race["race_date"],
+                race["id"],
+            )
+
+            # ⛔ pending が2未満なら抽選しない（中止処理もしない）
+            if pending_count < 2:
                 continue
 
             try:
                 await self.run_race_lottery(race)
                 await db.mark_race_lottery_done(race["id"])
-                print(f"[RACE] 抽選完了 race_id={race['id']}")
+                print(f"[RACE] 抽選完了 race_id={race['id']} selected={pending_count}")
             except Exception as e:
                 print(f"[RACE ERROR] lottery failed: {e}")
 
@@ -2719,6 +2738,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
