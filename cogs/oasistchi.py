@@ -778,11 +778,11 @@ class OasistchiCog(commands.Cog):
         max_entries = int(race.get("max_entries", 8))
         entry_fee = int(race.get("entry_fee", 0))
 
-        # =========================
-        # ①〜④ DB処理だけ（ロック内）
-        # =========================
+        selected = []
+        pets = []
+        abort_reason = None
+
         async with db._lock:
-            # pending 取得
             entries = await db.conn.fetch("""
                 SELECT *
                 FROM race_entries
@@ -795,73 +795,63 @@ class OasistchiCog(commands.Cog):
                 for e in entries:
                     await db.update_race_entry_status(e["id"], "cancelled")
                     await db.refund_entry(e["user_id"], guild_id, entry_fee)
-                print(f"[RACE] レース {race_id} 中止（参加1体以下）")
-                return
+                abort_reason = "参加1体以下"
 
-            already_selected = await db.get_today_selected_pet_ids(race_date)
-            candidates = [e for e in entries if e["pet_id"] not in already_selected]
+           if abort_reason is None:
+                already_selected = await db.get_today_selected_pet_ids(race_date)
+                candidates = [e for e in entries if e["pet_id"] not in already_selected]
 
-            if len(candidates) < 2:
+                if len(candidates) < 2:
+                    for e in entries:
+                        await db.update_race_entry_status(e["id"], "cancelled")
+                        await db.refund_entry(e["user_id"], guild_id, entry_fee)
+                    abort_reason = "有効候補不足"
+
+            if abort_reason is None:
+                winners = random.sample(candidates, k=min(max_entries, len(candidates)))
+                winner_ids = {w["id"] for w in winners}
+
                 for e in entries:
-                    await db.update_race_entry_status(e["id"], "cancelled")
-                    await db.refund_entry(e["user_id"], guild_id, entry_fee)
-                print(f"[RACE] レース {race_id} 中止（有効候補不足）")
-                return
+                    if e["id"] in winner_ids:
+                        await db.update_race_entry_status(e["id"], "selected")
+                        await db.cancel_other_entries(e["pet_id"], race_date, race_id)
+                    else:
+                        await db.update_race_entry_status(e["id"], "cancelled")
+                        await db.refund_entry(e["user_id"], guild_id, entry_fee)
 
-            winners = random.sample(candidates, k=min(max_entries, len(candidates)))
-            winner_ids = {w["id"] for w in winners}
+                selected = await db.conn.fetch("""
+                    SELECT *
+                    FROM race_entries
+                    WHERE race_date = $1
+                      AND schedule_id = $2
+                      AND status = 'selected'
+                """, race_date, race_id)
 
-            for e in entries:
-                if e["id"] in winner_ids:
-                    await db.update_race_entry_status(e["id"], "selected")
-                    await db.cancel_other_entries(e["pet_id"], race_date, race_id)
-                else:
-                    await db.update_race_entry_status(e["id"], "cancelled")
-                    await db.refund_entry(e["user_id"], guild_id, entry_fee)
+                print(f"[RACE DEBUG] race_id={race_id} selected_count={len(selected)}")
 
-            # selected 再取得
-            selected = await db.conn.fetch("""
-                SELECT *
-                FROM race_entries
-                WHERE race_date = $1
-                  AND schedule_id = $2
-                  AND status = 'selected'
-            """, race_date, race_id)
+                if len(selected) < 2:
+                    abort_reason = "selected < 2"
 
-            # ★ ここにログを入れる
-            print(
-                f"[RACE DEBUG] race_id={race_id} "
-                f"race_date={race_date} "
-                f"selected_count={len(selected)}"
-            )
+                if abort_reason is None:
+                    for e in selected:
+                        pet = await db.get_oasistchi_pet(e["pet_id"])
+                        if pet:
+                            pets.append(dict(pet))
 
-            if len(selected) < 2:
-                print("[RACE DEBUG] selected < 2, aborting before panel")
-                return
+        # ===== ロック外 =====
+        if abort_reason:
+            print(f"[RACE] レース {race_id} 中止理由: {abort_reason}")
+            return
 
-            # 出走ペット取得（DBなのでここで）
-            pets = []
-            for e in selected:
-                pet = await db.get_oasistchi_pet(e["pet_id"])
-                if pet:
-                    pets.append(dict(pet))
-
-        # =========================
-        # ⑤ ここからロック外（重要）
-        # =========================
-        try:
-            await self.send_race_entry_panel(race, selected)
-        except Exception as e:
-            print(f"[RACE] send_race_entry_panel failed: {e!r}")
+        await self.send_race_entry_panel(race, selected)
 
         results = decide_race_order(pets)
 
-        try:
-            await self.send_race_result_embed(race, results)
-        except Exception as e:
-            print(f"[RACE] send_race_result_embed failed: {e!r}")
+        await self.send_race_result_embed(race, results)
 
         print(f"[RACE] run_race_lottery END race_id={race_id}")
+
+
 
 
     # =========================
@@ -2770,6 +2760,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
