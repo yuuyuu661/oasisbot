@@ -799,7 +799,7 @@ class OasistchiCog(commands.Cog):
 
         async with db._lock:
             # ✅ pending 取得（guild_id 追加）
-           entries = await db.conn.fetch("""
+            entries = await db.conn.fetch("""
                 SELECT *
                 FROM race_entries
                 WHERE race_date = $1
@@ -840,7 +840,7 @@ class OasistchiCog(commands.Cog):
                 selected = await db.conn.fetch("""
                     SELECT *
                     FROM race_entries
-                   WHERE race_date = $1
+                    WHERE race_date = $1
                       AND schedule_id = $2
                       AND guild_id = $3
                       AND status = 'selected'
@@ -2775,6 +2775,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
