@@ -1575,19 +1575,17 @@ class Database:
                 "DELETE FROM oasistchi_pets WHERE id=$1",
                 pet_id
             )
-    async def get_race_schedules(self):
+    async def get_race_schedules(self, guild_id: str):
         return await self.conn.fetch(
-            "SELECT * FROM race_schedules ORDER BY race_time"
+            """
+            SELECT *
+            FROM race_schedules
+            WHERE guild_id = $1
+            ORDER BY race_time
+            """,
+            str(guild_id)
         )
 
-    async def add_race_entry(self, race_date, schedule_id, user_id, pet_id):
-        await self.conn.execute(
-            """
-            INSERT INTO race_entries (race_date, schedule_id, user_id, pet_id)
-            VALUES ($1, $2, $3, $4)
-            """,
-            race_date, schedule_id, user_id, pet_id
-        )
 
     async def get_race_entries_by_schedule(self, race_date, schedule_id, guild_id: str):
         await self._ensure_conn()
@@ -1663,8 +1661,9 @@ class Database:
         # 念のため同日分を削除（再生成耐性）
         await self.conn.execute("""
             DELETE FROM race_schedules
-            WHERE race_date = $1;
-        """, race_date)
+            WHERE race_date = $1
+              AND guild_id = $2;
+        """, race_date, str(guild_id))
 
         for i, race_time in enumerate(RACE_TIMES, start=1):
             await self.conn.execute("""
@@ -2079,6 +2078,7 @@ class Database:
             WHERE schedule_id = $1
               AND status = $2
         """, race_id, status)
+
 
 
 
