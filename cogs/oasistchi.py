@@ -828,8 +828,15 @@ class OasistchiCog(commands.Cog):
                   AND status = 'selected'
             """, race_date, race_id)
 
+            # ★ ここにログを入れる
+            print(
+                f"[RACE DEBUG] race_id={race_id} "
+                f"race_date={race_date} "
+                f"selected_count={len(selected)}"
+            )
+
             if len(selected) < 2:
-                print("[RACE] selected が2体未満")
+                print("[RACE DEBUG] selected < 2, aborting before panel")
                 return
 
             # 出走ペット取得（DBなのでここで）
@@ -2763,6 +2770,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
