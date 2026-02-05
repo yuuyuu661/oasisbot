@@ -371,6 +371,13 @@ class Database:
                 ADD COLUMN guild_id TEXT;
             """)
 
+        # 既存の1行設定に guild_id を埋める
+        await self.conn.execute("""
+            UPDATE settings
+            SET guild_id = $1
+            WHERE guild_id IS NULL
+        """, str(guild_id))
+
         # --------------------------------------------------
         # おあしすっち：ステータス（特訓用）カラム補完
         # --------------------------------------------------
@@ -2112,6 +2119,7 @@ class Database:
             WHERE schedule_id = $1
               AND status = $2
         """, race_id, status)
+
 
 
 
