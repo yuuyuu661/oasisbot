@@ -797,7 +797,7 @@ class OasistchiCog(commands.Cog):
                     await db.refund_entry(e["user_id"], guild_id, entry_fee)
                 abort_reason = "参加1体以下"
 
-           if abort_reason is None:
+            if abort_reason is None:
                 already_selected = await db.get_today_selected_pet_ids(race_date)
                 candidates = [e for e in entries if e["pet_id"] not in already_selected]
 
@@ -2760,6 +2760,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
