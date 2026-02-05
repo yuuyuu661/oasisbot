@@ -1114,19 +1114,6 @@ class OasistchiCog(commands.Cog):
                 ephemeral=True
             )
 
-        guild_id = str(interaction.guild.id)
-
-        # レース結果チャンネルを settings に保存
-        await self.bot.db.conn.execute(
-            """
-            UPDATE settings
-            SET race_result_channel_id = $1
-            WHERE guild_id = $2
-            """,
-            str(result_channel.id),
-            guild_id,
-        )
-
         # -----------------------------
         # パネル表示
         # -----------------------------
@@ -1145,8 +1132,9 @@ class OasistchiCog(commands.Cog):
             embed=embed,
             view=view
         )
+
+        # ★ ここだけでOK（保存は1回）
         await self.bot.db.update_settings(
-            guild_id=str(interaction.guild.id),
             race_result_channel_id=str(result_channel.id),
         )
 
@@ -2783,6 +2771,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
