@@ -1118,12 +1118,6 @@ class OasistchiCog(commands.Cog):
                 ephemeral=True
             )
 
-
-        # =============================
-        # ★ レース生成＋抽選トリガー
-        # =============================
-        await self.trigger_race_daily_process()
-
         # -----------------------------
         # パネル表示
         # -----------------------------
@@ -1142,17 +1136,6 @@ class OasistchiCog(commands.Cog):
             embed=embed,
             view=view
         )
-
-        # -----------------------------
-        # 初回トリガー：全ペット time_tick
-        # -----------------------------
-        pets = await self.bot.db.get_all_oasistchi_pets()
-
-        for pet in pets:
-            try:
-                await self.process_time_tick(pet)
-            except Exception as e:
-                print(f"[OASISTCHI INIT TICK ERROR] pet_id={pet['id']} err={e}")
 
 
     # -----------------------------
@@ -1194,8 +1177,6 @@ class OasistchiCog(commands.Cog):
         else:
             pet = dict(pets[0])
 
-
-        await self.process_time_tick(pet)
 
         # 最新状態を取り直す
         pet = await db.get_oasistchi_pet(pet["id"])
@@ -2789,6 +2770,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
