@@ -73,7 +73,9 @@ class RaceDebug(commands.Cog):
         await interaction.response.defer(ephemeral=True)
 
         race_date = datetime.now(JST).date()
-        races = await self.db.get_today_race_schedules(race_date)
+        guild_id = str(interaction.guild.id)
+
+        races = await self.db.get_today_race_schedules(race_date, guild_id)
 
         if not races:
             return await interaction.followup.send(
@@ -93,7 +95,8 @@ class RaceDebug(commands.Cog):
                 FROM race_entries
                 WHERE race_date = $1
                   AND schedule_id = $2
-            """, race_date, race["id"])
+                  AND guild_id = $3
+            """, race_date, race["id"], guild_id)
 
             pending = [e for e in entries if e["status"] == "pending"]
             selected = [e for e in entries if e["status"] == "selected"]
@@ -129,20 +132,21 @@ class RaceDebug(commands.Cog):
 
         race_date = today_jst_date()
 
-        # race_entries 全削除
+        guild_id = str(interaction.guild.id)
+
         await self.db.conn.execute("""
             DELETE FROM race_entries
             WHERE race_date = $1
-        """, race_date)
+              AND guild_id = $2
+        """, race_date, guild_id)
 
-        # race_schedules 状態リセット
         await self.db.conn.execute("""
             UPDATE race_schedules
-            SET
-                lottery_done = FALSE,
+            SET lottery_done = FALSE,
                 race_finished = FALSE
             WHERE race_date = $1
-        """, race_date)
+              AND guild_id = $2
+        """, race_date, guild_id)
 
         await interaction.followup.send(
             f"🧹 **本日のレースエントリーをリセットしました**\n"
@@ -160,6 +164,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
