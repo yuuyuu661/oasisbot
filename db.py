@@ -1695,15 +1695,15 @@ class Database:
             random.choice(CONDITIONS),
             )
 
-    async def has_today_race_schedules(self, race_date: date) -> bool:
-        row = await self.conn.fetchrow("""
-            SELECT 1
-            FROM race_schedules
-            WHERE race_date = $1
-            LIMIT 1
-        """, race_date)
-
-        return row is not None
+    async def has_today_race_schedules(self, race_date: date, guild_id: str) -> bool:
+        return await self.conn.fetchval("""
+            SELECT EXISTS(
+                SELECT 1
+                FROM race_schedules
+                WHERE race_date = $1
+                  AND guild_id = $2
+            )
+        """, race_date, guild_id)
 
     # -----------------------------------------
     # race_schedules テーブル カラム補完
@@ -2079,6 +2079,7 @@ class Database:
             WHERE schedule_id = $1
               AND status = $2
         """, race_id, status)
+
 
 
 
