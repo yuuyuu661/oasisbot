@@ -698,10 +698,16 @@ class OasistchiCog(commands.Cog):
     # =========================
 
     async def send_race_entry_panel(self, race: dict, selected_entries: list[dict]):
-        print("[RACE DEBUG] send_race_entry_panel called")
+        print("[RACE DEBUG] send_race_entry_panel ENTERED")
 
         channel = await self.get_race_result_channel()
         print(f"[RACE DEBUG] channel={channel}")
+
+        if channel is None:
+            print("[RACE DEBUG] channel is None -> return")
+            return
+
+        print("[RACE DEBUG] about to send embed")
 
         if channel is None:
             print("[RACE DEBUG] channel is None → abort send")
@@ -2769,6 +2775,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
