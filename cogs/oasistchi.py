@@ -1145,6 +1145,10 @@ class OasistchiCog(commands.Cog):
             embed=embed,
             view=view
         )
+        await self.bot.db.update_settings(
+            guild_id=str(interaction.guild.id),
+            race_result_channel_id=str(result_channel.id),
+        )
 
 
     # -----------------------------
@@ -2779,6 +2783,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
