@@ -698,20 +698,13 @@ class OasistchiCog(commands.Cog):
     # =========================
 
     async def send_race_entry_panel(self, race: dict, selected_entries: list[dict]):
-        """
-        出走決定パネルをDiscordに送信する
-
-        race: race_schedules の row(dict)
-        selected_entries: status='selected' の race_entries
-        """
-
         channel = await self.get_race_result_channel()
         if channel is None:
             print("[RACE] 出走決定チャンネルが見つかりません")
             return
 
-        # 念のためシャッフル（＝枠番ランダム）
-        entries = selected_entries[:]
+        # 念のためシャッフル（枠番ランダム）
+        entries = list(selected_entries)
         random.shuffle(entries)
 
         embed = discord.Embed(
@@ -724,32 +717,38 @@ class OasistchiCog(commands.Cog):
         )
 
         for frame_no, entry in enumerate(entries, start=1):
-            # ペット取得
-            pet = await self.db.get_oasistchi_pet(entry["pet_id"])
-            if not pet:
+            try:
+                pet = await self.db.get_oasistchi_pet(entry["pet_id"])
+                if not pet:
+                    continue
+
+                # ★ 関数をそのまま呼ぶ（self.get_condition_text じゃない）
+                condition = get_condition_text(int(pet.get("happiness", 0)))
+
+                # ★ speed/stamina/power は無いので base+train
+                speed = int(pet.get("base_speed", 0)) + int(pet.get("train_speed", 0))
+                stamina = int(pet.get("base_stamina", 0)) + int(pet.get("train_stamina", 0))
+                power = int(pet.get("base_power", 0)) + int(pet.get("train_power", 0))
+
+                name = pet.get("name", "おあしすっち")
+
+                embed.add_field(
+                    name=f"【枠番 {frame_no}】🐣 {name}",
+                    value=(
+                        f"👤 <@{entry['user_id']}>\n"
+                        f"📉 コンディション：{condition}\n\n"
+                        f"🏃 スピード：{speed}\n"
+                        f"🫀 スタミナ：{stamina}\n"
+                        f"💥 パワー：{power}"
+                    ),
+                    inline=False
+                )
+
+            except Exception as e:
+                print(f"[RACE PANEL ERROR] frame={frame_no} pet_id={entry.get('pet_id')} err={e!r}")
                 continue
 
-            condition = self.get_condition_text(pet["happiness"])
-
-            # ステータス（表示用）
-            speed = pet["speed"]
-            stamina = pet["stamina"]
-            power = pet["power"]
-
-            embed.add_field(
-                name=f"【枠番 {frame_no}】🐣 {pet['name']}",
-                value=(
-                    f"👤 <@{entry['user_id']}>\n"
-                    f"📉 コンディション：{condition}\n\n"
-                    f"🏃 スピード：{speed}\n"
-                    f"🫀 スタミナ：{stamina}\n"
-                    f"💥 パワー：{power}"
-                ),
-                inline=False
-            )
-
-        embed.set_footer(text="このあとWebサイトでレースを観戦・投票できます")
-
+        embed.set_footer(text="このあとレース結果が発表されます")
         await channel.send(embed=embed)
 
     # =========================
@@ -2758,6 +2757,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
