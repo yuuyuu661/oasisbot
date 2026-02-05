@@ -785,7 +785,6 @@ class OasistchiCog(commands.Cog):
     # レース処理（正規版・完成） ※1本化版
     # =========================
     async def run_race_lottery(self, race: dict):
-        print("[RACE DEBUG] run_race_lottery ENTERED", self)
         db = self.db
         race_id = race["id"]
         race_date = race["race_date"]
@@ -799,13 +798,15 @@ class OasistchiCog(commands.Cog):
         abort_reason = None
 
         async with db._lock:
-            entries = await db.conn.fetch("""
+            # ✅ pending 取得（guild_id 追加）
+           entries = await db.conn.fetch("""
                 SELECT *
                 FROM race_entries
                 WHERE race_date = $1
                   AND schedule_id = $2
+                  AND guild_id = $3
                   AND status = 'pending'
-            """, race_date, race_id)
+            """, race_date, race_id, guild_id)
 
             if len(entries) < 2:
                 for e in entries:
@@ -835,13 +836,15 @@ class OasistchiCog(commands.Cog):
                         await db.update_race_entry_status(e["id"], "cancelled")
                         await db.refund_entry(e["user_id"], guild_id, entry_fee)
 
+                # ✅ selected 再取得（guild_id 追加）
                 selected = await db.conn.fetch("""
                     SELECT *
                     FROM race_entries
-                    WHERE race_date = $1
+                   WHERE race_date = $1
                       AND schedule_id = $2
+                      AND guild_id = $3
                       AND status = 'selected'
-                """, race_date, race_id)
+                """, race_date, race_id, guild_id)
 
                 print(f"[RACE DEBUG] race_id={race_id} selected_count={len(selected)}")
 
@@ -855,14 +858,11 @@ class OasistchiCog(commands.Cog):
                             pets.append(dict(pet))
 
         # ===== ロック外 =====
-
         if abort_reason:
             print(f"[RACE] レース {race_id} 中止理由: {abort_reason}")
             return
 
-        print("[RACE DEBUG] calling send_race_entry_panel")
         await self.send_race_entry_panel(race, selected)
-
         results = decide_race_order(pets)
         await self.send_race_result_embed(race, results)
 
@@ -2775,6 +2775,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
