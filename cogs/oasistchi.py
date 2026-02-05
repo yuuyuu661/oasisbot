@@ -779,6 +779,7 @@ class OasistchiCog(commands.Cog):
     # レース処理（正規版・完成） ※1本化版
     # =========================
     async def run_race_lottery(self, race: dict):
+        print("[RACE DEBUG] run_race_lottery ENTERED", self)
         db = self.db
         race_id = race["id"]
         race_date = race["race_date"]
@@ -2769,6 +2770,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
