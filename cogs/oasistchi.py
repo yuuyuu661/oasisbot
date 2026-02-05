@@ -700,17 +700,13 @@ class OasistchiCog(commands.Cog):
     async def send_race_entry_panel(self, race: dict, selected_entries: list[dict]):
         print("[RACE DEBUG] send_race_entry_panel ENTERED")
 
-        channel = await self.get_race_result_channel()
+        guild_id = str(race["guild_id"])
+        channel = await self.get_race_result_channel(guild_id)
+
         print(f"[RACE DEBUG] channel={channel}")
 
         if channel is None:
             print("[RACE DEBUG] channel is None -> return")
-            return
-
-        print("[RACE DEBUG] about to send embed")
-
-        if channel is None:
-            print("[RACE DEBUG] channel is None → abort send")
             return
 
         print("[RACE DEBUG] sending race entry panel...")
@@ -766,20 +762,14 @@ class OasistchiCog(commands.Cog):
     # =========================
     # ★ レース用チャンネル取得（追加）
     # =========================
-    async def get_race_result_channel(self):
-        settings = await self.db.get_settings()
+    async def get_race_result_channel(self, guild_id: str):
+        settings = await self.db.get_settings(guild_id)
         channel_id = settings.get("race_result_channel_id")
 
-        print(f"[RACE DEBUG] race_result_channel_id={channel_id}")
-
         if not channel_id:
-            print("[RACE DEBUG] race_result_channel_id is None")
             return None
 
-        channel = self.bot.get_channel(int(channel_id))
-        print(f"[RACE DEBUG] channel lookup result={channel}")
-
-        return channel
+        return self.bot.get_channel(int(channel_id))
     
     # =========================
     # レース処理（正規版・完成） ※1本化版
@@ -1112,7 +1102,8 @@ class OasistchiCog(commands.Cog):
         title: str,
         body: str,
         egg_price: int,
-        slot_price: int
+        slot_price: int,
+        result_channel: discord.TextChannel,
     ):
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
@@ -1122,6 +1113,19 @@ class OasistchiCog(commands.Cog):
                 "❌ 管理者ロールが必要です。",
                 ephemeral=True
             )
+
+        guild_id = str(interaction.guild.id)
+
+        # レース結果チャンネルを settings に保存
+        await self.bot.db.conn.execute(
+            """
+            UPDATE settings
+            SET race_result_channel_id = $1
+            WHERE guild_id = $2
+            """,
+            str(result_channel.id),
+            guild_id,
+        )
 
         # -----------------------------
         # パネル表示
@@ -2775,6 +2779,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
