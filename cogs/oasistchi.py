@@ -849,14 +849,10 @@ class OasistchiCog(commands.Cog):
                             pets.append(dict(pet))
 
         # ===== ロック外 =====
-        print(f"[RACE DEBUG] abort_reason={abort_reason!r}")
 
         if abort_reason:
             print(f"[RACE] レース {race_id} 中止理由: {abort_reason}")
             return
-
-        print("[RACE DEBUG] calling send_race_entry_panel")
-        await self.send_race_entry_panel(race, selected)
 
         results = decide_race_order(pets)
 
@@ -2773,6 +2769,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
