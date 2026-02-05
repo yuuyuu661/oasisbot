@@ -243,6 +243,25 @@ class Database:
             if col not in existing_cols:
                 await self.conn.execute(f"ALTER TABLE oasistchi_notify ADD COLUMN {col} {col_type};")
 
+        # -----------------------------------------
+        # settings テーブルに race_result_channel_id を追加
+        # -----------------------------------------
+        col_check = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'settings'
+        """)
+
+        existing_cols = {row["column_name"] for row in col_check}
+
+        if "race_result_channel_id" not in existing_cols:
+            print("🛠 settings テーブルに race_result_channel_id を追加します")
+            await self.conn.execute("""
+                ALTER TABLE settings
+                ADD COLUMN race_result_channel_id TEXT
+            """)
+            print("✅ race_result_channel_id 追加完了")
+
         # =========================
         # レース関連テーブル
         # =========================
@@ -2078,6 +2097,7 @@ class Database:
             WHERE schedule_id = $1
               AND status = $2
         """, race_id, status)
+
 
 
 
