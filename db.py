@@ -61,17 +61,15 @@ class Database:
         # Settings テーブル（1行固定）
         await self.conn.execute("""
             CREATE TABLE IF NOT EXISTS settings (
-                guild_id TEXT PRIMARY KEY,
-                admin_roles TEXT[],
-                currency_unit TEXT,
-                log_pay TEXT,
-                log_manage TEXT,
-                log_interview TEXT,
-                log_salary TEXT,
-                log_hotel TEXT,
-                log_backup TEXT,
-                race_result_channel_id TEXT,
-                oasistchi_race_reset_date DATE
+                id INTEGER PRIMARY KEY,
+                admin_roles TEXT[],         -- 通貨管理ロールID配列
+                currency_unit TEXT,         -- 通貨単位
+                log_pay TEXT,               -- 通貨ログ
+                log_manage TEXT,            -- 管理ログ
+                log_interview TEXT,         -- 面接ログ
+                log_salary TEXT,            -- 給料ログ
+                log_hotel TEXT,             -- ホテルログ
+                log_backup TEXT             -- バックアップ用チャンネル
             );
         """)
 
@@ -2116,6 +2114,7 @@ class Database:
             WHERE schedule_id = $1
               AND status = $2
         """, race_id, status)
+
 
 
 
