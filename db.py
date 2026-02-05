@@ -355,6 +355,21 @@ class Database:
                     f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
                 )
 
+        # settings テーブルに guild_id がなければ追加
+        col_check = await self.conn.fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'settings';
+        """)
+
+        existing_cols = {row["column_name"] for row in col_check}
+
+        if "guild_id" not in existing_cols:
+            print("🛠 settings テーブルに guild_id カラムを追加します…")
+            await self.conn.execute("""
+                ALTER TABLE settings
+                ADD COLUMN guild_id TEXT;
+            """)
 
         # --------------------------------------------------
         # おあしすっち：ステータス（特訓用）カラム補完
@@ -2097,6 +2112,7 @@ class Database:
             WHERE schedule_id = $1
               AND status = $2
         """, race_id, status)
+
 
 
 
