@@ -842,11 +842,17 @@ class OasistchiCog(commands.Cog):
         # =========================
         # ⑤ ここからロック外（重要）
         # =========================
-        await self.send_race_entry_panel(race, selected)
+        try:
+            await self.send_race_entry_panel(race, selected)
+        except Exception as e:
+            print(f"[RACE] send_race_entry_panel failed: {e!r}")
 
         results = decide_race_order(pets)
 
-        await self.send_race_result_embed(race, results)
+        try:
+            await self.send_race_result_embed(race, results)
+        except Exception as e:
+            print(f"[RACE] send_race_result_embed failed: {e!r}")
 
         print(f"[RACE] run_race_lottery END race_id={race_id}")
 
@@ -2757,6 +2763,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
