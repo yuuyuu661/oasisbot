@@ -61,15 +61,17 @@ class Database:
         # Settings テーブル（1行固定）
         await self.conn.execute("""
             CREATE TABLE IF NOT EXISTS settings (
-                id INTEGER PRIMARY KEY,
-                admin_roles TEXT[],         -- 通貨管理ロールID配列
-                currency_unit TEXT,         -- 通貨単位
-                log_pay TEXT,               -- 通貨ログ
-                log_manage TEXT,            -- 管理ログ
-                log_interview TEXT,         -- 面接ログ
-                log_salary TEXT,            -- 給料ログ
-                log_hotel TEXT,             -- ホテルログ
-                log_backup TEXT             -- バックアップ用チャンネル
+                guild_id TEXT PRIMARY KEY,
+                admin_roles TEXT[],
+                currency_unit TEXT,
+                log_pay TEXT,
+                log_manage TEXT,
+                log_interview TEXT,
+                log_salary TEXT,
+                log_hotel TEXT,
+                log_backup TEXT,
+                race_result_channel_id TEXT,
+                oasistchi_race_reset_date DATE
             );
         """)
 
@@ -371,12 +373,7 @@ class Database:
                 ADD COLUMN guild_id TEXT;
             """)
 
-        # 既存の1行設定に guild_id を埋める
-        await self.conn.execute("""
-            UPDATE settings
-            SET guild_id = $1
-            WHERE guild_id IS NULL
-        """, str(guild_id))
+
 
         # --------------------------------------------------
         # おあしすっち：ステータス（特訓用）カラム補完
@@ -2119,6 +2116,7 @@ class Database:
             WHERE schedule_id = $1
               AND status = $2
         """, race_id, status)
+
 
 
 
