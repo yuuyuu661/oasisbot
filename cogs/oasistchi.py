@@ -755,16 +755,19 @@ class OasistchiCog(commands.Cog):
     # ★ レース用チャンネル取得（追加）
     # =========================
     async def get_race_result_channel(self):
-        channel = self.bot.get_channel(RACE_RESULT_CHANNEL_ID)
-        if channel:
-            return channel
+        settings = await self.db.get_settings()
+        channel_id = settings.get("race_result_channel_id")
 
-        try:
-            channel = await self.bot.fetch_channel(RACE_RESULT_CHANNEL_ID)
-            return channel
-        except Exception as e:
-            print(f"[RACE] チャンネル取得失敗: {e}")
+        print(f"[RACE DEBUG] race_result_channel_id={channel_id}")
+
+        if not channel_id:
+            print("[RACE DEBUG] race_result_channel_id is None")
             return None
+
+        channel = self.bot.get_channel(int(channel_id))
+        print(f"[RACE DEBUG] channel lookup result={channel}")
+
+        return channel
     
     # =========================
     # レース処理（正規版・完成） ※1本化版
@@ -2760,6 +2763,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
