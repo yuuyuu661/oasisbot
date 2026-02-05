@@ -771,25 +771,27 @@ class OasistchiCog(commands.Cog):
     # レース処理（正規版・完成） ※1本化版
     # =========================
     async def run_race_lottery(self, race: dict):
-        async with self.db._lock:
-            db = self.db
-            race_id = race["id"]
-            race_date = race["race_date"]
-            guild_id = str(race["guild_id"])
+        db = self.db
+        race_id = race["id"]
+        race_date = race["race_date"]
+        guild_id = str(race["guild_id"])
 
-            max_entries = int(race.get("max_entries", 8))
-            entry_fee = int(race.get("entry_fee", 0))
+        max_entries = int(race.get("max_entries", 8))
+        entry_fee = int(race.get("entry_fee", 0))
 
-            # ① 抽選対象は pending のみ
+        # =========================
+        # ①〜④ DB処理だけ（ロック内）
+        # =========================
+        async with db._lock:
+            # pending 取得
             entries = await db.conn.fetch("""
                 SELECT *
                 FROM race_entries
                 WHERE race_date = $1
-                 AND schedule_id = $2
+                  AND schedule_id = $2
                   AND status = 'pending'
             """, race_date, race_id)
 
-            # 中止判定（pending 基準）
             if len(entries) < 2:
                 for e in entries:
                     await db.update_race_entry_status(e["id"], "cancelled")
@@ -797,11 +799,9 @@ class OasistchiCog(commands.Cog):
                 print(f"[RACE] レース {race_id} 中止（参加1体以下）")
                 return
 
-            # ② 当日すでに出走確定(selected)の pet は除外
             already_selected = await db.get_today_selected_pet_ids(race_date)
             candidates = [e for e in entries if e["pet_id"] not in already_selected]
 
-            # 有効候補が2未満なら中止（このレースで成立しない）
             if len(candidates) < 2:
                 for e in entries:
                     await db.update_race_entry_status(e["id"], "cancelled")
@@ -809,59 +809,47 @@ class OasistchiCog(commands.Cog):
                 print(f"[RACE] レース {race_id} 中止（有効候補不足）")
                 return
 
-            # ③ 抽選（最大8体）
             winners = random.sample(candidates, k=min(max_entries, len(candidates)))
             winner_ids = {w["id"] for w in winners}
 
-            selected = []
-            cancelled = []
-
-            # ④ status更新＋返金（落選者/除外者も返金）
             for e in entries:
                 if e["id"] in winner_ids:
-                    selected.append(e)
                     await db.update_race_entry_status(e["id"], "selected")
-                    # 同じpetの同日別レース pending をキャンセル（保険）
                     await db.cancel_other_entries(e["pet_id"], race_date, race_id)
                 else:
-                    cancelled.append(e)
                     await db.update_race_entry_status(e["id"], "cancelled")
                     await db.refund_entry(e["user_id"], guild_id, entry_fee)
 
-            print(f"[RACE] 抽選完了 race_id={race_id} selected={len(selected)} cancelled={len(cancelled)}")
-
-            # =========================
-            # ★ ここで DB から selected を取り直す
-            # =========================
+            # selected 再取得
             selected = await db.conn.fetch("""
                 SELECT *
                 FROM race_entries
                 WHERE race_date = $1
                   AND schedule_id = $2
-                          AND status = 'selected'
+                  AND status = 'selected'
             """, race_date, race_id)
 
             if len(selected) < 2:
-                print("[RACE] selected が2体未満のため出走決定パネルを送信しません")
+                print("[RACE] selected が2体未満")
                 return
 
-            # ⑤ 出走決定パネル（Discord）
-            await self.send_race_entry_panel(race, selected)
-
-            # ⑥ 出走ペット取得
+            # 出走ペット取得（DBなのでここで）
             pets = []
             for e in selected:
                 pet = await db.get_oasistchi_pet(e["pet_id"])
                 if pet:
                     pets.append(dict(pet))
 
-            # ⑦ 順位決定
-            results = decide_race_order(pets)
+        # =========================
+        # ⑤ ここからロック外（重要）
+        # =========================
+        await self.send_race_entry_panel(race, selected)
 
-            # ⑧ 結果Embed（※ここで1回だけ送る）
-            await self.send_race_result_embed(race, results)
-            print("[RACE] run_race_lottery END")
-            return
+        results = decide_race_order(pets)
+
+        await self.send_race_result_embed(race, results)
+
+        print(f"[RACE] run_race_lottery END race_id={race_id}")
 
 
     # =========================
@@ -2770,6 +2758,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
