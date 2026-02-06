@@ -1,16 +1,11 @@
 from fastapi import FastAPI, HTTPException
-from datetime import date
 import os
 import asyncpg
-from datetime import date, datetime
+from datetime import datetime
 
 app = FastAPI()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-
-# DB接続（API専用・readonly）
-async def get_conn():
-    return await asyncpg.connect(DATABASE_URL)
 
 @app.get("/api/race/{guild_id}/{race_date}/{race_no}")
 async def get_race_entries(guild_id: str, race_date: str, race_no: int):
@@ -70,10 +65,3 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
             "locked": locked,
             "pets": pets
         }
-
-        finally:
-            await conn.close()
-
-
-
-
