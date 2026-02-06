@@ -71,8 +71,9 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
             "pets": pets
         }
 
-    finally:
-        await conn.close()
+        finally:
+            await conn.close()
+
 
 
 
