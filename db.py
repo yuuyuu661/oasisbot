@@ -2199,6 +2199,27 @@ class Database:
         async with self._lock:
             async with self.conn.transaction():
 
+                # ★★★★★ 二重実行ガード（ここが最重要） ★★★★★
+                race = await self.conn.fetchrow("""
+                    SELECT lottery_done
+                    FROM race_schedules
+                    WHERE id = $1
+                """, schedule_id)
+
+                if not race:
+                    print("[RACE LOTTERY] race not found -> abort")
+                    return {
+                        "selected": [],
+                        "cancelled": []
+                    }
+
+                if race["lottery_done"]:
+                    print("[RACE LOTTERY] already lottery_done -> skip")
+                    return {
+                        "selected": [],
+                        "cancelled": []
+                    }
+
                 # ① pending エントリー取得
                 entries = await self.get_race_entries_pending(
                     guild_id,
@@ -2206,7 +2227,8 @@ class Database:
                     schedule_id
                 )
 
-                if not entries:
+                if len(entries) < 2:
+                    print("[RACE LOTTERY] pending < 2 -> skip")
                     return {
                         "selected": [],
                         "cancelled": []
@@ -2216,7 +2238,6 @@ class Database:
                 selected = random.sample(entries, max_entries)
 
                 selected_ids = {e["id"] for e in selected}
-
                 cancelled = []
 
                 # ② ステータス更新
@@ -2227,8 +2248,13 @@ class Database:
                         await self.update_race_entry_status(e["id"], "cancelled")
                         cancelled.append(e)
 
-                # ③ 抽選済みフラグ
+                # ③ 抽選済みフラグ（最後に立てる）
                 await self.mark_race_lottery_done(schedule_id)
+
+                print(
+                    f"[RACE LOTTERY DONE] "
+                    f"selected={len(selected)} cancelled={len(cancelled)}"
+                )
 
                 return {
                     "selected": selected,
@@ -2256,6 +2282,7 @@ class Database:
             ON CONFLICT (guild_id)
             DO UPDATE SET result_channel_id=$2
         """, str(guild_id), str(channel_id))
+
 
 
 
