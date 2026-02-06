@@ -558,13 +558,14 @@ class OasistchiCog(commands.Cog):
         if not self.bot.is_ready():
             return
 
-        async with self.db._lock:   # ★ ここを統一！
-            pets = await self.db.get_all_oasistchi_pets()
-            for pet in pets:
-                try:
-                    await self.process_time_tick(pet)
-                except Exception as e:
-                    print(f"[OASISTCHI TICK ERROR] pet_id={pet['id']} err={e}")
+        # ロックしない（取得だけ）
+        pets = await self.db.get_all_oasistchi_pets()
+
+        for pet in pets:
+            try:
+                await self.process_time_tick(pet)
+            except Exception as e:
+                print(f"[OASISTCHI TICK ERROR] pet_id={pet['id']} err={e}")
 
 
     async def trigger_race_daily_process(self):
@@ -1104,7 +1105,8 @@ class OasistchiCog(commands.Cog):
         slot_price: int,
         result_channel: discord.TextChannel,
     ):
-        settings = await self.bot.db.get_settings()
+        guild_id = str(interaction.guild.id)
+        settings = await self.bot.db.get_settings(guild_id)
         admin_roles = settings["admin_roles"] or []
 
         if not any(str(r.id) in admin_roles for r in interaction.user.roles):
@@ -1149,6 +1151,10 @@ class OasistchiCog(commands.Cog):
         pet: str | None = None
     ):
         await interaction.response.defer(ephemeral=True)
+        await interaction.followup.send(
+            "🐣 おあしすっちを確認中…",
+            ephemeral=True
+        )
         db = interaction.client.db
         uid = str(interaction.user.id)
 
@@ -1158,6 +1164,8 @@ class OasistchiCog(commands.Cog):
                 "まだおあしすっちを持っていません。",
                 ephemeral=True
             )
+
+        pet = dict(pets[0])
 
         # pet は autocomplete 経由の「文字列ID」のみ許可
         if pet is not None:
@@ -1177,15 +1185,14 @@ class OasistchiCog(commands.Cog):
         else:
             pet = dict(pets[0])
 
-
-        # 最新状態を取り直す
-        pet = await db.get_oasistchi_pet(pet["id"])
-
         embed = self.make_status_embed(pet)
-        pet_file = self.get_pet_image(pet)
-        gauge_file = build_growth_gauge_file(pet["growth"])
         view = CareView(uid, pet["id"], pet)
 
+        # ② 重いファイル生成は後段
+        pet_file = self.get_pet_image(pet)
+        gauge_file = build_growth_gauge_file(pet["growth"])
+
+        # ③ followup（thinking解除）
         await interaction.followup.send(
             embed=embed,
             view=view,
@@ -1311,7 +1318,8 @@ class OasistchiCog(commands.Cog):
             return
 
         db = self.bot.db
-        pets = await db.get_all_oasistchi_pets()
+        async with db._lock:
+            pets = await db.get_all_oasistchi_pets()
 
         for pet in pets:
             await self.process_time_tick(pet)
@@ -2770,6 +2778,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
