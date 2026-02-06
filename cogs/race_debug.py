@@ -78,18 +78,37 @@ class RaceDebug(commands.Cog):
                 selected
             )
 
-        # 抽選済みフラグ更新
-        await self.db.mark_race_lottery_done(target_race["id"])
         # ===== ここまで =====
 
-        # デバッグ結果通知
+        # ===== デバッグ結果通知 + サイトURL =====
+
+        race_date_str = today.strftime("%Y-%m-%d")
+        race_no = target_race["race_no"]
+        gid = guild_id
+
+        RACE_WEB_BASE = "https://lacesite-production.up.railway.app"
+        # 例: https://oasis-race.up.railway.app
+        # 例: https://oasisbot-production.up.railway.app/static/race
+
+        race_url = (
+            f"{RACE_WEB_BASE}/race.html"
+            f"?guild={gid}&date={race_date_str}&no={race_no}"
+        )
+
+        buy_url = (
+            f"{RACE_WEB_BASE}/buy.html"
+            f"?guild={gid}&date={race_date_str}&no={race_no}"
+        )
+
         await interaction.followup.send(
             (
                 "✅ **デバッグ抽選完了！**\n"
                 f"🆔 race_id: `{target_race['id']}`\n"
-                f"🕘 第{target_race['race_no']}レース（{target_race['race_time']}）\n"
+                f"🕘 第{race_no}レース（{target_race['race_time']}）\n"
                 f"👥 pending: {pending_count}体\n"
-                f"🏁 selected: {len(selected)}体"
+                f"🏁 selected: {len(selected)}体\n\n"
+                f"🎟 **〇券購入**\n{buy_url}\n\n"
+                f"👀 **レース観戦**\n{race_url}"
             ),
             ephemeral=True
         )
@@ -194,6 +213,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
