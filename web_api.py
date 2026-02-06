@@ -67,3 +67,62 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
 
     finally:
         await conn.close()
+# =========================
+# ★ ここに追加する ★
+# 最新レース取得API
+# =========================
+@app.get("/api/race/latest/{guild_id}")
+async def get_latest_race(guild_id: str):
+    conn = await asyncpg.connect(DATABASE_URL)
+    try:
+        race = await conn.fetchrow("""
+            SELECT *
+            FROM race_schedules
+            WHERE guild_id = $1
+              AND lottery_done = TRUE
+              AND race_finished = FALSE
+            ORDER BY race_date DESC, race_no DESC
+            LIMIT 1
+        """, guild_id)
+
+        if not race:
+            return {
+                "locked": False,
+                "pets": []
+            }
+
+        entries = await conn.fetch("""
+            SELECT
+                e.pet_id,
+                p.name,
+                p.adult_key,
+                p.speed,
+                p.power,
+                p.stamina
+            FROM race_entries e
+            JOIN oasistchi_pets p ON p.id = e.pet_id
+            WHERE e.schedule_id = $1
+              AND e.status = 'selected'
+            ORDER BY e.created_at
+        """, race["id"])
+
+        pets = [{
+            "pet_id": e["pet_id"],
+            "name": e["name"],
+            "adult_key": e["adult_key"],
+            "speed": e["speed"],
+            "power": e["power"],
+            "stamina": e["stamina"]
+        } for e in entries]
+
+        return {
+            "schedule_id": race["id"],
+            "race_no": race["race_no"],
+            "race_date": str(race["race_date"]),
+            "race_time": race["race_time"],
+            "locked": True,
+            "pets": pets
+        }
+
+    finally:
+        await conn.close()
