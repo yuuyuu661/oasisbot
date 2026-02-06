@@ -4,6 +4,9 @@ from datetime import date
 from db import Database
 
 app = FastAPI()
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 db = Database()
 
 
@@ -57,4 +60,5 @@ async def get_race_candidates(
         "schedule_id": schedule_id,
         "count": len(pets),
         "pets": pets
+
     }
