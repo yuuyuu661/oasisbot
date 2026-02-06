@@ -8,6 +8,8 @@ from db import Database
 import threading
 import uvicorn
 from web_api import app
+from fastapi import FastAPI
+import asyncio
 
 load_dotenv()
 
@@ -65,28 +67,32 @@ class MyBot(commands.Bot):
                 print(f"Cog 読み込み成功: {ext}")
             except Exception as e:
                 print(f"❌ Cog 読み込み失敗: {ext} - {e}")
-
+                
+app = FastAPI()
 bot = MyBot()
-# ===== Web API 起動（内蔵）=====
-threading.Thread(
-    target=run_api,
-    daemon=True
-).start()
-def run_api():
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=8000,
-        log_level="warning"
-    )
-
 @bot.event
 async def on_ready():
     print(f"🚀 ログイン完了：{bot.user}")
-    
-    
 
-bot.run(TOKEN)
+async def start_bot():
+    await bot.start(TOKEN)
+
+async def start_api():
+    config = uvicorn.Config(
+        app,
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", 8000)),
+        log_level="info"
+    )
+    server = uvicorn.Server(config)
+    await server.serve()
+
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    loop.create_task(start_api())
+    loop.create_task(start_bot())
+    loop.run_forever()
+
 
 
 
