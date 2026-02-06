@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from datetime import date
 import os
 import asyncpg
+from datetime import date, datetime
 
 app = FastAPI()
 
@@ -13,6 +14,10 @@ async def get_conn():
 
 @app.get("/api/race/{race_date}/{schedule_id}")
 async def get_race_entries(race_date: str, schedule_id: int):
+    try:
+        race_date_obj = datetime.strptime(race_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
     conn = await get_conn()
     try:
         # レース情報取得
@@ -21,7 +26,7 @@ async def get_race_entries(race_date: str, schedule_id: int):
             FROM race_schedules
             WHERE race_date = $1
               AND id = $2
-        """, race_date, schedule_id)
+        """, race_date_obj, schedule_id)
 
         if not race:
             raise HTTPException(status_code=404, detail="Race not found")
@@ -37,8 +42,7 @@ async def get_race_entries(race_date: str, schedule_id: int):
                 p.adult_key,
                 p.speed,
                 p.power,
-                p.stamina,
-                e.status
+                p.stamina
             FROM race_entries e
             JOIN oasistchi_pets p ON p.id = e.pet_id
             WHERE e.schedule_id = $1
@@ -46,7 +50,7 @@ async def get_race_entries(race_date: str, schedule_id: int):
               AND e.status = 'selected'
             ORDER BY e.created_at
             LIMIT 8
-        """, schedule_id, race_date)
+        """, schedule_id, race_date_obj)
 
         pets = []
         for e in entries:
@@ -70,3 +74,4 @@ async def get_race_entries(race_date: str, schedule_id: int):
 
     finally:
         await conn.close()
+
