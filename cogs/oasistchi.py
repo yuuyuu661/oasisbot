@@ -1106,7 +1106,7 @@ class OasistchiCog(commands.Cog):
         result_channel: discord.TextChannel,
     ):
         guild_id = str(interaction.guild.id)
-        settings = await self.bot.db.get_settings(guild_id)
+        settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
 
         if not any(str(r.id) in admin_roles for r in interaction.user.roles):
@@ -1165,7 +1165,7 @@ class OasistchiCog(commands.Cog):
                 ephemeral=True
             )
 
-        pet = dict(pets[0])
+        selected_pet = dict(pets[0])
 
         # pet は autocomplete 経由の「文字列ID」のみ許可
         if pet is not None:
@@ -1183,7 +1183,7 @@ class OasistchiCog(commands.Cog):
             pet = await db.get_oasistchi_pet(pet_id)
 
         else:
-            pet = dict(pets[0])
+            selected_pet = dict(pets[0])
 
         embed = self.make_status_embed(pet)
         view = CareView(uid, pet["id"], pet)
@@ -2778,6 +2778,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
