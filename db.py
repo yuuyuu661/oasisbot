@@ -660,6 +660,7 @@ class Database:
         await self.ensure_race_schedule_columns()
         await self.ensure_race_entry_columns()
         await self.ensure_race_schedule_time_text()
+        await self.init_race_tables()
 
 
     # ------------------------------------------------------
@@ -2116,6 +2117,57 @@ class Database:
         """, race_id, status)
 
 
+    # ======================================================
+    #   レース機能（おあしすっち）
+    # ======================================================
+
+    async def init_race_tables(self):
+        await self._ensure_conn()
+
+        # -----------------------------
+        # race 本体
+        # -----------------------------
+        await self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS races (
+                race_id TEXT PRIMARY KEY,
+                guild_id TEXT NOT NULL,
+                race_time TIMESTAMP NOT NULL,
+                status TEXT NOT NULL,
+                result_channel_id TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        """)
+
+        # -----------------------------
+        # 出走おあしすっち
+        # -----------------------------
+        await self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS race_entries (
+                race_id TEXT NOT NULL,
+                pet_id TEXT NOT NULL,
+                owner_id TEXT NOT NULL,
+                pet_key TEXT NOT NULL,
+                condition TEXT NOT NULL,
+                speed INTEGER NOT NULL,
+                power INTEGER NOT NULL,
+                stamina INTEGER NOT NULL,
+                odds REAL NOT NULL,
+                PRIMARY KEY (race_id, pet_id)
+            );
+        """)
+
+        # -----------------------------
+        # 購入情報
+        # -----------------------------
+        await self.conn.execute("""
+           CREATE TABLE IF NOT EXISTS race_bets (
+                race_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                pet_id TEXT NOT NULL,
+                amount INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        """)
 
 
 
