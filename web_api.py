@@ -12,8 +12,12 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 async def get_conn():
     return await asyncpg.connect(DATABASE_URL)
 
-@app.get("/api/race/{race_date}/{schedule_id}")
-async def get_race_entries(race_date: str, schedule_id: int):
+@app.get("/api/race/{guild_id}/{race_date}/{race_no}")
+async def get_race_entries(
+    guild_id: str,
+    race_date: str,
+    race_no: int
+):
     try:
         race_date_obj = datetime.strptime(race_date, "%Y-%m-%d").date()
     except ValueError:
@@ -25,8 +29,9 @@ async def get_race_entries(race_date: str, schedule_id: int):
             SELECT *
             FROM race_schedules
             WHERE race_date = $1
-              AND id = $2
-        """, race_date_obj, schedule_id)
+              AND race_no = $2
+              AND guild_id = $3
+    """, race_date_obj, race_no, guild_id)
 
         if not race:
             raise HTTPException(status_code=404, detail="Race not found")
@@ -74,4 +79,5 @@ async def get_race_entries(race_date: str, schedule_id: int):
 
     finally:
         await conn.close()
+
 
