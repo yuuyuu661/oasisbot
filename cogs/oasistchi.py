@@ -106,7 +106,7 @@ TRAIN_RESULTS = [
     (5, "今回は大成功だ！！！"),
 ]
 
-RACE_TIMES = ["09:00", "12:00", "15:00", "19:00", "22:00"]
+RACE_TIMES = ["09:00", "12:00", "15:00", "18:00", "21:00"]
 
 DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
 SURFACES = ["芝", "ダート"]
@@ -2770,6 +2770,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
