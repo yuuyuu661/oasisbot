@@ -5,6 +5,7 @@ import asyncio
 import time
 import random
 from datetime import datetime, timezone, timedelta, date
+import uuid
 
 JST = timezone(timedelta(hours=9))
 
@@ -2168,7 +2169,62 @@ class Database:
                 created_at TIMESTAMP DEFAULT NOW()
             );
         """)
+    # ======================================================
+    #   レース機能（おあしすっち）
+    # ======================================================
+    async def run_race_lottery(
+        self,
+        guild_id: str,
+        race_date: date,
+        schedule_id: int
+    ):
+        """
+        ・pending エントリーを取得
+        ・最大8体を抽選
+        ・selected / cancelled を確定
+        ・lottery_done を TRUE にする
+        """
 
+        await self._ensure_conn()
+
+        async with self._lock:
+            async with self.conn.transaction():
+
+                # ① pending エントリー取得
+                entries = await self.get_race_entries_pending(
+                    guild_id,
+                    race_date,
+                    schedule_id
+                )
+
+                if not entries:
+                    return {
+                        "selected": [],
+                        "cancelled": []
+                    }
+
+                max_entries = min(8, len(entries))
+                selected = random.sample(entries, max_entries)
+
+                selected_ids = {e["id"] for e in selected}
+
+                cancelled = []
+
+                # ② ステータス更新
+                for e in entries:
+                    if e["id"] in selected_ids:
+                        await self.update_race_entry_status(e["id"], "selected")
+                    else:
+                        await self.update_race_entry_status(e["id"], "cancelled")
+                        cancelled.append(e)
+
+                # ③ 抽選済みフラグ
+                await self.mark_race_lottery_done(schedule_id)
+
+                return {
+                    "selected": selected,
+                    "cancelled": cancelled
+                }
 
 
 
