@@ -1,64 +1,72 @@
-# web_api.py
 from fastapi import FastAPI, HTTPException
 from datetime import date
-from db import Database
+import os
+import asyncpg
 
 app = FastAPI()
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
-db = Database()
 
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-@app.on_event("startup")
-async def startup():
-    # Botと同じDBを使う
-    await db.connect()
+# DB接続（API専用・readonly）
+async def get_conn():
+    return await asyncpg.connect(DATABASE_URL)
 
-
-@app.get("/api/race/{guild_id}/{race_date}/{schedule_id}")
-async def get_race_candidates(
-    guild_id: str,
-    race_date: str,
-    schedule_id: int
-):
-    """
-    出走確定したおあしすっち（最大8体）を返す
-    Webの「〇券購入」画面用
-    """
-
+@app.get("/api/race/{race_date}/{schedule_id}")
+async def get_race_entries(race_date: str, schedule_id: int):
+    conn = await get_conn()
     try:
-        race_date = date.fromisoformat(race_date)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid race_date")
+        # レース情報取得
+        race = await conn.fetchrow("""
+            SELECT *
+            FROM race_schedules
+            WHERE race_date = $1
+              AND id = $2
+        """, race_date, schedule_id)
 
-    # 出走確定エントリー取得
-    entries = await db.get_selected_entries(schedule_id)
+        if not race:
+            raise HTTPException(status_code=404, detail="Race not found")
 
-    pets = []
-    for e in entries:
-        pet = await db.get_oasistchi_pet(e["pet_id"])
-        if not pet:
-            continue
+        # ロック判定
+        locked = race["lottery_done"] is True and race["race_finished"] is False
 
-        pets.append({
-            "pet_id": pet["id"],
-            "name": pet["name"],
-            "adult_key": pet["adult_key"],
-            "condition": pet["condition"] if "condition" in pet else "normal",
-            "stats": {
-                "speed": pet["speed"],
-                "power": pet["power"],
-                "stamina": pet["stamina"],
-            },
-            # Web側でそのまま使えるパス
-            "gif": f"/static/pets/{pet['adult_key']}.gif",
-        })
+        # 出走おあしすっち取得（抽選済み）
+        entries = await conn.fetch("""
+            SELECT
+                e.pet_id,
+                p.name,
+                p.adult_key,
+                p.speed,
+                p.power,
+                p.stamina,
+                e.status
+            FROM race_entries e
+            JOIN oasistchi_pets p ON p.id = e.pet_id
+            WHERE e.schedule_id = $1
+              AND e.race_date = $2
+              AND e.status = 'selected'
+            ORDER BY e.created_at
+            LIMIT 8
+        """, schedule_id, race_date)
 
-    return {
-        "race_date": race_date.isoformat(),
-        "schedule_id": schedule_id,
-        "count": len(pets),
-        "pets": pets
+        pets = []
+        for e in entries:
+            pets.append({
+                "pet_id": e["pet_id"],
+                "name": e["name"],
+                "adult_key": e["adult_key"],
+                "speed": e["speed"],
+                "power": e["power"],
+                "stamina": e["stamina"],
+                "condition": "normal",  # ←後で本物にする
+                "odds": None            # ←Web側で計算
+            })
 
-    }
+        return {
+            "race_date": race_date,
+            "race_time": race["race_time"],
+            "locked": locked,
+            "pets": pets
+        }
+
+    finally:
+        await conn.close()
