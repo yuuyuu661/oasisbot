@@ -3,3 +3,5 @@ python-dotenv
 asyncpg
 pillow
 imageio
+fastapi
+uvicorn
