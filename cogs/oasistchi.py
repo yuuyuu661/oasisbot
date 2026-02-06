@@ -1089,8 +1089,7 @@ class OasistchiCog(commands.Cog):
         slot_price: int,
         result_channel: discord.TextChannel,
     ):
-        guild_id = str(interaction.guild.id)
-        settings = await self.bot.db.get_settings(guild_id)
+        settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
 
         if not any(str(r.id) in admin_roles for r in interaction.user.roles):
@@ -2762,6 +2761,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
