@@ -769,12 +769,14 @@ class OasistchiCog(commands.Cog):
         await channel.send(embed=embed)
 
     # =========================
-    # ★ レース用チャンネル取得（追加）
+    # ★ レース用チャンネル取得（正規）
     # =========================
     async def get_race_result_channel(self, guild_id: str):
-        settings = await self.db.get_settings(guild_id)
-        channel_id = settings.get("race_result_channel_id")
+        row = await self.db.get_race_settings(guild_id)
+        if not row:
+            return None
 
+        channel_id = row.get("result_channel_id")
         if not channel_id:
             return None
 
@@ -2759,6 +2761,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
