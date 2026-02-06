@@ -4,7 +4,6 @@ import asyncpg
 from datetime import datetime
 
 app = FastAPI()
-
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 @app.get("/api/race/{guild_id}/{race_date}/{race_no}")
@@ -15,8 +14,8 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
 
-    async with asyncpg.connect(DATABASE_URL) as conn:
-
+    conn = await asyncpg.connect(DATABASE_URL)
+    try:
         race = await conn.fetchrow("""
             SELECT *
             FROM race_schedules
@@ -65,3 +64,6 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
             "locked": locked,
             "pets": pets
         }
+
+    finally:
+        await conn.close()
