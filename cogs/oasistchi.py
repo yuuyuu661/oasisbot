@@ -1167,32 +1167,31 @@ class OasistchiCog(commands.Cog):
 
         selected_pet = dict(pets[0])
 
-        # pet は autocomplete 経由の「文字列ID」のみ許可
+        # -------------------------
+        # 選択ペット決定
+        # -------------------------
         if pet is not None:
-            # 自分のペット一覧を先に取得
             my_pet_ids = {str(p["id"]) for p in pets}
 
-            # プルダウン由来でない入力はすべて拒否
             if pet not in my_pet_ids:
                 return await interaction.followup.send(
                     "❌ プルダウンから選択してください。",
                     ephemeral=True
                 )
 
-            pet_id = int(pet)
-            pet = await db.get_oasistchi_pet(pet_id)
-
+            selected_pet = next(p for p in pets if str(p["id"]) == pet)
         else:
             selected_pet = dict(pets[0])
 
-        embed = self.make_status_embed(pet)
-        view = CareView(uid, pet["id"], pet)
+        # -------------------------
+        # ここからは selected_pet だけ使う
+        # -------------------------
+        embed = self.make_status_embed(selected_pet)
+        view = CareView(uid, selected_pet["id"], selected_pet)
 
-        # ② 重いファイル生成は後段
-        pet_file = self.get_pet_image(pet)
-        gauge_file = build_growth_gauge_file(pet["growth"])
+        pet_file = self.get_pet_image(selected_pet)
+        gauge_file = build_growth_gauge_file(selected_pet["growth"])
 
-        # ③ followup（thinking解除）
         await interaction.followup.send(
             embed=embed,
             view=view,
@@ -2778,6 +2777,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
