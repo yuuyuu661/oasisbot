@@ -487,14 +487,23 @@ class OasistchiCog(commands.Cog):
         self._race_lock = asyncio.Lock()
 
     async def cog_load(self):
-        self.poop_check.start()
-        self.race_tick.start()
-        self.oasistchi_tick.start()
+        if not self.poop_check.is_running():
+            self.poop_check.start()
+
+        if not self.race_tick.is_running():
+            self.race_tick.start()
+
+        if not self.oasistchi_tick.is_running():
+            self.oasistchi_tick.start()
+
+        if not self.race_lottery_watcher.is_running():
+            self.race_lottery_watcher.start()
 
     async def cog_unload(self):
         self.poop_check.cancel()
         self.race_tick.cancel()
         self.oasistchi_tick.cancel()
+        self.race_lottery_watcher.cancel()
 
 
 
@@ -657,7 +666,7 @@ class OasistchiCog(commands.Cog):
     # レース処理（正規版・完成）
     # =========================
     async def send_race_result_embed(self, race: dict, results: list[dict]):
-        channel = await self.get_race_result_channel()
+        channel = await self.get_race_result_channel(str(race["guild_id"]))
         if channel is None:
             print("[RACE] result channel not found")
             return
@@ -771,93 +780,6 @@ class OasistchiCog(commands.Cog):
 
         return self.bot.get_channel(int(channel_id))
     
-    # =========================
-    # レース処理（正規版・完成） ※1本化版
-    # =========================
-    async def run_race_lottery(self, race: dict):
-        db = self.db
-        race_id = race["id"]
-        race_date = race["race_date"]
-        guild_id = str(race["guild_id"])
-
-        max_entries = int(race.get("max_entries", 8))
-        entry_fee = int(race.get("entry_fee", 0))
-
-        selected = []
-        pets = []
-        abort_reason = None
-
-        async with db._lock:
-            # ✅ pending 取得（guild_id 追加）
-            entries = await db.conn.fetch("""
-                SELECT *
-                FROM race_entries
-                WHERE race_date = $1
-                  AND schedule_id = $2
-                  AND guild_id = $3
-                  AND status = 'pending'
-            """, race_date, race_id, guild_id)
-
-            if len(entries) < 2:
-                for e in entries:
-                    await db.update_race_entry_status(e["id"], "cancelled")
-                    await db.refund_entry(e["user_id"], guild_id, entry_fee)
-                abort_reason = "参加1体以下"
-
-            if abort_reason is None:
-                already_selected = await db.get_today_selected_pet_ids(race_date)
-                candidates = [e for e in entries if e["pet_id"] not in already_selected]
-
-                if len(candidates) < 2:
-                    for e in entries:
-                        await db.update_race_entry_status(e["id"], "cancelled")
-                        await db.refund_entry(e["user_id"], guild_id, entry_fee)
-                    abort_reason = "有効候補不足"
-
-            if abort_reason is None:
-                winners = random.sample(candidates, k=min(max_entries, len(candidates)))
-                winner_ids = {w["id"] for w in winners}
-
-                for e in entries:
-                    if e["id"] in winner_ids:
-                        await db.update_race_entry_status(e["id"], "selected")
-                        await db.cancel_other_entries(e["pet_id"], race_date, race_id)
-                    else:
-                        await db.update_race_entry_status(e["id"], "cancelled")
-                        await db.refund_entry(e["user_id"], guild_id, entry_fee)
-
-                # ✅ selected 再取得（guild_id 追加）
-                selected = await db.conn.fetch("""
-                    SELECT *
-                    FROM race_entries
-                    WHERE race_date = $1
-                      AND schedule_id = $2
-                      AND guild_id = $3
-                      AND status = 'selected'
-                """, race_date, race_id, guild_id)
-
-                print(f"[RACE DEBUG] race_id={race_id} selected_count={len(selected)}")
-
-                if len(selected) < 2:
-                    abort_reason = "selected < 2"
-
-                if abort_reason is None:
-                    for e in selected:
-                        pet = await db.get_oasistchi_pet(e["pet_id"])
-                        if pet:
-                            pets.append(dict(pet))
-
-        # ===== ロック外 =====
-        if abort_reason:
-            print(f"[RACE] レース {race_id} 中止理由: {abort_reason}")
-            return
-
-        await self.send_race_entry_panel(race, selected)
-        results = decide_race_order(pets)
-        await self.send_race_result_embed(race, results)
-
-
-
 
     # =========================
     # レース通知
@@ -898,7 +820,67 @@ class OasistchiCog(commands.Cog):
             except Exception as dm_err:
                 print(f"[RACE DM ERROR] user_id={e['user_id']} err={dm_err!r}")
 
-    
+    # レース抽選タスク
+    # =========================
+    @tasks.loop(seconds=30)
+    async def race_lottery_watcher(self):
+        now = datetime.now(JST)
+        today = now.date()
+
+        for guild in self.bot.guilds:
+            guild_id = str(guild.id)
+
+            # 今日の未完了レース取得
+            races = await self.bot.db.get_unfinished_races_by_date(
+                today,
+                guild_id
+            )
+
+            for race in races:
+                # race_time は TEXT（"09:00"）
+                race_time = datetime.strptime(
+                    race["race_time"], "%H:%M"
+                ).time()
+
+                race_dt = datetime.combine(today, race_time, tzinfo=JST)
+
+                # エントリー締切時刻
+                close_dt = race_dt - timedelta(
+                    minutes=race["entry_open_minutes"]
+                )
+
+                # まだ締切前
+                if now < close_dt:
+                    continue
+
+                # すでに抽選済み
+                if race["lottery_done"]:
+                    continue
+
+                print(
+                    f"[RACE LOTTERY] guild={guild_id} "
+                    f"date={today} race_no={race['race_no']}"
+                )
+
+                # ✅ 抽選は DB に任せる
+                result = await self.bot.db.run_race_lottery(
+                    guild_id=guild_id,
+                    race_date=today,
+                    schedule_id=race["id"]
+                )
+
+                print(
+                    f"[RACE LOTTERY DONE] "
+                    f"selected={len(result['selected'])} "
+                    f"cancelled={len(result['cancelled'])}"
+                )
+
+                # 🔽 表示は Cog の責務
+                if len(result["selected"]) >= 2:
+                    await self.send_race_entry_panel(
+                        race,
+                        result["selected"]
+                    )
 
 
     # 共通：時間差分処理
@@ -2777,6 +2759,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
