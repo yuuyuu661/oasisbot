@@ -23,13 +23,18 @@ class RaceDebug(commands.Cog):
         today = today_jst_date()
         guild_id = str(interaction.guild.id)
 
+        # 本日のレース取得
         races = await self.db.get_today_race_schedules(today, guild_id)
         if not races:
-            return await interaction.followup.send("❌ 本日のレースがありません", ephemeral=True)
+            return await interaction.followup.send(
+                "❌ 本日のレースがありません",
+                ephemeral=True
+            )
 
         target_race = None
         pending_count = 0
 
+        # pending が2体以上あるレースを探す
         for race in races:
             pending = await self.db.get_race_entries_pending(
                 guild_id,
@@ -48,18 +53,43 @@ class RaceDebug(commands.Cog):
                 ephemeral=True
             )
 
+        # レース処理 Cog 取得
         race_cog = self.bot.get_cog("OasistchiCog")
         if not race_cog:
-            return await interaction.followup.send("❌ レース処理Cogが見つかりません", ephemeral=True)
+            return await interaction.followup.send(
+                "❌ レース処理Cogが見つかりません",
+                ephemeral=True
+            )
 
-        await race_cog.run_race_lottery(target_race)
+        # ===== ここが修正の核心 =====
+        # 抽選処理（DB）
+        result = await self.db.run_race_lottery(
+            guild_id=guild_id,
+            race_date=today,
+            schedule_id=target_race["id"]
+        )
 
+        selected = result.get("selected", [])
+
+        # 出走決定パネル生成
+        if len(selected) >= 2:
+            await race_cog.send_race_entry_panel(
+                target_race,
+                selected
+            )
+
+        # 抽選済みフラグ更新
+        await self.db.mark_race_lottery_done(target_race["id"])
+        # ===== ここまで =====
+
+        # デバッグ結果通知
         await interaction.followup.send(
             (
                 "✅ **デバッグ抽選完了！**\n"
                 f"🆔 race_id: `{target_race['id']}`\n"
                 f"🕘 第{target_race['race_no']}レース（{target_race['race_time']}）\n"
-                f"👥 pending: {pending_count}体"
+                f"👥 pending: {pending_count}体\n"
+                f"🏁 selected: {len(selected)}体"
             ),
             ephemeral=True
         )
@@ -164,6 +194,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
