@@ -5,6 +5,9 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 from db import Database
+import threading
+import uvicorn
+from web_api import app
 
 load_dotenv()
 
@@ -64,6 +67,18 @@ class MyBot(commands.Bot):
                 print(f"❌ Cog 読み込み失敗: {ext} - {e}")
 
 bot = MyBot()
+# ===== Web API 起動（内蔵）=====
+threading.Thread(
+    target=run_api,
+    daemon=True
+).start()
+def run_api():
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        log_level="warning"
+    )
 
 @bot.event
 async def on_ready():
@@ -72,6 +87,7 @@ async def on_ready():
     
 
 bot.run(TOKEN)
+
 
 
 
