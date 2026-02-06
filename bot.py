@@ -1,15 +1,12 @@
-# bot.py
 import os
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+import asyncio
+import uvicorn
 
 from db import Database
-import threading
-import uvicorn
 from web_api import app
-from fastapi import FastAPI
-import asyncio
 
 load_dotenv()
 
@@ -68,14 +65,15 @@ class MyBot(commands.Bot):
             except Exception as e:
                 print(f"❌ Cog 読み込み失敗: {ext} - {e}")
                 
-app = FastAPI()
 bot = MyBot()
 @bot.event
 async def on_ready():
     print(f"🚀 ログイン完了：{bot.user}")
 
+
 async def start_bot():
     await bot.start(TOKEN)
+
 
 async def start_api():
     config = uvicorn.Config(
@@ -87,11 +85,13 @@ async def start_api():
     server = uvicorn.Server(config)
     await server.serve()
 
+
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.create_task(start_api())
     loop.create_task(start_bot())
     loop.run_forever()
+
 
 
 
