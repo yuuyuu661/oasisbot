@@ -2128,17 +2128,14 @@ class Database:
 
 
     # ======================================================
-    #   レース機能（おあしすっち）
+    #   レースWeb機能（おあしすっち）※衝突回避版
     # ======================================================
-
     async def init_race_tables(self):
         await self._ensure_conn()
 
-        # -----------------------------
-        # race 本体
-        # -----------------------------
+        # ★ race_schedules / race_entries（抽選用）と衝突するので別名にする
         await self.conn.execute("""
-            CREATE TABLE IF NOT EXISTS races (
+            CREATE TABLE IF NOT EXISTS web_races (
                 race_id TEXT PRIMARY KEY,
                 guild_id TEXT NOT NULL,
                 race_time TIMESTAMP NOT NULL,
@@ -2148,11 +2145,8 @@ class Database:
             );
         """)
 
-        # -----------------------------
-        # 出走おあしすっち
-        # -----------------------------
         await self.conn.execute("""
-            CREATE TABLE IF NOT EXISTS race_entries (
+            CREATE TABLE IF NOT EXISTS web_race_entries (
                 race_id TEXT NOT NULL,
                 pet_id TEXT NOT NULL,
                 owner_id TEXT NOT NULL,
@@ -2166,11 +2160,8 @@ class Database:
             );
         """)
 
-        # -----------------------------
-        # 購入情報
-        # -----------------------------
         await self.conn.execute("""
-           CREATE TABLE IF NOT EXISTS race_bets (
+            CREATE TABLE IF NOT EXISTS web_race_bets (
                 race_id TEXT NOT NULL,
                 user_id TEXT NOT NULL,
                 pet_id TEXT NOT NULL,
@@ -2178,6 +2169,60 @@ class Database:
                 created_at TIMESTAMP DEFAULT NOW()
             );
         """)
+        
+    # --------------------------------------------------
+    # API用：出走馬（selected）を oasistchi_pets とJOINして返す
+    # speed/power/stamina は「base + train」を優先して0を回避
+    # --------------------------------------------------
+    async def get_selected_pets_for_api(self, guild_id: str, race_date: date, schedule_id: int):
+        await self._ensure_conn()
+
+        rows = await self.conn.fetch("""
+            SELECT
+                e.pet_id,
+                p.name,
+                p.adult_key,
+
+                -- まず speed/stamina/power が入っていればそれを使う
+                -- 0なら base + train を採用（実運用で0が返ってくるのを潰す）
+                CASE
+                    WHEN COALESCE(p.speed, 0) > 0 THEN p.speed
+                    ELSE COALESCE(p.base_speed, 0) + COALESCE(p.train_speed, 0)
+                END AS speed,
+
+                CASE
+                    WHEN COALESCE(p.power, 0) > 0 THEN p.power
+                    ELSE COALESCE(p.base_power, 0) + COALESCE(p.train_power, 0)
+                END AS power,
+
+                CASE
+                    WHEN COALESCE(p.stamina, 0) > 0 THEN p.stamina
+                    ELSE COALESCE(p.base_stamina, 0) + COALESCE(p.train_stamina, 0)
+                END AS stamina
+
+            FROM race_entries e
+            JOIN oasistchi_pets p
+              ON p.id = e.pet_id
+            WHERE e.guild_id   = $1
+              AND e.race_date  = $2
+              AND e.schedule_id = $3
+              AND e.status = 'selected'
+            ORDER BY e.created_at ASC
+        """, str(guild_id), race_date, schedule_id)
+
+        # dict化
+        return [
+            {
+                "pet_id": int(r["pet_id"]),
+                "name": r["name"] or "NoName",
+                "adult_key": r["adult_key"] or "unknown",
+                "speed": int(r["speed"] or 0),
+                "power": int(r["power"] or 0),
+                "stamina": int(r["stamina"] or 0),
+            }
+            for r in rows
+        ]
+    
     # ======================================================
     #   レース機能（おあしすっち）
     # ======================================================
@@ -2282,6 +2327,7 @@ class Database:
             ON CONFLICT (guild_id)
             DO UPDATE SET result_channel_id=$2
         """, str(guild_id), str(channel_id))
+
 
 
 
