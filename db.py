@@ -202,6 +202,15 @@ class Database:
                 training_count INTEGER DEFAULT 0
             );
         """)
+        # =========================
+        # レース設定（ギルド別）
+        # =========================
+        await self.conn.execute("""
+        CREATE TABLE IF NOT EXISTS race_settings (
+            guild_id TEXT PRIMARY KEY,
+            result_channel_id TEXT
+        );
+        """)
 
         # ==================================================
         # おあしすっち：図鑑 / 通知（永続化）
@@ -2226,6 +2235,27 @@ class Database:
                     "cancelled": cancelled
                 }
 
+    # =========================
+    # レース設定取得
+    # =========================
+    async def get_race_settings(self, guild_id: str):
+        await self._ensure_conn()
+        return await self.conn.fetchrow(
+            "SELECT * FROM race_settings WHERE guild_id=$1",
+            str(guild_id)
+        )
+
+    # =========================
+    # レース結果チャンネル設定
+    # =========================
+    async def set_race_result_channel(self, guild_id: str, channel_id: str):
+        await self._ensure_conn()
+        await self.conn.execute("""
+            INSERT INTO race_settings (guild_id, result_channel_id)
+            VALUES ($1, $2)
+            ON CONFLICT (guild_id)
+            DO UPDATE SET result_channel_id=$2
+        """, str(guild_id), str(channel_id))
 
 
 
