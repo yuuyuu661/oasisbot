@@ -75,6 +75,7 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
 async def get_latest_race(guild_id: str):
     conn = await asyncpg.connect(DATABASE_URL)
     try:
+        # 抽選済み＆未完了の最新レース
         race = await conn.fetchrow("""
             SELECT *
             FROM race_schedules
@@ -112,7 +113,8 @@ async def get_latest_race(guild_id: str):
             "adult_key": e["adult_key"],
             "speed": e["speed"],
             "power": e["power"],
-            "stamina": e["stamina"]
+            "stamina": e["stamina"],
+            "condition": "normal"
         } for e in entries]
 
         return {
@@ -126,3 +128,4 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
