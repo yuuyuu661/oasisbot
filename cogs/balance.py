@@ -4,8 +4,54 @@ from discord.ext import commands
 from discord import app_commands
 
 from logger import log_pay
+from PIL import Image
+import os
+import io
 
+BADGE_DIR = os.path.join(os.path.dirname(__file__), "assets", "badge")
 
+BADGE_FILES = {
+    "gold": "gold.png",
+    "silver": "silver.png",
+    "bronze": "bronze.png",
+}
+def build_badge_image(badges: list[str]) -> io.BytesIO | None:
+    """
+    badges: ["gold", "silver", ...]
+    """
+    if not badges:
+        return None
+
+    size = 64          # バッジ1枚の表示サイズ（小さめ）
+    gap = 6            # 間隔
+
+    imgs = []
+    for b in badges:
+        if b not in BADGE_FILES:
+            continue
+        path = os.path.join(BADGE_DIR, BADGE_FILES[b])
+        img = Image.open(path).convert("RGBA")
+        img = img.resize((size, size))
+        imgs.append(img)
+
+    if not imgs:
+        return None
+
+    width = len(imgs) * size + (len(imgs) - 1) * gap
+    height = size
+
+    canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+
+    x = 0
+    for img in imgs:
+        canvas.paste(img, (x, 0), img)
+        x += size + gap
+
+    buf = io.BytesIO()
+    canvas.save(buf, format="PNG")
+    buf.seek(0)
+    return buf
+    
 class BalanceCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -211,16 +257,35 @@ class BalanceCog(commands.Cog):
                 value=f"\n{memo}\n",
                 inline=False
             )
+        
+        # ------------------------
+        # バッジ画像生成
+        # ------------------------
+        user_badges = await db.get_user_badges(str(member.id))
+        badge_buf = build_badge_image(user_badges)
 
-        # サムネイル画像（右上に表示）
+        # ------------------------
+        # 添付ファイル一覧
+        # ------------------------
+        files = []
+
+        # 右上サムネ（今まで通り）
+        pay_file = discord.File("pay.png", filename="pay.png")
+        files.append(pay_file)
         embed.set_thumbnail(url="attachment://pay.png")
 
-        # 画像ファイルの添付
-        file = discord.File("pay.png", filename="pay.png")
+        # 下に表示するバッジ画像
+        if badge_buf:
+            badge_file = discord.File(badge_buf, filename="badges.png")
+            files.append(badge_file)
+            embed.set_image(url="attachment://badges.png")
 
+        # ------------------------
+        # 送信
+        # ------------------------
         await interaction.response.send_message(
             embed=embed,
-            file=file
+            files=files
         )
         # --- ログ ---
         try:
