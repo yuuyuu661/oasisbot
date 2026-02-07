@@ -151,6 +151,54 @@ class BalanceCog(commands.Cog):
             ephemeral=True
         )
 
+    # ================================
+    # /bal 残高確認（指定ユーザーを見る場合は管理者ロール必須）
+    # ================================
+
+    @app_commands.command(
+        name="badge_add",
+        description="ユーザーにバッジを付与します（管理者用）"
+    )
+    @app_commands.describe(
+        member="付与するユーザー",
+        badge="付与するバッジ（gold / silver / bronze）"
+    )
+    async def badge_add(
+        self,
+        interaction: discord.Interaction,
+        member: discord.Member,
+        badge: str
+    ):
+        guild = interaction.guild
+        user = interaction.user
+
+        # 管理者チェック（既存ロジック流用）
+        settings = await self.bot.db.get_settings()
+        admin_roles = settings["admin_roles"] or []
+
+        if not any(str(r.id) in admin_roles for r in user.roles):
+            return await interaction.response.send_message(
+                "❌ 管理者のみ実行できます。",
+                ephemeral=True
+            )
+
+        if badge not in ("gold", "silver", "bronze"):
+            return await interaction.response.send_message(
+                "❌ バッジは gold / silver / bronze のみです。",
+                ephemeral=True
+            )
+
+        await self.bot.db.add_user_badge(
+            str(member.id),
+            str(guild.id),
+            badge
+        )
+
+        await interaction.response.send_message(
+            f"🏅 {member.mention} に **{badge}** バッジを付与しました。",
+            ephemeral=True
+        )
+
 
     # ================================
     # /pay 送金（メモ対応）
