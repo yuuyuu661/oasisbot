@@ -6,6 +6,7 @@ import time
 import random
 from datetime import datetime, timezone, timedelta, date
 import uuid
+import json
 
 JST = timezone(timedelta(hours=9))
 
@@ -23,6 +24,28 @@ class Database:
         self.conn = None
         self.dsn = os.getenv("DATABASE_URL")
         self._lock = asyncio.Lock()
+        # バッジJSON
+        self.badge_file = os.path.join(
+            os.path.dirname(__file__),
+            "data",
+            "user_badges.json"
+        )
+        os.makedirs(os.path.dirname(self.badge_file), exist_ok=True)
+        if not os.path.exists(self.badge_file):
+            with open(self.badge_file, "w", encoding="utf-8") as f:
+                json.dump({}, f)
+
+    # ←←← ここに追加する！！！
+    # =========================
+    # バッジ用：内部ヘルパー
+    # =========================
+    def _load_badges(self) -> dict:
+        with open(self.badge_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def _save_badges(self, data: dict):
+        with open(self.badge_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
     # ------------------------------------------------------
     #   DB接続
@@ -2330,9 +2353,41 @@ class Database:
 
 
 
+    async def get_user_badges(self, user_id: str, guild_id: str | None = None) -> list[str]:
+        async with self._lock:
+            data = self._load_badges()
+
+            if guild_id:
+                return data.get(guild_id, {}).get(user_id, [])
+            else:
+                # guild未指定なら全guild分まとめる（保険）
+                badges = []
+                for g in data.values():
+                    badges.extend(g.get(user_id, []))
+                return list(set(badges))
 
 
+    async def add_user_badge(self, user_id: str, guild_id: str, badge: str):
+        async with self._lock:
+            data = self._load_badges()
 
+            guild = data.setdefault(guild_id, {})
+            badges = guild.setdefault(user_id, [])
+
+            if badge not in badges:
+                badges.append(badge)
+
+            self._save_badges(data)
+
+    async def remove_user_badge(self, user_id: str, guild_id: str, badge: str):
+        async with self._lock:
+            data = self._load_badges()
+
+            if guild_id in data and user_id in data[guild_id]:
+                if badge in data[guild_id][user_id]:
+                    data[guild_id][user_id].remove(badge)
+
+            self._save_badges(data)
 
 
 
