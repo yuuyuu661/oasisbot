@@ -1089,6 +1089,8 @@ class OasistchiCog(commands.Cog):
         slot_price: int,
         result_channel: discord.TextChannel,
     ):
+        guild_id = str(interaction.guild.id)  # ← ★これを追加
+
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
 
@@ -1117,7 +1119,7 @@ class OasistchiCog(commands.Cog):
             view=view
         )
 
-        # ★ ここだけでOK（保存は1回）
+        # 設定保存
         await self.bot.db.update_settings(
             guild_id=guild_id,
             result_channel_id=str(result_channel.id),
@@ -2761,6 +2763,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
