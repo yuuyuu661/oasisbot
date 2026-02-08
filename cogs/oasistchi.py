@@ -1087,10 +1087,8 @@ class OasistchiCog(commands.Cog):
         body: str,
         egg_price: int,
         slot_price: int,
-        result_channel: discord.TextChannel,
+        result_channel: discord.TextChannel,  # ← 使わないなら後で消してOK
     ):
-        guild_id = str(interaction.guild.id)  # ← ★これを追加
-
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
 
@@ -1100,9 +1098,6 @@ class OasistchiCog(commands.Cog):
                 ephemeral=True
             )
 
-        # -----------------------------
-        # パネル表示
-        # -----------------------------
         embed = discord.Embed(
             title=title,
             description=body,
@@ -1118,11 +1113,37 @@ class OasistchiCog(commands.Cog):
             embed=embed,
             view=view
         )
+    # -----------------------------
+    # 管理者：レース結果チャンネル設定
+    # -----------------------------
+    @app_commands.command(name="レース結果チャンネル設定")
+    @app_commands.describe(channel="レース結果を送信するチャンネル")
+    async def set_race_result_channel(
+        self,
+        interaction: discord.Interaction,
+        channel: discord.TextChannel,
+    ):
+        guild_id = str(interaction.guild.id)
 
-        # 設定保存
+        # 管理者ロールチェック
+        settings = await self.bot.db.get_settings()
+        admin_roles = settings["admin_roles"] or []
+
+        if not any(str(r.id) in admin_roles for r in interaction.user.roles):
+            return await interaction.response.send_message(
+                "❌ 管理者ロールが必要です。",
+                ephemeral=True
+            )
+
+        # DB保存（ここだけで完結）
         await self.bot.db.update_settings(
             guild_id=guild_id,
-            result_channel_id=str(result_channel.id),
+            result_channel_id=str(channel.id),
+        )
+
+        await interaction.response.send_message(
+            f"✅ レース結果チャンネルを {channel.mention} に設定しました。",
+            ephemeral=True
         )
 
 
@@ -2763,6 +2784,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
