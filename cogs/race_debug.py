@@ -85,19 +85,16 @@ class RaceDebug(commands.Cog):
         race_date_str = today.strftime("%Y-%m-%d")
         race_no = target_race["race_no"]
         gid = guild_id
-
         RACE_WEB_BASE = "https://lacesite-production.up.railway.app"
-        # 例: https://oasis-race.up.railway.app
-        # 例: https://oasisbot-production.up.railway.app/static/race
 
         race_url = (
             f"{RACE_WEB_BASE}/race.html"
-            f"?guild={gid}&date={race_date_str}&no={race_no}"
+            f"?guild={gid}"
         )
 
         buy_url = (
             f"{RACE_WEB_BASE}/buy.html"
-            f"?guild={gid}&date={race_date_str}&no={race_no}"
+            f"?guild={gid}"
         )
 
         await interaction.followup.send(
@@ -213,6 +210,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
