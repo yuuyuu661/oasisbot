@@ -44,8 +44,7 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
               AND e.guild_id = $3
               AND e.status = 'selected'
             ORDER BY e.created_at
-            LIMIT 8
-        """, race["id"], race_date_obj, guild_id)
+        """, race["id"], race["race_date"], guild_id)
 
         pets = [{
             "pet_id": e["pet_id"],
@@ -128,4 +127,5 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
