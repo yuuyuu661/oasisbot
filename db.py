@@ -701,46 +701,113 @@ class Database:
     # ------------------------------------------------------
     async def get_user(self, user_id, guild_id):
         await self._ensure_conn()
+        async with self._lock:
 
-        row = await self.conn.fetchrow(
-            "SELECT * FROM users WHERE user_id=$1 AND guild_id=$2",
-            user_id, guild_id
-        )
-        if not row:
-            await self.conn.execute(
-                "INSERT INTO users (user_id, guild_id, balance) VALUES ($1, $2, 0)",
-                user_id, guild_id
-            )
             row = await self.conn.fetchrow(
                 "SELECT * FROM users WHERE user_id=$1 AND guild_id=$2",
                 user_id, guild_id
             )
-        return row
+            if not row:
+                await self.conn.execute(
+                    "INSERT INTO users (user_id, guild_id, balance) VALUES ($1, $2, 0)",
+                    user_id, guild_id
+                )
+                row = await self.conn.fetchrow(
+                    "SELECT * FROM users WHERE user_id=$1 AND guild_id=$2",
+                    user_id, guild_id
+                )
+            return row
 
     async def set_balance(self, user_id, guild_id, amount):
-        await self.get_user(user_id, guild_id)
-        await self.conn.execute(
-            "UPDATE users SET balance=$1 WHERE user_id=$2 AND guild_id=$3",
-            amount, user_id, guild_id
-        )
+        await self._ensure_conn()
+        async with self._lock:
+            await self.conn.execute(
+                """
+                INSERT INTO users (user_id, guild_id, balance)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (user_id, guild_id)
+                DO UPDATE SET balance = $3
+                """,
+                user_id, guild_id, amount
+            )
+
 
     async def add_balance(self, user_id, guild_id, amount):
-        user = await self.get_user(user_id, guild_id)
-        new_amount = user["balance"] + amount
-        await self.set_balance(user_id, guild_id, new_amount)
-        return new_amount
+        await self._ensure_conn()
+        async with self._lock:
+
+            row = await self.conn.fetchrow(
+                """
+                SELECT balance
+                FROM users
+                WHERE user_id=$1 AND guild_id=$2
+                FOR UPDATE
+                """,
+                user_id, guild_id
+            )
+
+            if not row:
+                await self.conn.execute(
+                    "INSERT INTO users (user_id, guild_id, balance) VALUES ($1, $2, 0)",
+                    user_id, guild_id
+                )
+                current = 0
+            else:
+                current = row["balance"]
+
+            new_amount = current + amount
+
+            await self.conn.execute(
+                """
+                UPDATE users
+                SET balance=$1
+                WHERE user_id=$2 AND guild_id=$3
+                """,
+                new_amount, user_id, guild_id
+            )
+
+            return new_amount
+
 
     async def remove_balance(self, user_id, guild_id, amount):
-        user = await self.get_user(user_id, guild_id)
-        new_amount = max(0, user["balance"] - amount)
-        await self.set_balance(user_id, guild_id, new_amount)
-        return new_amount
+        await self._ensure_conn()
+        async with self._lock:
+
+            row = await self.conn.fetchrow(
+                """
+                SELECT balance
+                FROM users
+                WHERE user_id=$1 AND guild_id=$2
+                FOR UPDATE
+                """,
+                user_id, guild_id
+            )
+
+            if not row:
+                return 0
+
+            current = row["balance"]
+            new_amount = max(0, current - amount)
+
+            await self.conn.execute(
+                """
+                UPDATE users
+                SET balance=$1
+                WHERE user_id=$2 AND guild_id=$3
+                """,
+                new_amount, user_id, guild_id
+            )
+
+            return new_amount
+
 
     async def get_all_balances(self, guild_id):
-        return await self.conn.fetch(
-            "SELECT * FROM users WHERE guild_id=$1 ORDER BY balance DESC",
-            guild_id
-        )
+        await self._ensure_conn()
+        async with self._lock:
+            return await self.conn.fetch(
+                "SELECT * FROM users WHERE guild_id=$1 ORDER BY balance DESC",
+                guild_id
+            )
 
     # ------------------------------------------------------
     #   給料ロール関連
@@ -2388,6 +2455,7 @@ class Database:
                     data[guild_id][user_id].remove(badge)
 
             self._save_badges(data)
+
 
 
 
