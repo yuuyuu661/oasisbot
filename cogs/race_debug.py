@@ -90,11 +90,15 @@ class RaceDebug(commands.Cog):
         race_url = (
             f"{RACE_WEB_BASE}/race.html"
             f"?guild={gid}"
+            f"&date={race_date_str}"
+            f"&no={race_no}"
         )
 
         buy_url = (
             f"{RACE_WEB_BASE}/buy.html"
             f"?guild={gid}"
+            f"&date={race_date_str}"
+            f"&no={race_no}"
         )
 
         await interaction.followup.send(
@@ -210,6 +214,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
