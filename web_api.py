@@ -124,6 +124,14 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
                 "ratio": ratio
             })
 
+        if not processed:
+            return {
+                "race_date": race_date,
+                "race_time": race["race_time"],
+                "locked": locked,
+                "pets": []
+            }
+
         # ===== 勝率計算 =====
         abilities = [p["ability"] for p in processed]
         probs = softmax_probabilities(abilities)
@@ -181,9 +189,10 @@ async def get_latest_race(guild_id: str):
                 e.pet_id,
                 p.name,
                 p.adult_key,
-                p.speed,
-                p.power,
-                p.stamina
+                (p.base_speed + p.train_speed) AS speed,
+                (p.base_power + p.train_power) AS power,
+                (p.base_stamina + p.train_stamina) AS stamina,
+                p.happiness
             FROM race_entries e
             JOIN oasistchi_pets p ON p.id = e.pet_id
             WHERE e.schedule_id = $1
@@ -212,6 +221,7 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
 
 
