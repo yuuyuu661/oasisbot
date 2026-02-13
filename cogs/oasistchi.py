@@ -378,6 +378,65 @@ def calc_race_score(stats: dict) -> float:
         stats["power"] * 0.4 +
         random.uniform(-5, 5)  # ブレ
     )
+    
+# -------------------------
+# 能力値計算
+# -------------------------
+def calc_race_ability(pet: dict, race: dict) -> float:
+    """
+    距離・コンディション込みの能力値
+    """
+
+    # 実効ステータス（幸福度・根性込み）
+    stats = calc_effective_stats(pet)
+
+    speed = stats["speed"]
+    stamina = stats["stamina"]
+    power = stats["power"]
+
+    distance = race["distance"]
+
+    if distance == "短距離":
+        ability = 1.25*speed + 1.00*power + 0.85*stamina
+    elif distance == "マイル":
+        ability = 1.10*speed + 1.00*power + 1.00*stamina
+    elif distance == "中距離":
+        ability = 0.95*speed + 1.00*power + 1.15*stamina
+    else:  # 長距離
+        ability = 0.85*speed + 0.95*power + 1.30*stamina
+
+    return ability
+
+# -------------------------
+# オッズ変換
+# -------------------------  
+
+def calc_odds_from_probs(probs: list[float], house_rate: float = 0.85):
+    odds = []
+    for p in probs:
+        if p <= 0:
+            odds.append(99.9)
+        else:
+            o = house_rate / p
+            o = max(1.1, min(99.9, o))
+            odds.append(round(o, 1))
+    return odds
+
+# -------------------------
+# 勝率計算
+# -------------------------  
+
+def calc_win_probabilities(pets: list[dict], race: dict, k: float = 2.5):
+    abilities = []
+
+    for pet in pets:
+        ability = calc_race_ability(pet, race)
+        abilities.append(ability ** k)
+
+    total = sum(abilities)
+
+    probs = [a / total for a in abilities]
+    return probs
 # -------------------------
 # レースコンディション
 # -------------------------  
@@ -2783,6 +2842,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
