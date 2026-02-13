@@ -3,6 +3,46 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import asyncpg
 from datetime import datetime
+import math
+import random
+
+# ===== レース用計算ロジック =====
+
+K_VALUE = 2.5
+HOUSE_TAKE = 0.20  # 控除率20%
+
+def apply_condition_multiplier(speed, power, stamina, happiness):
+    """
+    幸福度 0〜10 → 発揮率 0.0〜1.0
+    """
+    ratio = max(0, min(10, happiness)) / 10.0
+
+    return (
+        speed * ratio,
+        power * ratio,
+        stamina * ratio,
+        ratio
+    )
+
+def calc_ability(speed, power, stamina):
+    # 今はシンプル固定重み
+    return 1.25*speed + 1.0*power + 1.0*stamina
+
+def softmax_probabilities(abilities, k=K_VALUE):
+    weighted = [a**k for a in abilities]
+    total = sum(weighted)
+    return [w/total for w in weighted]
+
+def probs_to_odds(probs):
+    odds = []
+    for p in probs:
+        if p <= 0:
+            odds.append(99.9)
+        else:
+            o = (1 - HOUSE_TAKE) / p
+            o = max(1.4, min(80.0, o))
+            odds.append(round(o, 1))
+    return odds
 
 app = FastAPI()
 
@@ -48,7 +88,8 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
                 p.adult_key,
                 (p.base_speed + p.train_speed) AS speed,
                 (p.base_power + p.train_power) AS power,
-                (p.base_stamina + p.train_stamina) AS stamina
+                (p.base_stamina + p.train_stamina) AS stamina,
+                p.happiness
             FROM race_entries e
             JOIN oasistchi_pets p ON p.id = e.pet_id
             WHERE e.schedule_id = $1
@@ -58,16 +99,48 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
             ORDER BY e.created_at
         """, race["id"], race["race_date"], guild_id)
 
-        pets = [{
-            "pet_id": e["pet_id"],
-            "name": e["name"],
-            "adult_key": e["adult_key"],
-            "speed": e["speed"],
-            "power": e["power"],
-            "stamina": e["stamina"],
-            "condition": "normal",
-            "odds": None
-        } for e in entries]
+        processed = []
+
+        for e in entries:
+            base_speed = e["speed"]
+            base_power = e["power"]
+            base_stamina = e["stamina"]
+            happiness = e["happiness"]
+
+            speed, power, stamina, ratio = apply_condition_multiplier(
+                base_speed, base_power, base_stamina, happiness
+            )
+
+            ability = calc_ability(speed, power, stamina)
+
+            processed.append({
+                "pet_id": e["pet_id"],
+                "name": e["name"],
+                "adult_key": e["adult_key"],
+                "speed": round(speed),
+                "power": round(power),
+                "stamina": round(stamina),
+                "ability": ability,
+                "ratio": ratio
+            })
+
+        # ===== 勝率計算 =====
+        abilities = [p["ability"] for p in processed]
+        probs = softmax_probabilities(abilities)
+        odds_list = probs_to_odds(probs)
+
+        pets = []
+        for i, p in enumerate(processed):
+            pets.append({
+                "pet_id": p["pet_id"],
+                "name": p["name"],
+                "adult_key": p["adult_key"],
+                "speed": p["speed"],
+                "power": p["power"],
+                "stamina": p["stamina"],
+                "condition": f"{int(p['ratio']*100)}%",
+                "odds": odds_list[i]
+            })
 
         return {
             "race_date": race_date,
@@ -139,6 +212,7 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
 
 
