@@ -13,15 +13,15 @@ HOUSE_TAKE = 0.20  # 控除率20%
 
 def apply_condition_multiplier(speed, power, stamina, happiness):
     """
-    幸福度 0〜10 → 発揮率 0.8〜1.0
+    幸福度 0〜100 → 発揮率 0.8〜1.0
     0でも最低80%は出す（競馬寄り）
     """
-    h = max(0, min(10, happiness))
+    h = max(0, min(100, happiness))
 
-    ratio = 0.8 + (h / 10.0) * 0.2
+    ratio = 0.8 + (h / 100.0) * 0.2
     # happiness 0 → 0.8
-    # happiness 5 → 0.9
-    # happiness 10 → 1.0
+    # happiness 50 → 0.9
+    # happiness 100 → 1.0
 
     return (
         speed * ratio,
@@ -242,6 +242,7 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
 
 
