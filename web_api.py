@@ -50,15 +50,13 @@ def probs_to_odds(probs):
             odds.append(round(o, 1))
     return odds
 
-def get_condition_label(ratio):
-    if ratio >= 0.9:
-        return "絶好調", "good"
-    elif ratio >= 0.7:
+def get_condition_label(happiness: int):
+    if happiness >= 80:
+        return "好調", "good"
+    elif happiness >= 50:
         return "普通", "normal"
-    elif ratio >= 0.4:
-        return "不調", "bad"
     else:
-        return "絶不調", "bad"
+        return "不調", "bad"
 
 app = FastAPI()
 
@@ -156,7 +154,7 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
         pets = []
         for i, p in enumerate(processed):
 
-            label, css_class = get_condition_label(p["ratio"])
+            label, css_class = get_condition_label(e["happiness"])
 
             pets.append({
                 "pet_id": p["pet_id"],
@@ -242,6 +240,7 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
 
 
