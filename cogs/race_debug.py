@@ -61,6 +61,8 @@ class RaceDebug(commands.Cog):
                 ephemeral=True
             )
 
+        print("🔵 lottery start")
+
         # ===== ここが修正の核心 =====
         # 抽選処理（DB）
         result = await self.db.run_race_lottery(
@@ -68,6 +70,7 @@ class RaceDebug(commands.Cog):
             race_date=today,
             schedule_id=target_race["id"]
         )
+        print("🟢 lottery end")
 
         selected = result.get("selected", [])
 
@@ -214,6 +217,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
