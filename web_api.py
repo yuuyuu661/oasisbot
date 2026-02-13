@@ -1,9 +1,21 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import os
 import asyncpg
 from datetime import datetime
 
 app = FastAPI()
+
+# ★ ここを追加
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://lacesite-production.up.railway.app"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 @app.get("/api/race/{guild_id}/{race_date}/{race_no}")
@@ -127,5 +139,6 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
 
