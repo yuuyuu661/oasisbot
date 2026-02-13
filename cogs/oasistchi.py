@@ -1122,25 +1122,25 @@ class OasistchiCog(commands.Cog):
         interaction: discord.Interaction,
         channel: discord.TextChannel,
     ):
+        await interaction.response.defer(ephemeral=True)
+
         guild_id = str(interaction.guild.id)
 
-        # 管理者ロールチェック
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
 
         if not any(str(r.id) in admin_roles for r in interaction.user.roles):
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 "❌ 管理者ロールが必要です。",
                 ephemeral=True
             )
 
-        # DB保存（ここだけで完結）
-        await self.bot.db.update_settings(
-            guild_id=guild_id,
-            result_channel_id=str(channel.id),
+        await self.bot.db.set_race_result_channel(
+            guild_id,
+            str(channel.id)
         )
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"✅ レース結果チャンネルを {channel.mention} に設定しました。",
             ephemeral=True
         )
@@ -2783,6 +2783,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
