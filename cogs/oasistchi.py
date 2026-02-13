@@ -1087,7 +1087,6 @@ class OasistchiCog(commands.Cog):
         body: str,
         egg_price: int,
         slot_price: int,
-        result_channel: discord.TextChannel,  # ← 使わないなら後で消してOK
     ):
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
@@ -2784,6 +2783,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
