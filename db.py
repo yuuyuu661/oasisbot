@@ -2106,7 +2106,8 @@ class Database:
     async def mark_race_lottery_done(self, race_id: int):
         await self._execute("""
             UPDATE race_schedules
-            SET lottery_done = TRUE
+            SET lottery_done = TRUE,
+                locked = TRUE
             WHERE id = $1
         """, race_id)
 
@@ -2507,6 +2508,7 @@ class Database:
         await self._ensure_pool()
         async with self.pool.acquire() as conn:
             return await conn.execute(query, *args)
+
 
 
 
