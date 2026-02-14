@@ -705,7 +705,7 @@ class Database:
     #   ユーザー残高（ギルド別管理）
     # ------------------------------------------------------
     async def get_user(self, user_id, guild_id):
-        await self._ensure_conn()
+        await self._ensure_pool()
         async with self._lock:
 
             row = await self._fetchrow(
@@ -724,7 +724,7 @@ class Database:
             return row
 
     async def set_balance(self, user_id, guild_id, amount):
-        await self._ensure_conn()
+        await self._ensure_pool()
         async with self._lock:
             await self._execute(
                 """
@@ -738,7 +738,7 @@ class Database:
 
 
     async def add_balance(self, user_id, guild_id, amount):
-        await self._ensure_conn()
+        await self._ensure_pool()
         async with self._lock:
 
             row = await self._fetchrow(
@@ -775,7 +775,7 @@ class Database:
 
 
     async def remove_balance(self, user_id, guild_id, amount):
-        await self._ensure_conn()
+        await self._ensure_pool()
         async with self._lock:
 
             row = await self._fetchrow(
@@ -807,7 +807,7 @@ class Database:
 
 
     async def get_all_balances(self, guild_id):
-        await self._ensure_conn()
+        await self._ensure_pool()
         async with self._lock:
             return await self._fetch(
                 "SELECT * FROM users WHERE guild_id=$1 ORDER BY balance DESC",
@@ -832,7 +832,7 @@ class Database:
     #   Settings
     # ------------------------------------------------------
     async def get_settings(self):
-        await self._ensure_conn()
+        await self._ensure_pool()
         async with self._lock:
             return await self._fetchrow(
                 "SELECT * FROM settings WHERE id = 1"
@@ -1011,7 +1011,7 @@ class Database:
     #   テーブル初期化（init_db から呼ばれる想定）
     # --------------------------------------------------
     async def init_jumbo_tables(self):
-        await self._ensure_conn()
+        await self._ensure_pool()
 
         # 開催設定
         await self._execute("""
@@ -1055,7 +1055,7 @@ class Database:
     #   開催設定
     # --------------------------------------------------
     async def jumbo_set_config(self, guild_id, title, description, deadline):
-        await self._ensure_conn()
+        await self._ensure_pool()
         await self._execute("""
             INSERT INTO jumbo_config
                 (guild_id, title, description, deadline, is_open)
@@ -1069,27 +1069,27 @@ class Database:
         """, guild_id, title, description, deadline)
 
     async def jumbo_get_config(self, guild_id):
-        await self._ensure_conn()
+        await self._ensure_pool()
         return await self._fetchrow(
             "SELECT * FROM jumbo_config WHERE guild_id=$1",
             guild_id
         )
 
     async def jumbo_close_config(self, guild_id):
-        await self._ensure_conn()
+        await self._ensure_pool()
         await self._execute("""
             UPDATE jumbo_config SET is_open=FALSE WHERE guild_id=$1
         """, guild_id)
 
     async def jumbo_reset_config(self, guild_id):
-        await self._ensure_conn()
+        await self._ensure_pool()
         await self._execute(
             "DELETE FROM jumbo_config WHERE guild_id=$1",
             guild_id
         )
 
     async def jumbo_set_panel_message(self, guild_id, channel_id, message_id):
-        await self._ensure_conn()
+        await self._ensure_pool()
         await self._execute("""
             UPDATE jumbo_config
             SET panel_channel_id=$2,
@@ -1101,7 +1101,7 @@ class Database:
     #   購入番号
     # --------------------------------------------------
     async def jumbo_add_number(self, guild_id, user_id, number):
-        await self._ensure_conn()
+        await self._ensure_pool()
         try:
             await self._execute("""
                 INSERT INTO jumbo_entries (guild_id, user_id, number)
@@ -1112,7 +1112,7 @@ class Database:
             return False
 
     async def jumbo_get_user_numbers(self, guild_id, user_id):
-        await self._ensure_conn()
+        await self._ensure_pool()
         return await self._fetch("""
             SELECT number FROM jumbo_entries
             WHERE guild_id=$1 AND user_id=$2
@@ -1120,7 +1120,7 @@ class Database:
         """, guild_id, user_id)
 
     async def jumbo_get_all_entries(self, guild_id):
-        await self._ensure_conn()
+        await self._ensure_pool()
         return await self._fetch("""
             SELECT guild_id, user_id, number
             FROM jumbo_entries
@@ -1128,14 +1128,14 @@ class Database:
         """, guild_id)
 
     async def jumbo_clear_entries(self, guild_id):
-        await self._ensure_conn()
+        await self._ensure_pool()
         await self._execute(
             "DELETE FROM jumbo_entries WHERE guild_id=$1",
             guild_id
         )
 
     async def jumbo_count_entries(self, guild_id):
-        await self._ensure_conn()
+        await self._ensure_pool()
         row = await self._fetchrow(
             "SELECT COUNT(*) AS cnt FROM jumbo_entries WHERE guild_id=$1",
             guild_id
@@ -1146,7 +1146,7 @@ class Database:
     #   当選番号・当選者
     # --------------------------------------------------
     async def jumbo_set_winning_number(self, guild_id, winning_number):
-        await self._ensure_conn()
+        await self._ensure_pool()
         result = await self._execute("""
             UPDATE jumbo_config
             SET winning_number=$2,
@@ -1160,7 +1160,7 @@ class Database:
     async def jumbo_add_winner(
         self, guild_id, rank, number, user_id, match_count, prize
     ):
-        await self._ensure_conn()
+        await self._ensure_pool()
         await self._execute("""
             INSERT INTO jumbo_winners
                 (guild_id, rank, number, user_id, match_count, prize)
@@ -1169,7 +1169,7 @@ class Database:
         """, guild_id, rank, number, user_id, match_count, prize)
 
     async def jumbo_get_winners(self, guild_id):
-        await self._ensure_conn()
+        await self._ensure_pool()
         return await self._fetch("""
             SELECT * FROM jumbo_winners
             WHERE guild_id=$1
@@ -1177,7 +1177,7 @@ class Database:
         """, guild_id)
 
     async def jumbo_clear_winners(self, guild_id):
-        await self._ensure_conn()
+        await self._ensure_pool()
         await self._execute(
             "DELETE FROM jumbo_winners WHERE guild_id=$1",
             guild_id
@@ -1186,7 +1186,7 @@ class Database:
     #   ジャンボ購入枚数
     # --------------------------------------------------
     async def jumbo_count_user_entries(self, guild_id, user_id):
-        await self._ensure_conn()
+        await self._ensure_pool()
         row = await self._fetchrow("""
             SELECT COUNT(*) AS cnt
             FROM jumbo_entries
@@ -1197,7 +1197,7 @@ class Database:
     #   ジャンボ：ユーザーの所持口数
     # ------------------------------------------------------
     async def jumbo_get_user_count(self, guild_id: str, user_id: str) -> int:
-        await self._ensure_conn()
+        await self._ensure_pool()
         row = await self._fetchrow(
             """
             SELECT COUNT(*) AS cnt
@@ -1238,7 +1238,7 @@ class Database:
     # おあしすっち：ユーザー
     # -------------------------------
     async def get_oasistchi_user(self, user_id: str):
-        await self._ensure_conn()
+        await self._ensure_pool()
         row = await self._fetchrow(
             "SELECT * FROM oasistchi_users WHERE user_id=$1",
             user_id
@@ -1266,7 +1266,7 @@ class Database:
     # おあしすっち：取得
     # -------------------------------
     async def get_oasistchi_pets(self, user_id: str):
-        await self._ensure_conn()
+        await self._ensure_pool()
         return await self._fetch(
             "SELECT * FROM oasistchi_pets WHERE user_id=$1 ORDER BY id ASC",
             user_id
@@ -1330,7 +1330,7 @@ class Database:
         *,
         fixed_adult_key: str | None = None
     ):
-        await self._ensure_conn()
+        await self._ensure_pool()
 
         async with self._lock:
             async with self.pool.acquire() as conn:
@@ -1614,7 +1614,7 @@ class Database:
     # おあしすっち：更新
     # -------------------------------
     async def update_oasistchi_pet(self, pet_id: int, **fields):
-        await self._ensure_conn()
+        await self._ensure_pool()
         async with self._lock:
 
             cols = []
@@ -1639,14 +1639,14 @@ class Database:
     # おあしすっち：全ペット取得（poop_check用）
     # ----------------------------------------
     async def get_all_oasistchi_pets(self):
-        await self._ensure_conn()
+        await self._ensure_pool()
         async with self._lock:
             return await self._fetch(
                 "SELECT * FROM oasistchi_pets"
             )
 
     async def get_oasistchi_pet(self, pet_id: int):
-        await self._ensure_conn()
+        await self._ensure_pool()
         async with self._lock:
             return await self._fetchrow(
                 "SELECT * FROM oasistchi_pets WHERE id=$1",
@@ -1657,7 +1657,7 @@ class Database:
     # おあしすっち：図鑑（取得）
     # -------------------------------
     async def get_oasistchi_owned_adult_keys(self, user_id: str) -> set[str]:
-        await self._ensure_conn()
+        await self._ensure_pool()
         async with self._lock:
             rows = await self._fetch(
                 "SELECT adult_key FROM oasistchi_dex WHERE user_id=$1",
@@ -1669,7 +1669,7 @@ class Database:
     # おあしすっち：図鑑（追加）
     # -------------------------------
     async def add_oasistchi_dex(self, user_id: str, adult_key: str):
-        await self._ensure_conn()
+        await self._ensure_pool()
         async with self._lock:
             await self._execute(
                 """
@@ -1684,7 +1684,7 @@ class Database:
     # おあしすっち：通知設定（取得）
     # -------------------------------
     async def get_oasistchi_notify_all(self, user_id: str) -> bool:
-        await self._ensure_conn()
+        await self._ensure_pool()
         row = await self._fetchrow(
             "SELECT notify_all FROM oasistchi_notify WHERE user_id=$1",
             user_id
@@ -1695,7 +1695,7 @@ class Database:
     # おあしすっち：通知設定（更新）
     # -------------------------------
     async def set_oasistchi_notify_all(self, user_id: str, on: bool):
-        await self._ensure_conn()
+        await self._ensure_pool()
 
         if on:
             await self._execute("""
@@ -1712,7 +1712,7 @@ class Database:
             await self._execute("DELETE FROM oasistchi_notify WHERE user_id=$1", user_id)
 
     async def delete_oasistchi_pet(self, pet_id: int):
-        await self._ensure_conn()
+        await self._ensure_pool()
         async with self._lock:
             await self._execute(
                 "DELETE FROM oasistchi_pets WHERE id=$1",
@@ -1731,7 +1731,7 @@ class Database:
 
 
     async def get_race_entries_by_schedule(self, race_date, schedule_id, guild_id: str):
-        await self._ensure_conn()
+        await self._ensure_pool()
         return await self._fetch("""
             SELECT * FROM race_entries
             WHERE race_date = $1
@@ -1775,7 +1775,7 @@ class Database:
 
 
     async def get_oasistchi_notify_settings(self, user_id: str) -> dict | None:
-        await self._ensure_conn()
+        await self._ensure_pool()
         row = await self._fetchrow(
             "SELECT notify_poop, notify_food, notify_pet_ready FROM oasistchi_notify WHERE user_id=$1",
             user_id
@@ -1926,7 +1926,7 @@ class Database:
     # レース関係関数
     # -----------------------------------------
     async def get_race_entries_pending(self, guild_id: str, race_date, schedule_id: int):
-        await self._ensure_conn()
+        await self._ensure_pool()
         return await self._fetch("""
             SELECT *
             FROM race_entries
@@ -2179,7 +2179,7 @@ class Database:
     # レース完了
     # --------------------------------------------------
     async def mark_race_finished(self, race_id: int):
-        await self._ensure_conn()
+        await self._ensure_pool()
         await self._execute("""
             UPDATE race_schedules
             SET race_finished = TRUE
@@ -2190,7 +2190,7 @@ class Database:
     # 未完了レース取得（日付）
     # --------------------------------------------------
     async def get_unfinished_races_by_date(self, race_date: date, guild_id: str):
-        await self._ensure_conn()
+        await self._ensure_pool()
         return await self._fetch("""
             SELECT *
             FROM race_schedules
@@ -2204,7 +2204,7 @@ class Database:
     # 未完了レース存在チェック
     # --------------------------------------------------
     async def has_unfinished_race(self, race_id: int) -> bool:
-        await self._ensure_conn()
+        await self._ensure_pool()
         row = await self._fetchrow("""
             SELECT 1
             FROM race_schedules
@@ -2214,7 +2214,7 @@ class Database:
         return row is not None
 
     async def get_race_entries_by_status(self, race_id: int, status: str):
-        await self._ensure_conn()
+        await self._ensure_pool()
         return await self._fetch("""
             SELECT *
             FROM race_entries
@@ -2227,7 +2227,7 @@ class Database:
     #   レースWeb機能（おあしすっち）※衝突回避版
     # ======================================================
     async def init_race_tables(self):
-        await self._ensure_conn()
+        await self._ensure_pool()
 
         # ★ race_schedules / race_entries（抽選用）と衝突するので別名にする
         await self._execute("""
@@ -2271,7 +2271,7 @@ class Database:
     # speed/power/stamina は「base + train」を優先して0を回避
     # --------------------------------------------------
     async def get_selected_pets_for_api(self, guild_id: str, race_date: date, schedule_id: int):
-        await self._ensure_conn()
+        await self._ensure_pool()
 
         rows = await self._fetch("""
             SELECT
@@ -2335,7 +2335,7 @@ class Database:
         ・lottery_done を TRUE にする
         """
 
-        await self._ensure_conn()
+        await self._ensure_pool()
 
         async with self._lock:
             async with self.pool.acquire() as conn:
@@ -2407,7 +2407,7 @@ class Database:
     # レース設定取得
     # =========================
     async def get_race_settings(self, guild_id: str):
-        await self._ensure_conn()
+        await self._ensure_pool()
         return await self._fetchrow(
             "SELECT * FROM race_settings WHERE guild_id=$1",
             str(guild_id)
@@ -2417,7 +2417,7 @@ class Database:
     # レース結果チャンネル設定
     # =========================
     async def set_race_result_channel(self, guild_id: str, channel_id: str):
-        await self._ensure_conn()
+        await self._ensure_pool()
         await self._execute("""
             INSERT INTO race_settings (guild_id, result_channel_id)
             VALUES ($1, $2)
@@ -2464,24 +2464,25 @@ class Database:
             self._save_badges(data)
 
     async def _fetch(self, query, *args):
-        await self._ensure_conn()
+        await self._ensure_pool()
         async with self.pool.acquire() as conn:
             return await conn.fetch(query, *args)
 
     async def _fetchrow(self, query, *args):
-        await self._ensure_conn()
+        await self._ensure_pool()
         async with self.pool.acquire() as conn:
             return await conn.fetchrow(query, *args)
 
     async def _fetchval(self, query, *args):
-        await self._ensure_conn()
+        await self._ensure_pool()
         async with self.pool.acquire() as conn:
             return await conn.fetchval(query, *args)
 
     async def _execute(self, query, *args):
-        await self._ensure_conn()
+        await self._ensure_pool()
         async with self.pool.acquire() as conn:
             return await conn.execute(query, *args)
+
 
 
 
