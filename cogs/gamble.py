@@ -17,11 +17,11 @@ async def delete_when_expired(bot, guild_id: str, expire_dt: datetime):
 
     # すでに過ぎている場合は即実行
     if wait_sec <= 0:
-        await bot.db.conn.execute(
+        await bot.db._execute(
             "DELETE FROM gamble_current WHERE guild_id=$1",
             guild_id
         )
-        await bot.db.conn.execute(
+        await bot.db._execute(
             "DELETE FROM gamble_bets WHERE guild_id=$1",
             guild_id
         )
@@ -31,17 +31,17 @@ async def delete_when_expired(bot, guild_id: str, expire_dt: datetime):
     await asyncio.sleep(wait_sec)
 
     # まだギャンブルが残っていれば削除
-    exist = await bot.db.conn.fetchrow(
+    exist = await bot.db._fetchrow(
         "SELECT * FROM gamble_current WHERE guild_id=$1",
         guild_id
     )
 
     if exist:
-        await bot.db.conn.execute(
+        await bot.db._execute(
             "DELETE FROM gamble_current WHERE guild_id=$1",
             guild_id
         )
-        await bot.db.conn.execute(
+        await bot.db._execute(
             "DELETE FROM gamble_bets WHERE guild_id=$1",
             guild_id
         )
@@ -61,7 +61,7 @@ class GambleCog(commands.Cog):
         Bot再起動時などに、DBに残っているギャンブルの expire_at を見て
         自動削除タスクを張り直す。
         """
-        rows = await self.bot.db.conn.fetch(
+        rows = await self.bot.db._fetch(
             "SELECT guild_id, expire_at FROM gamble_current"
         )
 
@@ -82,17 +82,17 @@ class GambleCog(commands.Cog):
 
     # DB取得
     async def get_current_gamble(self, guild_id: str):
-        return await self.bot.db.conn.fetchrow(
+        return await self.bot.db._fetchrow(
             "SELECT * FROM gamble_current WHERE guild_id=$1",
             guild_id
         )
 
     async def clear_gamble(self, guild_id: str):
-        await self.bot.db.conn.execute(
+        await self.bot.db._execute(
             "DELETE FROM gamble_current WHERE guild_id=$1",
             guild_id
         )
-        await self.bot.db.conn.execute(
+        await self.bot.db._execute(
             "DELETE FROM gamble_bets WHERE guild_id=$1",
             guild_id
         )
@@ -133,7 +133,7 @@ class GambleCog(commands.Cog):
         expire_dt = datetime(year, month, day, hour, minute)
 
         # DB登録
-        await self.bot.db.conn.execute(
+        await self.bot.db._execute(
             """
             INSERT INTO gamble_current (
                 guild_id, starter_id, opponent_id,
@@ -275,12 +275,12 @@ class AcceptView(discord.ui.View):
             )
 
         # 承諾
-        await self.bot.db.conn.execute(
+        await self.bot.db._execute(
             "UPDATE gamble_current SET status='betting' WHERE guild_id=$1",
             self.guild_id
         )
 
-        data = await self.bot.db.conn.fetchrow(
+        data = await self.bot.db._fetchrow(
             "SELECT * FROM gamble_current WHERE guild_id=$1",
             self.guild_id
         )
@@ -340,7 +340,7 @@ class BetView(discord.ui.View):
                 ephemeral=True
             )
 
-        await self.bot.db.conn.execute(
+        await self.bot.db._execute(
             "UPDATE gamble_current SET status='closed' WHERE guild_id=$1",
             self.guild_id
         )
@@ -387,7 +387,7 @@ class BetView(discord.ui.View):
 
                 await interaction.client.db.remove_balance(uid, guild_id, amt)
 
-                await interaction.client.db.conn.execute(
+                await interaction.client.db._execute(
                     """
                     INSERT INTO gamble_bets (guild_id, user_id, side, amount)
                     VALUES ($1,$2,$3,$4)
@@ -462,7 +462,7 @@ class JudgeView(discord.ui.View):
 
     async def finish(self, interaction: discord.Interaction, winner_side: str):
 
-        await self.bot.db.conn.execute(
+        await self.bot.db._execute(
             "UPDATE gamble_current SET winner=$1 WHERE guild_id=$2",
             winner_side,
             self.guild_id
@@ -473,11 +473,11 @@ class JudgeView(discord.ui.View):
         await interaction.channel.send(embed=embed)
 
         # DBクリーンアップ
-        await self.bot.db.conn.execute(
+        await self.bot.db._execute(
             "DELETE FROM gamble_current WHERE guild_id=$1",
             self.guild_id
         )
-        await self.bot.db.conn.execute(
+        await self.bot.db._execute(
             "DELETE FROM gamble_bets WHERE guild_id=$1",
             self.guild_id
         )
@@ -489,11 +489,11 @@ class JudgeView(discord.ui.View):
         guild_id = self.guild_id
         db = self.bot.db
 
-        data = await db.conn.fetchrow(
+        data = await db._fetchrow(
             "SELECT * FROM gamble_current WHERE guild_id=$1",
             guild_id
         )
-        bets = await db.conn.fetch(
+        bets = await db._fetch(
             "SELECT * FROM gamble_bets WHERE guild_id=$1",
             guild_id
         )
@@ -613,6 +613,7 @@ class JudgeView(discord.ui.View):
 # ===========================================================
 async def setup(bot: commands.Bot):
     await bot.add_cog(GambleCog(bot))
+
 
 
 
