@@ -591,6 +591,31 @@ class Database:
             SET lottery_done = FALSE
             WHERE lottery_done IS NULL;
         """)
+        # -----------------------------------------
+        # race_schedules に locked が無ければ追加
+        # -----------------------------------------
+        col_check = await self._fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'race_schedules';
+        """)
+
+        existing_cols = {row["column_name"] for row in col_check}
+
+        if "locked" not in existing_cols:
+            print("🛠 race_schedules に locked カラムを追加します…")
+            await self._execute("""
+                ALTER TABLE race_schedules
+                ADD COLUMN locked BOOLEAN DEFAULT FALSE;
+            """)
+            print("✅ locked カラム追加完了")
+
+        # NULL対策（念のため）
+        await self._execute("""
+            UPDATE race_schedules
+            SET locked = FALSE
+            WHERE locked IS NULL;
+        """)
 
         # -----------------------------------------
         # race_schedules テーブルに レース用
@@ -2482,6 +2507,7 @@ class Database:
         await self._ensure_pool()
         async with self.pool.acquire() as conn:
             return await conn.execute(query, *args)
+
 
 
 
