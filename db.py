@@ -58,9 +58,10 @@ class Database:
                 max_size=10
             )
 
-    async def _ensure_conn(self):
+    async def _ensure_pool(self):
         if self.pool is None:
             await self.connect()
+
 
     # ------------------------------------------------------
     #   初期化（テーブル自動作成）
@@ -2481,6 +2482,7 @@ class Database:
         await self._ensure_conn()
         async with self.pool.acquire() as conn:
             return await conn.execute(query, *args)
+
 
 
 
