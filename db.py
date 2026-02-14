@@ -21,7 +21,7 @@ ENTRY_OPEN_MINUTES = 60  # レース開始60分前に締切
 
 class Database:
     def __init__(self):
-        self.conn = None
+        self.pool = None
         self.dsn = os.getenv("DATABASE_URL")
         self._lock = asyncio.Lock()
         # バッジJSON
@@ -51,11 +51,15 @@ class Database:
     #   DB接続
     # ------------------------------------------------------
     async def connect(self):
-        if self.conn is None:
-            self.conn = await asyncpg.connect(self.dsn)
+        if self.pool is None:
+            self.pool = await asyncpg.create_pool(
+                dsn=self.dsn,
+                min_size=1,
+                max_size=10
+            )
 
     async def _ensure_conn(self):
-        if self.conn is None:
+        if self.pool is None:
             await self.connect()
 
     # ------------------------------------------------------
@@ -65,7 +69,7 @@ class Database:
         await self.connect()
 
         # Users テーブル（ギルド別通貨管理）
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS users (
                 user_id TEXT NOT NULL,
                 guild_id TEXT NOT NULL,
@@ -75,7 +79,7 @@ class Database:
         """)
 
         # 給料ロールテーブル
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS role_salaries (
                 role_id TEXT PRIMARY KEY,
                 salary INTEGER NOT NULL
@@ -83,7 +87,7 @@ class Database:
         """)
 
         # Settings テーブル（1行固定）
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS settings (
                 id INTEGER PRIMARY KEY,
                 admin_roles TEXT[],         -- 通貨管理ロールID配列
@@ -98,7 +102,7 @@ class Database:
         """)
 
         # サブスク設定テーブル
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS subscription_settings (
                 guild_id TEXT PRIMARY KEY,
                 standard_role TEXT,
@@ -112,7 +116,7 @@ class Database:
         """)
 
         # 面接設定テーブル
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS interview_settings (
                 guild_id TEXT PRIMARY KEY,
                 interviewer_role TEXT,
@@ -125,7 +129,7 @@ class Database:
         # -----------------------------------------
         # 既存 settings テーブルのカラム補完
         # -----------------------------------------
-        col_check = await self.conn.fetch("""
+        col_check = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'settings';
@@ -146,12 +150,12 @@ class Database:
         for col, col_type in ADD_COLUMNS.items():
             if col not in existing_cols:
                 print(f"🛠 settings テーブルに {col} カラムを追加します…")
-                await self.conn.execute(
+                await self._execute(
                     f"ALTER TABLE settings ADD COLUMN {col} {col_type};"
                 )
 
         # ホテル設定テーブル
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS hotel_settings (
                 guild_id TEXT PRIMARY KEY,
                 manager_role TEXT,
@@ -164,7 +168,7 @@ class Database:
         """)
 
         # ホテルチケット所持テーブル
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS hotel_tickets (
                 user_id TEXT,
                 guild_id TEXT,
@@ -174,7 +178,7 @@ class Database:
         """)
 
         # ホテルルーム管理テーブル
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS hotel_rooms (
                 channel_id TEXT PRIMARY KEY,
                 guild_id TEXT,
@@ -187,7 +191,7 @@ class Database:
         # ==================================================
 
         # ユーザーごとの育成枠
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS oasistchi_users (
                 user_id TEXT PRIMARY KEY,
                 slots INTEGER NOT NULL DEFAULT 1
@@ -195,7 +199,7 @@ class Database:
         """)
 
         # おあしすっち本体
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS oasistchi_pets (
                 id SERIAL PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -228,7 +232,7 @@ class Database:
         # =========================
         # レース設定（ギルド別）
         # =========================
-        await self.conn.execute("""
+        await self._execute("""
         CREATE TABLE IF NOT EXISTS race_settings (
             guild_id TEXT PRIMARY KEY,
             result_channel_id TEXT
@@ -240,7 +244,7 @@ class Database:
         # ==================================================
 
         # 図鑑（成体履歴）
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS oasistchi_dex (
                 user_id TEXT NOT NULL,
                 adult_key TEXT NOT NULL,
@@ -250,7 +254,7 @@ class Database:
         """)
 
         # 通知設定
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS oasistchi_notify (
                 user_id TEXT PRIMARY KEY,
                 notify_poop BOOLEAN NOT NULL DEFAULT TRUE,
@@ -260,7 +264,7 @@ class Database:
         """)
 
         # 既存DBにカラム補完（すでにテーブルがある場合）
-        col_check = await self.conn.fetch("""
+        col_check = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'oasistchi_notify';
@@ -274,12 +278,12 @@ class Database:
         }
         for col, col_type in NOTIFY_COLUMNS.items():
             if col not in existing_cols:
-                await self.conn.execute(f"ALTER TABLE oasistchi_notify ADD COLUMN {col} {col_type};")
+                await self._execute(f"ALTER TABLE oasistchi_notify ADD COLUMN {col} {col_type};")
 
         # -----------------------------------------
         # settings テーブルに race_result_channel_id を追加
         # -----------------------------------------
-        col_check = await self.conn.fetch("""
+        col_check = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'settings'
@@ -289,7 +293,7 @@ class Database:
 
         if "race_result_channel_id" not in existing_cols:
             print("🛠 settings テーブルに race_result_channel_id を追加します")
-            await self.conn.execute("""
+            await self._execute("""
                 ALTER TABLE settings
                 ADD COLUMN race_result_channel_id TEXT
             """)
@@ -298,7 +302,7 @@ class Database:
         # =========================
         # レース関連テーブル
         # =========================
-        await self.conn.execute("""
+        await self._execute("""
         CREATE TABLE IF NOT EXISTS race_schedules (
             id SERIAL PRIMARY KEY,
             race_no INTEGER NOT NULL,
@@ -310,7 +314,7 @@ class Database:
         );
         """)
 
-        await self.conn.execute("""
+        await self._execute("""
         CREATE TABLE IF NOT EXISTS race_entries (
             id SERIAL PRIMARY KEY,
             race_date DATE NOT NULL,
@@ -323,7 +327,7 @@ class Database:
         );
         """)
 
-        await self.conn.execute("""
+        await self._execute("""
         CREATE TABLE IF NOT EXISTS race_results (
             id SERIAL PRIMARY KEY,
             race_date DATE NOT NULL,
@@ -340,7 +344,7 @@ class Database:
         # -----------------------------------------
         # race_entries に status カラムがなければ追加
         # -----------------------------------------
-        col_check = await self.conn.fetch("""
+        col_check = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'race_entries';
@@ -349,7 +353,7 @@ class Database:
 
         if "status" not in existing_cols:
             print("🛠 race_entries に status カラムを追加します…")
-            await self.conn.execute("""
+            await self._execute("""
                 ALTER TABLE race_entries
                 ADD COLUMN status TEXT NOT NULL DEFAULT 'pending';
             """)
@@ -358,7 +362,7 @@ class Database:
         # --------------------------------------------------
         # おあしすっち：レース用カラム補完
         # --------------------------------------------------
-        col_check = await self.conn.fetch("""
+        col_check = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'oasistchi_pets';
@@ -371,7 +375,7 @@ class Database:
         # --------------------------------------------------
         if "training_count" not in existing_cols:
             print("🛠 oasistchi_pets に training_count カラムを追加します…")
-            await self.conn.execute("""
+            await self._execute("""
                 ALTER TABLE oasistchi_pets
                 ADD COLUMN training_count INTEGER NOT NULL DEFAULT 0;
             """)
@@ -384,12 +388,12 @@ class Database:
         for col, col_type in ADD_COLUMNS.items():
             if col not in existing_cols:
                 print(f"🛠 oasistchi_pets に {col} カラムを追加します…")
-                await self.conn.execute(
+                await self._execute(
                     f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
                 )
 
         # settings テーブルに guild_id がなければ追加
-        col_check = await self.conn.fetch("""
+        col_check = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'settings';
@@ -399,7 +403,7 @@ class Database:
 
         if "guild_id" not in existing_cols:
             print("🛠 settings テーブルに guild_id カラムを追加します…")
-            await self.conn.execute("""
+            await self._execute("""
                 ALTER TABLE settings
                 ADD COLUMN guild_id TEXT;
             """)
@@ -409,7 +413,7 @@ class Database:
         # --------------------------------------------------
         # おあしすっち：ステータス（特訓用）カラム補完
         # --------------------------------------------------
-        col_check = await self.conn.fetch("""
+        col_check = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'oasistchi_pets';
@@ -428,7 +432,7 @@ class Database:
 
         for col, col_type in ADD_COLUMNS.items():
             if col not in existing_cols:
-                await self.conn.execute(
+                await self._execute(
                     f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
                 )
         # --------------------------------------------------
@@ -443,14 +447,14 @@ class Database:
         for col, col_type in ADD_STATUS_COLUMNS.items():
             if col not in existing_cols:
                 print(f"🛠 oasistchi_pets に {col} カラムを追加します…")
-                await self.conn.execute(
+                await self._execute(
                     f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
                 )
 
         # --------------------------------------------------
         # おあしすっち：時間管理用カラム補完
         # --------------------------------------------------
-        col_check = await self.conn.fetch("""
+        col_check = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'oasistchi_pets';
@@ -468,14 +472,14 @@ class Database:
         for col, col_type in TIME_COLUMNS.items():
             if col not in existing_cols:
                 print(f"🛠 oasistchi_pets に {col} カラムを追加します…")
-                await self.conn.execute(
+                await self._execute(
                     f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
                 )
 
         # --------------------------------------------------
         # おあしすっち：通知予定時刻カラム（★再起動耐性）
         # --------------------------------------------------
-        col_check = await self.conn.fetch("""
+        col_check = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'oasistchi_pets';
@@ -492,13 +496,13 @@ class Database:
         for col, col_type in NOTIFY_TIME_COLUMNS.items():
             if col not in existing_cols:
                 print(f"🛠 oasistchi_pets に {col} カラムを追加します…")
-                await self.conn.execute(
+                await self._execute(
                     f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};"
                 )
         # -----------------------------------------
         # oasistchi_pets カラム補完
         # -----------------------------------------
-        col_check = await self.conn.fetch("""
+        col_check = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'oasistchi_pets';
@@ -508,7 +512,7 @@ class Database:
 
         if "fixed_adult_key" not in existing_cols:
             print("🛠 oasistchi_pets に fixed_adult_key カラムを追加します…")
-            await self.conn.execute("""
+            await self._execute("""
                 ALTER TABLE oasistchi_pets
                 ADD COLUMN fixed_adult_key TEXT;
             """)
@@ -519,7 +523,7 @@ class Database:
         # --------------------------------------------------
 
         # race_schedules
-        cols = await self.conn.fetch("""
+        cols = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'race_schedules';
@@ -528,14 +532,14 @@ class Database:
 
         if "race_finished" not in race_schedule_cols:
             print("🛠 race_schedules に race_finished を追加します…")
-            await self.conn.execute("""
+            await self._execute("""
                 ALTER TABLE race_schedules
                 ADD COLUMN race_finished BOOLEAN DEFAULT FALSE;
             """)
             print("✅ race_finished 追加完了")
 
         # race_entries
-        cols = await self.conn.fetch("""
+        cols = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'race_entries';
@@ -544,7 +548,7 @@ class Database:
 
         if "rank" not in race_entry_cols:
             print("🛠 race_entries に rank を追加します…")
-            await self.conn.execute("""
+            await self._execute("""
                 ALTER TABLE race_entries
                 ADD COLUMN rank INTEGER;
             """)
@@ -552,7 +556,7 @@ class Database:
 
         if "score" not in race_entry_cols:
             print("🛠 race_entries に score を追加します…")
-            await self.conn.execute("""
+            await self._execute("""
                 ALTER TABLE race_entries
                 ADD COLUMN score REAL;
             """)
@@ -565,7 +569,7 @@ class Database:
         # -----------------------------------------
         # race_schedules に lottery_done が無ければ追加
         # -----------------------------------------
-        col_check = await self.conn.fetch("""
+        col_check = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'race_schedules';
@@ -575,13 +579,13 @@ class Database:
 
         if "lottery_done" not in existing_cols:
             print("🛠 race_schedules に lottery_done カラムを追加します…")
-            await self.conn.execute("""
+            await self._execute("""
                 ALTER TABLE race_schedules
                 ADD COLUMN lottery_done BOOLEAN DEFAULT FALSE;
             """)
             print("✅ lottery_done カラム追加完了")
 
-        await self.conn.execute("""
+        await self._execute("""
             UPDATE race_schedules
             SET lottery_done = FALSE
             WHERE lottery_done IS NULL;
@@ -590,7 +594,7 @@ class Database:
         # -----------------------------------------
         # race_schedules テーブルに レース用
         # -----------------------------------------
-        col_check = await self.conn.fetch("""
+        col_check = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'race_schedules';
@@ -600,13 +604,13 @@ class Database:
 
         if "race_date" not in existing_cols:
             print("🛠 race_schedules テーブルに race_date カラムを追加します…")
-            await self.conn.execute("""
+            await self._execute("""
                 ALTER TABLE race_schedules
                 ADD COLUMN race_date DATE;
             """)
 
             # 既存データがあれば今日の日付を入れる
-            await self.conn.execute("""
+            await self._execute("""
                 UPDATE race_schedules
                 SET race_date = CURRENT_DATE
                 WHERE race_date IS NULL;
@@ -618,7 +622,7 @@ class Database:
         # --------------------------------------------------
         now = time.time()
 
-        col_check = await self.conn.fetch("""
+        col_check = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'oasistchi_pets';
@@ -627,7 +631,7 @@ class Database:
 
         # 💩 うんち：次回チェック時刻が未設定の個体
         if "next_poop_check_at" in cols:
-            await self.conn.execute("""
+            await self._execute("""
                 UPDATE oasistchi_pets
                 SET next_poop_check_at = $1
                 WHERE next_poop_check_at = 0;
@@ -635,14 +639,14 @@ class Database:
 
         # 🤚 なでなで：last_pet があるのに予定時刻が無い個体
         if "pet_ready_at" in cols:
-            await self.conn.execute("""
+            await self._execute("""
                 UPDATE oasistchi_pets
                 SET pet_ready_at = last_pet + 10800
                 WHERE last_pet > 0 AND pet_ready_at = 0;
             """)
         
 
-        col_check = await self.conn.fetch("""
+        col_check = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'oasistchi_pets';
@@ -657,9 +661,9 @@ class Database:
         for col, col_type in ALERT_COLUMNS.items():
             if col not in existing_cols:
                 print(f"🛠 oasistchi_pets に {col} カラムを追加します…")
-                await self.conn.execute(f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};")
+                await self._execute(f"ALTER TABLE oasistchi_pets ADD COLUMN {col} {col_type};")
         # 初期設定が無ければ作成
-        exists = await self.conn.execute("""
+        exists = await self._execute("""
             INSERT INTO settings
                 (id, admin_roles, currency_unit,
                  log_pay, log_manage, log_interview, log_salary, log_hotel, log_backup)
@@ -672,17 +676,17 @@ class Database:
         print("🔧 Settings 初期化行を作成しました")
 
         # db.py の init_db() 内、hotel_settings 作成の後あたりに追記
-        col_check = await self.conn.fetch("""
+        col_check = await self._fetch("""
             SELECT column_name FROM information_schema.columns
             WHERE table_name = 'hotel_settings';
         """)
         existing_cols = {row["column_name"] for row in col_check}
 
         if "category_ids" not in existing_cols:
-            await self.conn.execute("""
+            await self._execute("""
                 ALTER TABLE hotel_settings ADD COLUMN category_ids TEXT[];
             """)
-            await self.conn.execute("""
+            await self._execute("""
                 UPDATE hotel_settings SET category_ids = ARRAY[]::TEXT[] WHERE category_ids IS NULL;
             """)
 
@@ -703,16 +707,16 @@ class Database:
         await self._ensure_conn()
         async with self._lock:
 
-            row = await self.conn.fetchrow(
+            row = await self._fetchrow(
                 "SELECT * FROM users WHERE user_id=$1 AND guild_id=$2",
                 user_id, guild_id
             )
             if not row:
-                await self.conn.execute(
+                await self._execute(
                     "INSERT INTO users (user_id, guild_id, balance) VALUES ($1, $2, 0)",
                     user_id, guild_id
                 )
-                row = await self.conn.fetchrow(
+                row = await self._fetchrow(
                     "SELECT * FROM users WHERE user_id=$1 AND guild_id=$2",
                     user_id, guild_id
                 )
@@ -721,7 +725,7 @@ class Database:
     async def set_balance(self, user_id, guild_id, amount):
         await self._ensure_conn()
         async with self._lock:
-            await self.conn.execute(
+            await self._execute(
                 """
                 INSERT INTO users (user_id, guild_id, balance)
                 VALUES ($1, $2, $3)
@@ -736,7 +740,7 @@ class Database:
         await self._ensure_conn()
         async with self._lock:
 
-            row = await self.conn.fetchrow(
+            row = await self._fetchrow(
                 """
                 SELECT balance
                 FROM users
@@ -747,7 +751,7 @@ class Database:
             )
 
             if not row:
-                await self.conn.execute(
+                await self._execute(
                     "INSERT INTO users (user_id, guild_id, balance) VALUES ($1, $2, 0)",
                     user_id, guild_id
                 )
@@ -757,7 +761,7 @@ class Database:
 
             new_amount = current + amount
 
-            await self.conn.execute(
+            await self._execute(
                 """
                 UPDATE users
                 SET balance=$1
@@ -773,7 +777,7 @@ class Database:
         await self._ensure_conn()
         async with self._lock:
 
-            row = await self.conn.fetchrow(
+            row = await self._fetchrow(
                 """
                 SELECT balance
                 FROM users
@@ -789,7 +793,7 @@ class Database:
             current = row["balance"]
             new_amount = max(0, current - amount)
 
-            await self.conn.execute(
+            await self._execute(
                 """
                 UPDATE users
                 SET balance=$1
@@ -804,7 +808,7 @@ class Database:
     async def get_all_balances(self, guild_id):
         await self._ensure_conn()
         async with self._lock:
-            return await self.conn.fetch(
+            return await self._fetch(
                 "SELECT * FROM users WHERE guild_id=$1 ORDER BY balance DESC",
                 guild_id
             )
@@ -813,7 +817,7 @@ class Database:
     #   給料ロール関連
     # ------------------------------------------------------
     async def set_salary(self, role_id, salary):
-        await self.conn.execute("""
+        await self._execute("""
             INSERT INTO role_salaries (role_id, salary)
             VALUES ($1, $2)
             ON CONFLICT (role_id)
@@ -821,7 +825,7 @@ class Database:
         """, role_id, salary)
 
     async def get_salaries(self):
-        return await self.conn.fetch("SELECT * FROM role_salaries")
+        return await self._fetch("SELECT * FROM role_salaries")
 
     # ------------------------------------------------------
     #   Settings
@@ -829,7 +833,7 @@ class Database:
     async def get_settings(self):
         await self._ensure_conn()
         async with self._lock:
-            return await self.conn.fetchrow(
+            return await self._fetchrow(
                 "SELECT * FROM settings WHERE id = 1"
             )
 
@@ -844,19 +848,19 @@ class Database:
             idx += 1
 
         sql = f"UPDATE settings SET {', '.join(columns)} WHERE id = 1"
-        await self.conn.execute(sql, *values)
+        await self._execute(sql, *values)
 
     # ------------------------------------------------------
     #   ホテルチケット管理
     # ------------------------------------------------------
     async def get_tickets(self, user_id, guild_id):
-        row = await self.conn.fetchrow(
+        row = await self._fetchrow(
             "SELECT tickets FROM hotel_tickets WHERE user_id=$1 AND guild_id=$2",
             user_id, guild_id
         )
         if not row:
             # 自動作成
-            await self.conn.execute(
+            await self._execute(
                 "INSERT INTO hotel_tickets (user_id, guild_id, tickets) VALUES ($1, $2, 0)",
                 user_id, guild_id
             )
@@ -866,7 +870,7 @@ class Database:
     async def add_tickets(self, user_id, guild_id, amount):
         current = await self.get_tickets(user_id, guild_id)
         new_amount = current + amount
-        await self.conn.execute(
+        await self._execute(
             "UPDATE hotel_tickets SET tickets=$1 WHERE user_id=$2 AND guild_id=$3",
             new_amount, user_id, guild_id
         )
@@ -875,7 +879,7 @@ class Database:
     async def remove_tickets(self, user_id, guild_id, amount):
         current = await self.get_tickets(user_id, guild_id)
         new_amount = max(0, current - amount)
-        await self.conn.execute(
+        await self._execute(
             "UPDATE hotel_tickets SET tickets=$1 WHERE user_id=$2 AND guild_id=$3",
             new_amount, user_id, guild_id
         )
@@ -885,7 +889,7 @@ class Database:
     #   ホテルルーム管理
     # ------------------------------------------------------
     async def save_room(self, channel_id, guild_id, owner_id, expire_at):
-        await self.conn.execute("""
+        await self._execute("""
             INSERT INTO hotel_rooms (channel_id, guild_id, owner_id, expire_at)
             VALUES ($1, $2, $3, $4)
             ON CONFLICT (channel_id)
@@ -893,13 +897,13 @@ class Database:
         """, channel_id, guild_id, owner_id, expire_at)
 
     async def delete_room(self, channel_id):
-        await self.conn.execute(
+        await self._execute(
             "DELETE FROM hotel_rooms WHERE channel_id=$1",
             channel_id
         )
 
     async def get_room(self, channel_id):
-        return await self.conn.fetchrow(
+        return await self._fetchrow(
             "SELECT * FROM hotel_rooms WHERE channel_id=$1",
             channel_id
         )
@@ -910,10 +914,10 @@ class Database:
     async def export_user_snapshot(self) -> dict:
         """全ユーザーの残高・チケットをまとめて取得してJSON用dictで返す"""
 
-        users_rows = await self.conn.fetch(
+        users_rows = await self._fetch(
             "SELECT user_id, guild_id, balance FROM users"
         )
-        tickets_rows = await self.conn.fetch(
+        tickets_rows = await self._fetch(
             "SELECT user_id, guild_id, tickets FROM hotel_tickets"
         )
 
@@ -952,8 +956,8 @@ class Database:
 
         if overwrite:
             # 全削除してから入れ直す
-            await self.conn.execute("TRUNCATE TABLE users")
-            await self.conn.execute("TRUNCATE TABLE hotel_tickets")
+            await self._execute("TRUNCATE TABLE users")
+            await self._execute("TRUNCATE TABLE hotel_tickets")
 
         # users の復元
         for row in snapshot.get("users", []):
@@ -961,17 +965,17 @@ class Database:
             guild_id = str(row["guild_id"])
             balance = int(row["balance"])
 
-            exists = await self.conn.fetchrow(
+            exists = await self._fetchrow(
                 "SELECT 1 FROM users WHERE user_id=$1 AND guild_id=$2",
                 user_id, guild_id,
             )
             if exists:
-                await self.conn.execute(
+                await self._execute(
                     "UPDATE users SET balance=$1 WHERE user_id=$2 AND guild_id=$3",
                     balance, user_id, guild_id,
                 )
             else:
-                await self.conn.execute(
+                await self._execute(
                     "INSERT INTO users (user_id, guild_id, balance) VALUES ($1, $2, $3)",
                     user_id, guild_id, balance,
                 )
@@ -982,17 +986,17 @@ class Database:
             guild_id = str(row["guild_id"])
             tickets = int(row["tickets"])
 
-            exists = await self.conn.fetchrow(
+            exists = await self._fetchrow(
                 "SELECT 1 FROM hotel_tickets WHERE user_id=$1 AND guild_id=$2",
                 user_id, guild_id,
             )
             if exists:
-                await self.conn.execute(
+                await self._execute(
                     "UPDATE hotel_tickets SET tickets=$1 WHERE user_id=$2 AND guild_id=$3",
                     tickets, user_id, guild_id,
                 )
             else:
-                await self.conn.execute(
+                await self._execute(
                     "INSERT INTO hotel_tickets (user_id, guild_id, tickets) "
                     "VALUES ($1, $2, $3)",
                     user_id, guild_id, tickets,
@@ -1009,7 +1013,7 @@ class Database:
         await self._ensure_conn()
 
         # 開催設定
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS jumbo_config (
                 guild_id TEXT PRIMARY KEY,
                 title TEXT NOT NULL,
@@ -1024,7 +1028,7 @@ class Database:
         """)
 
         # 購入番号
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS jumbo_entries (
                 guild_id TEXT NOT NULL,
                 user_id TEXT NOT NULL,
@@ -1034,7 +1038,7 @@ class Database:
         """)
 
         # 当選者
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS jumbo_winners (
                 guild_id TEXT NOT NULL,
                 rank INTEGER NOT NULL,
@@ -1051,7 +1055,7 @@ class Database:
     # --------------------------------------------------
     async def jumbo_set_config(self, guild_id, title, description, deadline):
         await self._ensure_conn()
-        await self.conn.execute("""
+        await self._execute("""
             INSERT INTO jumbo_config
                 (guild_id, title, description, deadline, is_open)
             VALUES ($1, $2, $3, $4, TRUE)
@@ -1065,27 +1069,27 @@ class Database:
 
     async def jumbo_get_config(self, guild_id):
         await self._ensure_conn()
-        return await self.conn.fetchrow(
+        return await self._fetchrow(
             "SELECT * FROM jumbo_config WHERE guild_id=$1",
             guild_id
         )
 
     async def jumbo_close_config(self, guild_id):
         await self._ensure_conn()
-        await self.conn.execute("""
+        await self._execute("""
             UPDATE jumbo_config SET is_open=FALSE WHERE guild_id=$1
         """, guild_id)
 
     async def jumbo_reset_config(self, guild_id):
         await self._ensure_conn()
-        await self.conn.execute(
+        await self._execute(
             "DELETE FROM jumbo_config WHERE guild_id=$1",
             guild_id
         )
 
     async def jumbo_set_panel_message(self, guild_id, channel_id, message_id):
         await self._ensure_conn()
-        await self.conn.execute("""
+        await self._execute("""
             UPDATE jumbo_config
             SET panel_channel_id=$2,
                 panel_message_id=$3
@@ -1098,7 +1102,7 @@ class Database:
     async def jumbo_add_number(self, guild_id, user_id, number):
         await self._ensure_conn()
         try:
-            await self.conn.execute("""
+            await self._execute("""
                 INSERT INTO jumbo_entries (guild_id, user_id, number)
                 VALUES ($1, $2, $3)
             """, guild_id, user_id, number)
@@ -1108,7 +1112,7 @@ class Database:
 
     async def jumbo_get_user_numbers(self, guild_id, user_id):
         await self._ensure_conn()
-        return await self.conn.fetch("""
+        return await self._fetch("""
             SELECT number FROM jumbo_entries
             WHERE guild_id=$1 AND user_id=$2
             ORDER BY number ASC
@@ -1116,7 +1120,7 @@ class Database:
 
     async def jumbo_get_all_entries(self, guild_id):
         await self._ensure_conn()
-        return await self.conn.fetch("""
+        return await self._fetch("""
             SELECT guild_id, user_id, number
             FROM jumbo_entries
             WHERE guild_id=$1
@@ -1124,14 +1128,14 @@ class Database:
 
     async def jumbo_clear_entries(self, guild_id):
         await self._ensure_conn()
-        await self.conn.execute(
+        await self._execute(
             "DELETE FROM jumbo_entries WHERE guild_id=$1",
             guild_id
         )
 
     async def jumbo_count_entries(self, guild_id):
         await self._ensure_conn()
-        row = await self.conn.fetchrow(
+        row = await self._fetchrow(
             "SELECT COUNT(*) AS cnt FROM jumbo_entries WHERE guild_id=$1",
             guild_id
         )
@@ -1142,7 +1146,7 @@ class Database:
     # --------------------------------------------------
     async def jumbo_set_winning_number(self, guild_id, winning_number):
         await self._ensure_conn()
-        result = await self.conn.execute("""
+        result = await self._execute("""
             UPDATE jumbo_config
             SET winning_number=$2,
                 prize_paid=FALSE
@@ -1156,7 +1160,7 @@ class Database:
         self, guild_id, rank, number, user_id, match_count, prize
     ):
         await self._ensure_conn()
-        await self.conn.execute("""
+        await self._execute("""
             INSERT INTO jumbo_winners
                 (guild_id, rank, number, user_id, match_count, prize)
             VALUES ($1, $2, $3, $4, $5, $6)
@@ -1165,7 +1169,7 @@ class Database:
 
     async def jumbo_get_winners(self, guild_id):
         await self._ensure_conn()
-        return await self.conn.fetch("""
+        return await self._fetch("""
             SELECT * FROM jumbo_winners
             WHERE guild_id=$1
             ORDER BY rank ASC, number ASC
@@ -1173,7 +1177,7 @@ class Database:
 
     async def jumbo_clear_winners(self, guild_id):
         await self._ensure_conn()
-        await self.conn.execute(
+        await self._execute(
             "DELETE FROM jumbo_winners WHERE guild_id=$1",
             guild_id
         )
@@ -1182,7 +1186,7 @@ class Database:
     # --------------------------------------------------
     async def jumbo_count_user_entries(self, guild_id, user_id):
         await self._ensure_conn()
-        row = await self.conn.fetchrow("""
+        row = await self._fetchrow("""
             SELECT COUNT(*) AS cnt
             FROM jumbo_entries
             WHERE guild_id=$1 AND user_id=$2
@@ -1193,7 +1197,7 @@ class Database:
     # ------------------------------------------------------
     async def jumbo_get_user_count(self, guild_id: str, user_id: str) -> int:
         await self._ensure_conn()
-        row = await self.conn.fetchrow(
+        row = await self._fetchrow(
             """
             SELECT COUNT(*) AS cnt
             FROM jumbo_entries
@@ -1208,7 +1212,7 @@ class Database:
     # ジャンボ：給付済み等級取得
     # ================================
     async def jumbo_get_paid_ranks(self, guild_id: str) -> list[int]:
-        row = await self.conn.fetchrow(
+        row = await self._fetchrow(
             "SELECT paid_ranks FROM jumbo_config WHERE guild_id = $1",
             guild_id
         )
@@ -1219,7 +1223,7 @@ class Database:
     # ジャンボ：給付済み等級更新
     # ================================
     async def jumbo_add_paid_rank(self, guild_id: str, rank: int):
-        await self.conn.execute("""
+        await self._execute("""
             UPDATE jumbo_config
             SET paid_ranks = (
                 SELECT ARRAY(
@@ -1234,16 +1238,16 @@ class Database:
     # -------------------------------
     async def get_oasistchi_user(self, user_id: str):
         await self._ensure_conn()
-        row = await self.conn.fetchrow(
+        row = await self._fetchrow(
             "SELECT * FROM oasistchi_users WHERE user_id=$1",
             user_id
         )
         if not row:
-            await self.conn.execute(
+            await self._execute(
                 "INSERT INTO oasistchi_users (user_id, slots) VALUES ($1, 1)",
                 user_id
             )
-            row = await self.conn.fetchrow(
+            row = await self._fetchrow(
                 "SELECT * FROM oasistchi_users WHERE user_id=$1",
                 user_id
             )
@@ -1252,7 +1256,7 @@ class Database:
 
     async def add_oasistchi_slot(self, user_id: str, amount: int = 1):
         await self.get_oasistchi_user(user_id)
-        await self.conn.execute(
+        await self._execute(
             "UPDATE oasistchi_users SET slots = slots + $2 WHERE user_id=$1",
             user_id, amount
         )
@@ -1262,7 +1266,7 @@ class Database:
     # -------------------------------
     async def get_oasistchi_pets(self, user_id: str):
         await self._ensure_conn()
-        return await self.conn.fetch(
+        return await self._fetch(
             "SELECT * FROM oasistchi_pets WHERE user_id=$1 ORDER BY id ASC",
             user_id
         )
@@ -1279,7 +1283,7 @@ class Database:
         fixed_adult_key: str | None = None
     ):
         now = time.time()
-        await self.conn.execute("""
+        await self._execute("""
             INSERT INTO oasistchi_pets (
                 user_id,
                 stage,
@@ -1328,10 +1332,11 @@ class Database:
         await self._ensure_conn()
 
         async with self._lock:
-            async with self.conn.transaction():
+            async with self.pool.acquire() as conn:
+                async with conn.transaction():
 
                 # ① 残高取得（ロック）
-                row = await self.conn.fetchrow(
+                row = await self._fetchrow(
                     """
                     SELECT balance
                     FROM users
@@ -1349,7 +1354,7 @@ class Database:
                     raise RuntimeError("残高不足")
 
                 # ② 残高減算
-                await self.conn.execute(
+                await self._execute(
                     """
                     UPDATE users
                     SET balance = balance - $1
@@ -1360,7 +1365,7 @@ class Database:
 
                 # ③ たまご追加
                 now = time.time()
-                await self.conn.execute(
+                await self._execute(
                     """
                     INSERT INTO oasistchi_pets (
                         user_id,
@@ -1627,7 +1632,7 @@ class Database:
             """
             vals.append(pet_id)
 
-            await self.conn.execute(sql, *vals)
+            await self._execute(sql, *vals)
 
     # ----------------------------------------
     # おあしすっち：全ペット取得（poop_check用）
@@ -1635,14 +1640,14 @@ class Database:
     async def get_all_oasistchi_pets(self):
         await self._ensure_conn()
         async with self._lock:
-            return await self.conn.fetch(
+            return await self._fetch(
                 "SELECT * FROM oasistchi_pets"
             )
 
     async def get_oasistchi_pet(self, pet_id: int):
         await self._ensure_conn()
         async with self._lock:
-            return await self.conn.fetchrow(
+            return await self._fetchrow(
                 "SELECT * FROM oasistchi_pets WHERE id=$1",
                 pet_id
             )
@@ -1653,7 +1658,7 @@ class Database:
     async def get_oasistchi_owned_adult_keys(self, user_id: str) -> set[str]:
         await self._ensure_conn()
         async with self._lock:
-            rows = await self.conn.fetch(
+            rows = await self._fetch(
                 "SELECT adult_key FROM oasistchi_dex WHERE user_id=$1",
                 user_id
             )
@@ -1665,7 +1670,7 @@ class Database:
     async def add_oasistchi_dex(self, user_id: str, adult_key: str):
         await self._ensure_conn()
         async with self._lock:
-            await self.conn.execute(
+            await self._execute(
                 """
                 INSERT INTO oasistchi_dex (user_id, adult_key)
                 VALUES ($1, $2)
@@ -1679,7 +1684,7 @@ class Database:
     # -------------------------------
     async def get_oasistchi_notify_all(self, user_id: str) -> bool:
         await self._ensure_conn()
-        row = await self.conn.fetchrow(
+        row = await self._fetchrow(
             "SELECT notify_all FROM oasistchi_notify WHERE user_id=$1",
             user_id
         )
@@ -1692,7 +1697,7 @@ class Database:
         await self._ensure_conn()
 
         if on:
-            await self.conn.execute("""
+            await self._execute("""
                 INSERT INTO oasistchi_notify (user_id, notify_poop, notify_food, notify_pet_ready)
                 VALUES ($1, TRUE, TRUE, TRUE)
                 ON CONFLICT (user_id)
@@ -1703,17 +1708,17 @@ class Database:
             """, user_id)
         else:
             # 設定してない状態＝通知なし
-            await self.conn.execute("DELETE FROM oasistchi_notify WHERE user_id=$1", user_id)
+            await self._execute("DELETE FROM oasistchi_notify WHERE user_id=$1", user_id)
 
     async def delete_oasistchi_pet(self, pet_id: int):
         await self._ensure_conn()
         async with self._lock:
-            await self.conn.execute(
+            await self._execute(
                 "DELETE FROM oasistchi_pets WHERE id=$1",
                 pet_id
             )
     async def get_race_schedules(self, guild_id: str):
-        return await self.conn.fetch(
+        return await self._fetch(
             """
             SELECT *
             FROM race_schedules
@@ -1726,7 +1731,7 @@ class Database:
 
     async def get_race_entries_by_schedule(self, race_date, schedule_id, guild_id: str):
         await self._ensure_conn()
-        return await self.conn.fetch("""
+        return await self._fetch("""
             SELECT * FROM race_entries
             WHERE race_date = $1
               AND schedule_id = $2
@@ -1737,7 +1742,7 @@ class Database:
     async def save_race_result(
         self, race_date, schedule_id, user_id, pet_id, position, reward
     ):
-        await self.conn.execute(
+        await self._execute(
             """
             INSERT INTO race_results
             (race_date, schedule_id, user_id, pet_id, position, reward)
@@ -1747,7 +1752,7 @@ class Database:
         )
 
     async def get_race_results(self, race_date, schedule_id):
-        return await self.conn.fetch(
+        return await self._fetch(
             """
             SELECT * FROM race_results
             WHERE race_date = $1 AND schedule_id = $2
@@ -1757,7 +1762,7 @@ class Database:
         )
 
     async def mark_pet_race_candidate(self, pet_id: int, user_id: int):
-      await self.conn.execute(
+      await self._execute(
             """
             UPDATE oasistchi_pets
             SET race_candidate = TRUE
@@ -1770,14 +1775,14 @@ class Database:
 
     async def get_oasistchi_notify_settings(self, user_id: str) -> dict | None:
         await self._ensure_conn()
-        row = await self.conn.fetchrow(
+        row = await self._fetchrow(
             "SELECT notify_poop, notify_food, notify_pet_ready FROM oasistchi_notify WHERE user_id=$1",
             user_id
         )
         return dict(row) if row else None
 
     async def get_today_race_schedules(self, race_date: date, guild_id: str):
-        return await self.conn.fetch("""
+        return await self._fetch("""
             SELECT *
             FROM race_schedules
             WHERE race_date = $1
@@ -1786,7 +1791,7 @@ class Database:
         """, race_date, guild_id)
 
     async def generate_today_races(self, guild_id: str, race_date: date):
-        cols = await self.conn.fetch("""
+        cols = await self._fetch("""
             SELECT column_name, is_nullable
             FROM information_schema.columns
             WHERE table_name = 'race_schedules'
@@ -1796,14 +1801,14 @@ class Database:
         for c in cols:
             print(f"  {c['column_name']} | nullable={c['is_nullable']}")
         # 念のため同日分を削除（再生成耐性）
-        await self.conn.execute("""
+        await self._execute("""
             DELETE FROM race_schedules
             WHERE race_date = $1
               AND guild_id = $2;
         """, race_date, str(guild_id))
 
         for i, race_time in enumerate(RACE_TIMES, start=1):
-            await self.conn.execute("""
+            await self._execute("""
                 INSERT INTO race_schedules (
                     guild_id,
                     race_no,
@@ -1832,7 +1837,7 @@ class Database:
             )
 
     async def has_today_race_schedules(self, race_date: date, guild_id: str) -> bool:
-        return await self.conn.fetchval("""
+        return await self._fetchval("""
             SELECT EXISTS(
                 SELECT 1
                 FROM race_schedules
@@ -1845,7 +1850,7 @@ class Database:
     # race_schedules テーブル カラム補完
     # -----------------------------------------
     async def ensure_race_schedule_columns(self):
-        cols = await self.conn.fetch("""
+        cols = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'race_schedules';
@@ -1872,13 +1877,13 @@ class Database:
         if alter_sqls:
             sql = "ALTER TABLE race_schedules " + ", ".join(alter_sqls) + ";"
             print("🛠 race_schedules カラム補完:", sql)
-            await self.conn.execute(sql)
+            await self._execute(sql)
 
     # -----------------------------------------
     # race_entries テーブル カラム補完
     # -----------------------------------------
     async def ensure_race_entry_columns(self):
-        cols = await self.conn.fetch("""
+        cols = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'race_entries';
@@ -1896,13 +1901,13 @@ class Database:
         if alter_sqls:
             sql = "ALTER TABLE race_entries " + ", ".join(alter_sqls) + ";"
             print("🛠 race_entries カラム補完:", sql)
-            await self.conn.execute(sql)
+            await self._execute(sql)
             
     # -----------------------------------------
     # 型修正用の補完
     # -----------------------------------------
     async def ensure_race_schedule_time_text(self):
-        col = await self.conn.fetchrow("""
+        col = await self._fetchrow("""
             SELECT data_type
             FROM information_schema.columns
             WHERE table_name = 'race_schedules'
@@ -1911,7 +1916,7 @@ class Database:
 
         if col and col["data_type"] != "text":
             print("🛠 race_schedules.race_time を TEXT に変更します")
-            await self.conn.execute("""
+            await self._execute("""
                 ALTER TABLE race_schedules
                 ALTER COLUMN race_time TYPE TEXT
                 USING race_time::text;
@@ -1921,7 +1926,7 @@ class Database:
     # -----------------------------------------
     async def get_race_entries_pending(self, guild_id: str, race_date, schedule_id: int):
         await self._ensure_conn()
-        return await self.conn.fetch("""
+        return await self._fetch("""
             SELECT *
             FROM race_entries
             WHERE guild_id = $1
@@ -1935,7 +1940,7 @@ class Database:
     # -----------------------------------------
 
     async def get_today_selected_pet_ids(self, race_date: date):
-        rows = await self.conn.fetch("""
+        rows = await self._fetch("""
             SELECT pet_id FROM race_entries
             WHERE race_date = $1
               AND status = 'selected'
@@ -1947,7 +1952,7 @@ class Database:
     # -----------------------------------------
 
     async def update_race_entry_status(self, entry_id: int, status: str):
-        await self.conn.execute("""
+        await self._execute("""
             UPDATE race_entries
             SET status = $2
             WHERE id = $1
@@ -1968,7 +1973,7 @@ class Database:
         race_date: date,
         exclude_schedule_id: int
     ):
-        await self.conn.execute("""
+        await self._execute("""
             UPDATE race_entries
             SET status = 'cancelled'
             WHERE pet_id = $1
@@ -1981,7 +1986,7 @@ class Database:
     # レース：同一ユーザーの重複エントリーチェック
     # =====================================================
     async def has_user_entry_for_race(self, schedule_id: int, user_id: str) -> bool:
-        row = await self.conn.fetchrow("""
+        row = await self._fetchrow("""
             SELECT 1
             FROM race_entries
             WHERE schedule_id = $1
@@ -1994,7 +1999,7 @@ class Database:
     # おあしすっち出走済みかチェック
     # =====================================================
     async def has_pet_selected_today(self, pet_id: int, race_date: date) -> bool:
-        row = await self.conn.fetchrow("""
+        row = await self._fetchrow("""
             SELECT 1
             FROM race_entries
             WHERE pet_id = $1
@@ -2009,7 +2014,7 @@ class Database:
     # =====================================================
 
     async def has_user_selected_today(self, user_id: str, race_date: date) -> bool:
-        row = await self.conn.fetchrow("""
+        row = await self._fetchrow("""
             SELECT 1
             FROM race_entries
             WHERE user_id = $1
@@ -2033,7 +2038,7 @@ class Database:
         entry_fee: int,
         paid: bool,
     ):
-        await self.conn.execute("""
+        await self._execute("""
             INSERT INTO race_entries (
                 race_date,
                 schedule_id,
@@ -2060,7 +2065,7 @@ class Database:
     # =====================================================
 
     async def get_refund_entries(self, schedule_id: int):
-        return await self.conn.fetch("""
+        return await self._fetch("""
             SELECT user_id, guild_id, entry_fee
             FROM race_entries
             WHERE schedule_id = $1
@@ -2073,7 +2078,7 @@ class Database:
     # 抽選済みフラグ
     # =====================================================
     async def mark_race_lottery_done(self, race_id: int):
-        await self.conn.execute("""
+        await self._execute("""
             UPDATE race_schedules
             SET lottery_done = TRUE
             WHERE id = $1
@@ -2085,7 +2090,7 @@ class Database:
     # =====================================================
 
     async def _ensure_column(self, table: str, column: str, coldef: str):
-        rows = await self.conn.fetch("""
+        rows = await self._fetch("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = $1;
@@ -2094,7 +2099,7 @@ class Database:
         existing = {r["column_name"] for r in rows}
         if column not in existing:
             print(f"🛠 {table} テーブルに {column} カラムを追加します…")
-            await self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coldef};")
+            await self._execute(f"ALTER TABLE {table} ADD COLUMN {column} {coldef};")
             print(f"✅ {column} カラム追加完了")
 
 
@@ -2106,7 +2111,7 @@ class Database:
         base_stamina = random.randint(30, 50)
         base_power = random.randint(30, 50)
 
-        await self.conn.execute("""
+        await self._execute("""
             UPDATE oasistchi_pets
             SET
                 base_speed = $1,
@@ -2128,7 +2133,7 @@ class Database:
     # おあしすっち：特訓リセット
     # -------------------------------
     async def reset_training_oasistchi(self, pet_id: int):
-        await self.conn.execute("""
+        await self._execute("""
             UPDATE oasistchi_pets
             SET
                 train_speed = 0,
@@ -2144,7 +2149,7 @@ class Database:
     # 出走確定エントリー取得
     # --------------------------------------------------
     async def get_selected_entries(self, schedule_id: int):
-        return await self.conn.fetch("""
+        return await self._fetch("""
             SELECT *
             FROM race_entries
             WHERE schedule_id = $1
@@ -2161,7 +2166,7 @@ class Database:
         rank: int,
         score: float
     ):
-        await self.conn.execute("""
+        await self._execute("""
             UPDATE race_entries
             SET rank = $1,
                 score = $2
@@ -2174,7 +2179,7 @@ class Database:
     # --------------------------------------------------
     async def mark_race_finished(self, race_id: int):
         await self._ensure_conn()
-        await self.conn.execute("""
+        await self._execute("""
             UPDATE race_schedules
             SET race_finished = TRUE
             WHERE id = $1
@@ -2185,7 +2190,7 @@ class Database:
     # --------------------------------------------------
     async def get_unfinished_races_by_date(self, race_date: date, guild_id: str):
         await self._ensure_conn()
-        return await self.conn.fetch("""
+        return await self._fetch("""
             SELECT *
             FROM race_schedules
             WHERE race_date = $1
@@ -2199,7 +2204,7 @@ class Database:
     # --------------------------------------------------
     async def has_unfinished_race(self, race_id: int) -> bool:
         await self._ensure_conn()
-        row = await self.conn.fetchrow("""
+        row = await self._fetchrow("""
             SELECT 1
             FROM race_schedules
             WHERE id = $1
@@ -2209,7 +2214,7 @@ class Database:
 
     async def get_race_entries_by_status(self, race_id: int, status: str):
         await self._ensure_conn()
-        return await self.conn.fetch("""
+        return await self._fetch("""
             SELECT *
             FROM race_entries
             WHERE schedule_id = $1
@@ -2224,7 +2229,7 @@ class Database:
         await self._ensure_conn()
 
         # ★ race_schedules / race_entries（抽選用）と衝突するので別名にする
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS web_races (
                 race_id TEXT PRIMARY KEY,
                 guild_id TEXT NOT NULL,
@@ -2235,7 +2240,7 @@ class Database:
             );
         """)
 
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS web_race_entries (
                 race_id TEXT NOT NULL,
                 pet_id TEXT NOT NULL,
@@ -2250,7 +2255,7 @@ class Database:
             );
         """)
 
-        await self.conn.execute("""
+        await self._execute("""
             CREATE TABLE IF NOT EXISTS web_race_bets (
                 race_id TEXT NOT NULL,
                 user_id TEXT NOT NULL,
@@ -2267,7 +2272,7 @@ class Database:
     async def get_selected_pets_for_api(self, guild_id: str, race_date: date, schedule_id: int):
         await self._ensure_conn()
 
-        rows = await self.conn.fetch("""
+        rows = await self._fetch("""
             SELECT
                 e.pet_id,
                 p.name,
@@ -2332,10 +2337,11 @@ class Database:
         await self._ensure_conn()
 
         async with self._lock:
-            async with self.conn.transaction():
+            async with self.pool.acquire() as conn:
+                async with conn.transaction():
 
                 # ★★★★★ 二重実行ガード（ここが最重要） ★★★★★
-                race = await self.conn.fetchrow("""
+                race = await self._fetchrow("""
                     SELECT lottery_done
                     FROM race_schedules
                     WHERE id = $1
@@ -2401,7 +2407,7 @@ class Database:
     # =========================
     async def get_race_settings(self, guild_id: str):
         await self._ensure_conn()
-        return await self.conn.fetchrow(
+        return await self._fetchrow(
             "SELECT * FROM race_settings WHERE guild_id=$1",
             str(guild_id)
         )
@@ -2411,7 +2417,7 @@ class Database:
     # =========================
     async def set_race_result_channel(self, guild_id: str, channel_id: str):
         await self._ensure_conn()
-        await self.conn.execute("""
+        await self._execute("""
             INSERT INTO race_settings (guild_id, result_channel_id)
             VALUES ($1, $2)
             ON CONFLICT (guild_id)
@@ -2456,6 +2462,25 @@ class Database:
 
             self._save_badges(data)
 
+    async def _fetch(self, query, *args):
+        await self._ensure_conn()
+        async with self.pool.acquire() as conn:
+            return await conn.fetch(query, *args)
+
+    async def _fetchrow(self, query, *args):
+        await self._ensure_conn()
+        async with self.pool.acquire() as conn:
+            return await conn.fetchrow(query, *args)
+
+    async def _fetchval(self, query, *args):
+        await self._ensure_conn()
+        async with self.pool.acquire() as conn:
+            return await conn.fetchval(query, *args)
+
+    async def _execute(self, query, *args):
+        await self._ensure_conn()
+        async with self.pool.acquire() as conn:
+            return await conn.execute(query, *args)
 
 
 
