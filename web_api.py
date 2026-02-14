@@ -153,8 +153,9 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
 
         pets = []
         for i, p in enumerate(processed):
-
-            label, css_class = get_condition_label(e["happiness"])
+            label, css_class = get_condition_label(
+                int((p["ratio"] - 0.8) / 0.2 * 100)
+            )
 
             pets.append({
                 "pet_id": p["pet_id"],
@@ -240,6 +241,7 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
 
 
