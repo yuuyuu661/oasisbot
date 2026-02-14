@@ -1336,7 +1336,7 @@ class Database:
                 async with conn.transaction():
 
                     # ① 残高取得（ロック）
-                    row = await self._fetchrow(
+                    row = await conn.fetchrow(
                         """
                         SELECT balance
                         FROM users
@@ -1354,7 +1354,7 @@ class Database:
                         raise RuntimeError("残高不足")
 
                     # ② 残高減算
-                    await self._execute(
+                    await conn.execute(
                         """
                         UPDATE users
                         SET balance = balance - $1
@@ -1365,7 +1365,7 @@ class Database:
 
                     # ③ たまご追加
                     now = time.time()
-                    await self._execute(
+                    await conn.execute(
                         """
                         INSERT INTO oasistchi_pets (
                             user_id,
@@ -2481,6 +2481,7 @@ class Database:
         await self._ensure_conn()
         async with self.pool.acquire() as conn:
             return await conn.execute(query, *args)
+
 
 
 
