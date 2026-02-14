@@ -143,7 +143,7 @@ class RaceDebug(commands.Cog):
         )
 
         for race in races:
-            entries = await self.db.conn.fetch("""
+            entries = await self.db._fetch("""
                 SELECT *
                 FROM race_entries
                 WHERE race_date = $1
@@ -187,13 +187,13 @@ class RaceDebug(commands.Cog):
 
         guild_id = str(interaction.guild.id)
 
-        await self.db.conn.execute("""
+        await self.db._execute("""
             DELETE FROM race_entries
             WHERE race_date = $1
               AND guild_id = $2
         """, race_date, guild_id)
 
-        await self.db.conn.execute("""
+        await self.db._execute("""
             UPDATE race_schedules
             SET lottery_done = FALSE,
                 race_finished = FALSE
@@ -217,6 +217,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
