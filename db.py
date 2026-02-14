@@ -2340,67 +2340,67 @@ class Database:
             async with self.pool.acquire() as conn:
                 async with conn.transaction():
 
-                # ★★★★★ 二重実行ガード（ここが最重要） ★★★★★
-                race = await self._fetchrow("""
-                    SELECT lottery_done
-                    FROM race_schedules
-                    WHERE id = $1
-                """, schedule_id)
+                    # ★★★★★ 二重実行ガード（ここが最重要） ★★★★★
+                    race = await self._fetchrow("""
+                        SELECT lottery_done
+                        FROM race_schedules
+                        WHERE id = $1
+                    """, schedule_id)
 
-                if not race:
-                    print("[RACE LOTTERY] race not found -> abort")
+                    if not race:
+                        print("[RACE LOTTERY] race not found -> abort")
+                        return {
+                            "selected": [],
+                            "cancelled": []
+                        }
+
+                    if race["lottery_done"]:
+                        print("[RACE LOTTERY] already lottery_done -> skip")
+                        return {
+                            "selected": [],
+                            "cancelled": []
+                        }
+
+                    # ① pending エントリー取得
+                    entries = await self.get_race_entries_pending(
+                        guild_id,
+                        race_date,
+                        schedule_id
+                    )
+
+                    if len(entries) < 2:
+                        print("[RACE LOTTERY] pending < 2 -> skip")
+                        return {
+                            "selected": [],
+                            "cancelled": []
+                        }
+
+                    max_entries = min(8, len(entries))
+                    selected = random.sample(entries, max_entries)
+
+                    selected_ids = {e["id"] for e in selected}
+                    cancelled = []
+
+                    # ② ステータス更新
+                    for e in entries:
+                        if e["id"] in selected_ids:
+                            await self.update_race_entry_status(e["id"], "selected")
+                        else:
+                            await self.update_race_entry_status(e["id"], "cancelled")
+                            cancelled.append(e)
+
+                    # ③ 抽選済みフラグ（最後に立てる）
+                    await self.mark_race_lottery_done(schedule_id)
+
+                    print(
+                        f"[RACE LOTTERY DONE] "
+                        f"selected={len(selected)} cancelled={len(cancelled)}"
+                    )
+
                     return {
-                        "selected": [],
-                        "cancelled": []
+                        "selected": selected,
+                        "cancelled": cancelled
                     }
-
-                if race["lottery_done"]:
-                    print("[RACE LOTTERY] already lottery_done -> skip")
-                    return {
-                        "selected": [],
-                        "cancelled": []
-                    }
-
-                # ① pending エントリー取得
-                entries = await self.get_race_entries_pending(
-                    guild_id,
-                    race_date,
-                    schedule_id
-                )
-
-                if len(entries) < 2:
-                    print("[RACE LOTTERY] pending < 2 -> skip")
-                    return {
-                        "selected": [],
-                        "cancelled": []
-                    }
-
-                max_entries = min(8, len(entries))
-                selected = random.sample(entries, max_entries)
-
-                selected_ids = {e["id"] for e in selected}
-                cancelled = []
-
-                # ② ステータス更新
-                for e in entries:
-                    if e["id"] in selected_ids:
-                        await self.update_race_entry_status(e["id"], "selected")
-                    else:
-                        await self.update_race_entry_status(e["id"], "cancelled")
-                        cancelled.append(e)
-
-                # ③ 抽選済みフラグ（最後に立てる）
-                await self.mark_race_lottery_done(schedule_id)
-
-                print(
-                    f"[RACE LOTTERY DONE] "
-                    f"selected={len(selected)} cancelled={len(cancelled)}"
-                )
-
-                return {
-                    "selected": selected,
-                    "cancelled": cancelled
-                }
 
     # =========================
     # レース設定取得
@@ -2481,6 +2481,7 @@ class Database:
         await self._ensure_conn()
         async with self.pool.acquire() as conn:
             return await conn.execute(query, *args)
+
 
 
 
