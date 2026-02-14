@@ -1335,71 +1335,71 @@ class Database:
             async with self.pool.acquire() as conn:
                 async with conn.transaction():
 
-                # ① 残高取得（ロック）
-                row = await self._fetchrow(
-                    """
-                    SELECT balance
-                    FROM users
-                    WHERE user_id=$1 AND guild_id=$2
-                    FOR UPDATE
-                    """,
-                    user_id,
-                    guild_id
-                )
-
-                if not row:
-                    raise RuntimeError("ユーザーが存在しません")
-
-                if row["balance"] < price:
-                    raise RuntimeError("残高不足")
-
-                # ② 残高減算
-                await self._execute(
-                    """
-                    UPDATE users
-                    SET balance = balance - $1
-                    WHERE user_id=$2 AND guild_id=$3
-                    """,
-                    price, user_id, guild_id
-                )
-
-                # ③ たまご追加
-                now = time.time()
-                await self._execute(
-                    """
-                    INSERT INTO oasistchi_pets (
+                    # ① 残高取得（ロック）
+                    row = await self._fetchrow(
+                        """
+                        SELECT balance
+                        FROM users
+                        WHERE user_id=$1 AND guild_id=$2
+                        FOR UPDATE
+                        """,
                         user_id,
-                        stage,
+                        guild_id
+                    )
+
+                    if not row:
+                        raise RuntimeError("ユーザーが存在しません")
+
+                    if row["balance"] < price:
+                        raise RuntimeError("残高不足")
+
+                    # ② 残高減算
+                    await self._execute(
+                        """
+                        UPDATE users
+                        SET balance = balance - $1
+                        WHERE user_id=$2 AND guild_id=$3
+                        """,
+                        price, user_id, guild_id
+                    )
+
+                    # ③ たまご追加
+                    now = time.time()
+                    await self._execute(
+                        """
+                        INSERT INTO oasistchi_pets (
+                            user_id,
+                            stage,
+                            egg_type,
+                            fixed_adult_key,
+                            growth,
+                            hunger,
+                            happiness,
+                            poop,
+                            last_interaction,
+                            last_growth_tick,
+                            last_poop_tick,
+                            next_poop_check_at
+                        ) VALUES (
+                            $1,
+                            'egg',
+                            $2,
+                            $3,
+                            0,
+                            100,
+                            50,
+                            FALSE,
+                            $4::REAL,
+                            $4::REAL,
+                            $4::REAL,
+                            ($4::REAL + 3600)
+                        )
+                        """,
+                        user_id,
                         egg_type,
                         fixed_adult_key,
-                        growth,
-                        hunger,
-                        happiness,
-                        poop,
-                        last_interaction,
-                        last_growth_tick,
-                        last_poop_tick,
-                        next_poop_check_at
-                    ) VALUES (
-                        $1,
-                        'egg',
-                        $2,
-                        $3,
-                        0,
-                        100,
-                        50,
-                        FALSE,
-                        $4::REAL,
-                        $4::REAL,
-                        $4::REAL,
-                        ($4::REAL + 3600)
+                        now
                     )
-                    """,
-                    user_id,
-                    egg_type,
-                    fixed_adult_key,
-                    now
-                )
 
     # ==================================================
     # おあしすっち：かぶりなし たまご（完全安全）
@@ -2481,6 +2481,7 @@ class Database:
         await self._ensure_conn()
         async with self.pool.acquire() as conn:
             return await conn.execute(query, *args)
+
 
 
 
