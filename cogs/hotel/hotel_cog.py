@@ -39,9 +39,9 @@ class HotelCog(commands.Cog):
                     await asyncio.sleep(1)
                     continue
 
-                await self.bot.db.connect()
+                await self.bot.db._ensure_pool()
 
-                if self.bot.db.conn is None:
+                if self.bot.db.pool is None:
                     await asyncio.sleep(1)
                     continue
 
@@ -61,7 +61,7 @@ class HotelCog(commands.Cog):
                 now = datetime.utcnow()
 
                 async with self._hotel_db_lock:
-                    rows = await self.bot.db.conn.fetch(
+                    rows = await self.bot.db._fetch(
                         "SELECT channel_id, guild_id, expire_at FROM hotel_rooms"
                     )
 
@@ -96,7 +96,7 @@ class HotelCog(commands.Cog):
         await self._wait_db_ready()
 
         try:
-            rows = await self.bot.db.conn.fetch("SELECT * FROM hotel_settings")
+            rows = await self.bot.db._fetch("SELECT * FROM hotel_settings")
         except Exception as e:
             print("[Hotel] load hotel_settings failed:", repr(e))
             return
@@ -182,7 +182,7 @@ class HotelCog(commands.Cog):
         cats = [category1, category2, category3, category4, category5]
         category_ids = [str(c.id) for c in cats if c is not None]
 
-        await self.bot.db.conn.execute(
+        await self.bot.db._execute(
             """
             INSERT INTO hotel_settings (
                 guild_id, manager_role, log_channel, sub_role,
@@ -241,7 +241,7 @@ class HotelCog(commands.Cog):
 
         guild_id = str(interaction.guild.id)
 
-        hotel_config = await self.bot.db.conn.fetchrow(
+        hotel_config = await self.bot.db._fetchrow(
             "SELECT * FROM hotel_settings WHERE guild_id=$1",
             guild_id
         )
@@ -306,7 +306,7 @@ class HotelCog(commands.Cog):
 
         owner_id = room["owner_id"]
 
-        hotel_config = await interaction.client.db.conn.fetchrow(
+        hotel_config = await interaction.client.db._fetchrow(
             "SELECT * FROM hotel_settings WHERE guild_id=$1",
             guild_id
         )
@@ -364,7 +364,7 @@ class HotelCog(commands.Cog):
         guild_id = str(guild.id)
         user_id = str(target.id)
 
-        room = await self.bot.db.conn.fetchrow(
+        room = await self.bot.db._fetchrow(
             "SELECT channel_id FROM hotel_rooms WHERE owner_id=$1 AND guild_id=$2",
             user_id, guild_id
         )
@@ -430,7 +430,7 @@ class HotelCog(commands.Cog):
         is_admin_role = any(str(r.id) in admin_roles for r in interaction.user.roles)
 
         guild_id = str(guild.id)
-        hotel_config = await self.bot.db.conn.fetchrow(
+        hotel_config = await self.bot.db._fetchrow(
             "SELECT * FROM hotel_settings WHERE guild_id=$1",
             guild_id
         )
@@ -458,7 +458,7 @@ class HotelCog(commands.Cog):
             new_amount = await self.bot.db.remove_tickets(user_id, guild_id, amount)
             op_text = f"-{amount}枚（減算）"
         else:
-            await self.bot.db.conn.execute(
+            await self.bot.db._execute(
                 """
                 INSERT INTO hotel_tickets (user_id, guild_id, tickets)
                 VALUES ($1,$2,$3)
@@ -494,8 +494,8 @@ class HotelCog(commands.Cog):
         while not self.bot.is_closed():
             try:
                 async with self._hotel_db_lock:
-                    rows = await self.bot.db.conn.fetch(
-                        "SELECT channel_id, guild_id FROM hotel_rooms"
+                    rows = await self.bot.db._fetch(
+                        "SELECT channel_id, guild_id, expire_at FROM hotel_rooms"
                     )
 
                 for row in rows:
@@ -530,3 +530,4 @@ async def setup(bot):
                 print(f"[Hotel] Sync failed for {gid}: {e}")
 
     print("🏨 Hotel module loaded successfully!")
+
