@@ -731,22 +731,21 @@ class Database:
     # ------------------------------------------------------
     async def get_user(self, user_id, guild_id):
         await self._ensure_pool()
-        async with self._lock:
 
-            row = await self._fetchrow(
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO users (user_id, guild_id, balance)
+                VALUES ($1, $2, 0)
+                ON CONFLICT DO NOTHING
+                """,
+                user_id, guild_id
+            )
+
+            return await conn.fetchrow(
                 "SELECT * FROM users WHERE user_id=$1 AND guild_id=$2",
                 user_id, guild_id
             )
-            if not row:
-                await self._execute(
-                    "INSERT INTO users (user_id, guild_id, balance) VALUES ($1, $2, 0)",
-                    user_id, guild_id
-                )
-                row = await self._fetchrow(
-                    "SELECT * FROM users WHERE user_id=$1 AND guild_id=$2",
-                    user_id, guild_id
-                )
-            return row
 
     async def set_balance(self, user_id, guild_id, amount):
         await self._ensure_pool()
@@ -833,11 +832,10 @@ class Database:
 
     async def get_all_balances(self, guild_id):
         await self._ensure_pool()
-        async with self._lock:
-            return await self._fetch(
-                "SELECT * FROM users WHERE guild_id=$1 ORDER BY balance DESC",
-                guild_id
-            )
+        return await self._fetch(
+            "SELECT * FROM users WHERE guild_id=$1 ORDER BY balance DESC",
+            guild_id
+        )
 
     # ------------------------------------------------------
     #   給料ロール関連
@@ -858,10 +856,9 @@ class Database:
     # ------------------------------------------------------
     async def get_settings(self):
         await self._ensure_pool()
-        async with self._lock:
-            return await self._fetchrow(
-                "SELECT * FROM settings WHERE id = 1"
-            )
+        return await self._fetchrow(
+            "SELECT * FROM settings WHERE id = 1"
+        )
 
     async def update_settings(self, **kwargs):
         columns = []
@@ -1665,10 +1662,9 @@ class Database:
     # ----------------------------------------
     async def get_all_oasistchi_pets(self):
         await self._ensure_pool()
-        async with self._lock:
-            return await self._fetch(
-                "SELECT * FROM oasistchi_pets"
-            )
+        return await self._fetch(
+            "SELECT * FROM oasistchi_pets"
+        )
 
     async def get_oasistchi_pet(self, pet_id: int):
         await self._ensure_pool()
@@ -2503,6 +2499,7 @@ class Database:
             return await conn.execute(query, *args)
         async with self.pool.acquire() as c:
             return await c.execute(query, *args)
+
 
 
 
