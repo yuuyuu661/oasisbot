@@ -689,13 +689,13 @@ class OasistchiCog(commands.Cog):
                 # ④ pending 数チェック
                 # =========================
                 async with db._lock:
-                    pending_count = await db.conn.fetchval(
+                    pending_count = await db._fetchval(
                         """
                         SELECT COUNT(*)
                         FROM race_entries
                         WHERE guild_id = $1
                           AND race_date = $2
-                         AND schedule_id = $3
+                          AND schedule_id = $3
                           AND status = 'pending'
                         """,
                         guild_id,
@@ -706,14 +706,16 @@ class OasistchiCog(commands.Cog):
                 if pending_count < 2:
                     continue
 
-                # =========================
                 # ⑤ 抽選実行
-                # =========================
                 try:
-                    await self.run_race_lottery(race)  # 中で lock を取る想定
-                    async with db._lock:
-                        await db.mark_race_lottery_done(race["id"])
+                    await db.run_race_lottery(
+                        guild_id,
+                        race["race_date"],
+                        race["id"]
+                   )
+
                     print(f"[RACE] 抽選完了 race_id={race['id']} guild={guild_id}")
+
                 except Exception as e:
                     print(f"[RACE ERROR] lottery failed race_id={race['id']} guild={guild_id}: {e}")
 
@@ -2842,6 +2844,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
