@@ -2354,80 +2354,67 @@ class Database:
         race_date: date,
         schedule_id: int
     ):
-        """
-        ・pending エントリーを取得
-        ・最大8体を抽選
-        ・selected / cancelled を確定
-        ・lottery_done を TRUE にする
-        """
-
         await self._ensure_pool()
 
-        async with self._lock:
-            async with self.pool.acquire() as conn:
-                async with conn.transaction():
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
 
-                    # ★★★★★ 二重実行ガード（ここが最重要） ★★★★★
-                    race = await self._fetchrow("""
-                        SELECT lottery_done
-                        FROM race_schedules
-                        WHERE id = $1
-                    """, schedule_id)
+                # 二重実行防止
+                race = await conn.fetchrow("""
+                    SELECT lottery_done
+                    FROM race_schedules
+                    WHERE id = $1
+                    FOR UPDATE
+                """, schedule_id)
 
-                    if not race:
-                        print("[RACE LOTTERY] race not found -> abort")
-                        return {
-                            "selected": [],
-                            "cancelled": []
-                        }
+                if not race or race["lottery_done"]:
+                    return {"selected": [], "cancelled": []}
 
-                    if race["lottery_done"]:
-                        print("[RACE LOTTERY] already lottery_done -> skip")
-                        return {
-                            "selected": [],
-                            "cancelled": []
-                        }
+                # pending取得（同じconn）
+                entries = await conn.fetch("""
+                    SELECT *
+                    FROM race_entries
+                    WHERE guild_id = $1
+                      AND race_date = $2
+                      AND schedule_id = $3
+                      AND status = 'pending'
+                    ORDER BY created_at
+                """, str(guild_id), race_date, schedule_id)
 
-                    # ① pending エントリー取得
-                    entries = await self.get_race_entries_pending(
-                        guild_id,
-                        race_date,
-                        schedule_id
-                    )
+                if len(entries) < 2:
+                    return {"selected": [], "cancelled": []}
 
-                    if len(entries) < 2:
-                        print("[RACE LOTTERY] pending < 2 -> skip")
-                        return {
-                            "selected": [],
-                            "cancelled": []
-                        }
+                max_entries = min(8, len(entries))
+                selected = random.sample(entries, max_entries)
+                selected_ids = {e["id"] for e in selected}
+                cancelled = []
 
-                    max_entries = min(8, len(entries))
-                    selected = random.sample(entries, max_entries)
+                for e in entries:
+                    if e["id"] in selected_ids:
+                        await conn.execute("""
+                            UPDATE race_entries
+                            SET status = 'selected'
+                            WHERE id = $1
+                        """, e["id"])
+                    else:
+                        await conn.execute("""
+                            UPDATE race_entries
+                            SET status = 'cancelled'
+                            WHERE id = $1
+                        """, e["id"])
+                        cancelled.append(e)
 
-                    selected_ids = {e["id"] for e in selected}
-                    cancelled = []
+                await conn.execute("""
+                    UPDATE race_schedules
+                    SET lottery_done = TRUE,
+                        locked = TRUE
+                    WHERE id = $1
+                """, schedule_id)
 
-                    # ② ステータス更新
-                    for e in entries:
-                        if e["id"] in selected_ids:
-                            await self.update_race_entry_status(e["id"], "selected")
-                        else:
-                            await self.update_race_entry_status(e["id"], "cancelled")
-                            cancelled.append(e)
-
-                    # ③ 抽選済みフラグ（最後に立てる）
-                    await self.mark_race_lottery_done(schedule_id)
-
-                    print(
-                        f"[RACE LOTTERY DONE] "
-                        f"selected={len(selected)} cancelled={len(cancelled)}"
-                    )
-
-                    return {
-                        "selected": selected,
-                        "cancelled": cancelled
-                    }
+                return {
+                    "selected": selected,
+                    "cancelled": cancelled
+                }
 
     # =========================
     # レース設定取得
@@ -2489,25 +2476,33 @@ class Database:
 
             self._save_badges(data)
 
-    async def _fetch(self, query, *args):
+    async def _fetch(self, query, *args, conn=None):
         await self._ensure_pool()
-        async with self.pool.acquire() as conn:
+        if conn:
             return await conn.fetch(query, *args)
+        async with self.pool.acquire() as c:
+            return await c.fetch(query, *args)
 
-    async def _fetchrow(self, query, *args):
+    async def _fetchrow(self, query, *args, conn=None):
         await self._ensure_pool()
-        async with self.pool.acquire() as conn:
+        if conn:
             return await conn.fetchrow(query, *args)
+        async with self.pool.acquire() as c:
+            return await c.fetchrow(query, *args)
 
-    async def _fetchval(self, query, *args):
+    async def _fetchval(self, query, *args, conn=None):
         await self._ensure_pool()
-        async with self.pool.acquire() as conn:
+        if conn:
             return await conn.fetchval(query, *args)
+        async with self.pool.acquire() as c:
+            return await c.fetchval(query, *args)
 
-    async def _execute(self, query, *args):
+    async def _execute(self, query, *args, conn=None):
         await self._ensure_pool()
-        async with self.pool.acquire() as conn:
+        if conn:
             return await conn.execute(query, *args)
+        async with self.pool.acquire() as c:
+            return await c.execute(query, *args)
 
 
 
