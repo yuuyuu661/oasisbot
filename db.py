@@ -731,21 +731,15 @@ class Database:
     # ------------------------------------------------------
     async def get_user(self, user_id, guild_id):
         await self._ensure_pool()
-
-        async with self.pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO users (user_id, guild_id, balance)
-                VALUES ($1, $2, 0)
-                ON CONFLICT DO NOTHING
-                """,
-                user_id, guild_id
-            )
-
-            return await conn.fetchrow(
-                "SELECT * FROM users WHERE user_id=$1 AND guild_id=$2",
-                user_id, guild_id
-            )
+        await self._execute("""
+            INSERT INTO users (user_id, guild_id, balance)
+            VALUES ($1, $2, 0)
+            ON CONFLICT (user_id, guild_id) DO NOTHING
+        """, user_id, guild_id)
+        return await self._fetchrow(
+            "SELECT * FROM users WHERE user_id=$1 AND guild_id=$2",
+            user_id, guild_id
+        )
 
     async def set_balance(self, user_id, guild_id, amount):
         await self._ensure_pool()
@@ -763,71 +757,24 @@ class Database:
 
     async def add_balance(self, user_id, guild_id, amount):
         await self._ensure_pool()
-        async with self._lock:
-
-            row = await self._fetchrow(
-                """
-                SELECT balance
-                FROM users
-                WHERE user_id=$1 AND guild_id=$2
-                FOR UPDATE
-                """,
-                user_id, guild_id
-            )
-
-            if not row:
-                await self._execute(
-                    "INSERT INTO users (user_id, guild_id, balance) VALUES ($1, $2, 0)",
-                    user_id, guild_id
-                )
-                current = 0
-            else:
-                current = row["balance"]
-
-            new_amount = current + amount
-
-            await self._execute(
-                """
-                UPDATE users
-                SET balance=$1
-                WHERE user_id=$2 AND guild_id=$3
-                """,
-                new_amount, user_id, guild_id
-            )
-
-            return new_amount
-
+        async with self.pool.acquire() as conn:
+            return await conn.fetchval("""
+                INSERT INTO users (user_id, guild_id, balance)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (user_id, guild_id)
+                DO UPDATE SET balance = users.balance + $3
+                RETURNING balance
+            """, user_id, guild_id, amount)
 
     async def remove_balance(self, user_id, guild_id, amount):
         await self._ensure_pool()
-        async with self._lock:
-
-            row = await self._fetchrow(
-                """
-                SELECT balance
-                FROM users
-                WHERE user_id=$1 AND guild_id=$2
-                FOR UPDATE
-                """,
-                user_id, guild_id
-            )
-
-            if not row:
-                return 0
-
-            current = row["balance"]
-            new_amount = max(0, current - amount)
-
-            await self._execute(
-                """
+        async with self.pool.acquire() as conn:
+            return await conn.fetchval("""
                 UPDATE users
-                SET balance=$1
-                WHERE user_id=$2 AND guild_id=$3
-                """,
-                new_amount, user_id, guild_id
-            )
-
-            return new_amount
+                SET balance = GREATEST(0, balance - $3)
+                WHERE user_id=$1 AND guild_id=$2
+                RETURNING balance
+            """, user_id, guild_id, amount) or 0
 
 
     async def get_all_balances(self, guild_id):
@@ -1706,11 +1653,8 @@ class Database:
     # -------------------------------
     async def get_oasistchi_notify_all(self, user_id: str) -> bool:
         await self._ensure_pool()
-        row = await self._fetchrow(
-            "SELECT notify_all FROM oasistchi_notify WHERE user_id=$1",
-            user_id
-        )
-        return row["notify_all"] if row else True
+        row = await self._fetchrow("SELECT 1 FROM oasistchi_notify WHERE user_id=$1", user_id)
+        return row is not None
 
     # -------------------------------
     # おあしすっち：通知設定（更新）
@@ -2499,6 +2443,7 @@ class Database:
             return await conn.execute(query, *args)
         async with self.pool.acquire() as c:
             return await c.execute(query, *args)
+
 
 
 
