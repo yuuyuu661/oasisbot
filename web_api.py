@@ -67,7 +67,8 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://lacesite-production.up.railway.app"
+        "https://lacesite-production.up.railway.app",
+        "https://oasisbot-production.up.railway.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -247,6 +248,7 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
 
 
