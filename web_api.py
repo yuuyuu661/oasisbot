@@ -23,15 +23,13 @@ def apply_condition_multiplier(speed, power, stamina, happiness):
     # happiness 50 → 0.9
     # happiness 100 → 1.0
 
-    return {
-        "schedule_id": race["id"],
-        "race_date": race_date,
-        "race_time": race["race_time"],
-        "locked": locked,
-        "pets": pets,
-        "distance": race["distance"],   # ★追加
-        "surface": race["surface"]      # ★追加
-    }
+    return (
+        speed * ratio,
+        power * ratio,
+        stamina * ratio,
+        ratio
+    )
+
 
 def calc_ability(speed, power, stamina):
     # 今はシンプル固定重み
@@ -144,11 +142,11 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
 
         if not processed:
             return {
-                "schedule_id": race["id"],  # ←追加
+                "schedule_id": race["id"],
                 "race_date": race_date,
                 "race_time": race["race_time"],
                 "locked": locked,
-                "pets": pets,
+                "pets": [],  # ← 空配列にする
                 "distance": race["distance"],
                 "surface": race["surface"]
             }
@@ -248,6 +246,7 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
 
 
