@@ -176,10 +176,13 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
             })
 
         return {
+            "schedule_id": race["id"],
             "race_date": race_date,
             "race_time": race["race_time"],
             "locked": locked,
-            "pets": pets
+            "pets": pets,
+            "distance": race["distance"],
+            "surface": race["surface"]
         }
 
     finally:
@@ -246,6 +249,7 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
 
 
