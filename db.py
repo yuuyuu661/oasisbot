@@ -341,6 +341,34 @@ class Database:
             UNIQUE (race_date, schedule_id, pet_id)
         );
         """)
+        # =========================
+        # 馬券関連テーブル（パリミュチュエル方式）
+        # =========================
+
+        # 個別馬券
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS race_bets (
+            id SERIAL PRIMARY KEY,
+            guild_id TEXT NOT NULL,
+            race_date DATE NOT NULL,
+            schedule_id INTEGER NOT NULL,
+            user_id TEXT NOT NULL,
+            pet_id INTEGER NOT NULL,
+            amount INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)
+
+        # レースごとの総プール
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS race_pools (
+            guild_id TEXT NOT NULL,
+            race_date DATE NOT NULL,
+            schedule_id INTEGER NOT NULL,
+            total_pool INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (guild_id, race_date, schedule_id)
+        );
+        """)
 
         # -----------------------------------------
         # race_entries に status カラムがなければ追加
@@ -2443,6 +2471,7 @@ class Database:
             return await conn.execute(query, *args)
         async with self.pool.acquire() as c:
             return await c.execute(query, *args)
+
 
 
 
