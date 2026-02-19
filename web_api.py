@@ -5,6 +5,8 @@ import asyncpg
 from datetime import datetime
 import math
 import random
+import hmac
+import hashlib
 
 WEB_SECRET = os.getenv("WEB_SECRET")
 
@@ -65,6 +67,19 @@ def get_condition_label(happiness: int):
         return "普通", "normal"
     else:
         return "不調", "bad"
+
+# =========================
+# 🔐 トークン検証
+# =========================
+def verify_token(user_id: str, guild_id: str, race_id: str, token: str):
+    message = f"{user_id}:{guild_id}:{race_id}"
+    expected = hmac.new(
+        WEB_SECRET.encode(),
+        message.encode(),
+        hashlib.sha256
+    ).hexdigest()
+
+    return hmac.compare_digest(expected, token)
 
 app = FastAPI()
 
@@ -256,6 +271,7 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
 
 
