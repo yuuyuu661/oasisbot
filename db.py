@@ -2472,6 +2472,16 @@ class Database:
         async with self.pool.acquire() as c:
             return await c.execute(query, *args)
 
+    async def get_latest_open_race(self, guild_id):
+        return await self._fetchrow("""
+            SELECT *
+            FROM race_schedules
+            WHERE guild_id = $1
+              AND lottery_done = TRUE
+              AND race_finished = FALSE
+            ORDER BY race_date DESC, race_no DESC
+            LIMIT 1
+        """, guild_id)
 
 
 
