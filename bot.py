@@ -11,6 +11,12 @@ from web_api import app
 load_dotenv()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
+WEB_SECRET = os.getenv("WEB_SECRET")
+
+if not WEB_SECRET:
+    raise ValueError("WEB_SECRET が設定されていません")
+
+print("🔐 WEB_SECRET loaded (BOT)")
 
 intents = discord.Intents.default()
 intents.guilds = True
@@ -91,6 +97,7 @@ if __name__ == "__main__":
     loop.create_task(start_api())
     loop.create_task(start_bot())
     loop.run_forever()
+
 
 
 
