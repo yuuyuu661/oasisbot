@@ -6,6 +6,13 @@ from datetime import datetime
 import math
 import random
 
+WEB_SECRET = os.getenv("WEB_SECRET")
+
+if not WEB_SECRET:
+    raise ValueError("WEB_SECRET が設定されていません")
+
+print("🔐 WEB_SECRET loaded (WEB)")
+
 # ===== レース用計算ロジック =====
 
 K_VALUE = 2.5
@@ -249,6 +256,7 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
 
 
