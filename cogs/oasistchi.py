@@ -5,6 +5,8 @@ import json
 import time
 import os
 import random
+import hmac
+import hashlib
 from PIL import Image
 from io import BytesIO
 import asyncio
@@ -22,6 +24,14 @@ def get_today_jst_date():
 def today_jst_str() -> str:
     JST = timezone(timedelta(hours=9))
     return datetime.now(JST).strftime("%Y-%m-%d")
+
+def generate_token(user_id: int, guild_id: int, race_id: int):
+    message = f"{user_id}:{guild_id}:{race_id}"
+    return hmac.new(
+        WEB_SECRET.encode(),
+        message.encode(),
+        hashlib.sha256
+    ).hexdigest()
 
 # =========================
 # ここだけ環境に合わせて
@@ -1496,6 +1506,38 @@ class OasistchiPanelRootView(discord.ui.View):
         embed = build_race_schedule_embed(schedules)
         await interaction.followup.send(embed=embed, ephemeral=True)
 
+    @discord.ui.button(label="🌐 レースサイト", style=discord.ButtonStyle.primary)
+    async def race_site_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+        user_id = interaction.user.id
+        guild_id = interaction.guild.id
+
+        # 最新レース取得（あなたのDB関数に合わせて）
+        race = await interaction.client.db.get_latest_open_race(str(guild_id))
+
+        if not race:
+            return await interaction.response.send_message(
+                "現在販売中のレースはありません。",
+                ephemeral=True
+            )
+
+        race_id = race["id"]
+
+        token = generate_token(user_id, guild_id, race_id)
+
+        url = (
+            f"https://lacesite-production.up.railway.app/index.html"
+            f"?guild={guild_id}"
+            f"&user={user_id}"
+            f"&race={race_id}"
+            f"&token={token}"
+        )
+
+        await interaction.response.send_message(
+            f"🌐 レースサイトはこちら\n{url}",
+            ephemeral=True
+        )
+
 # =========================
 # プルダウン View
 # =========================
@@ -2857,6 +2899,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
