@@ -477,14 +477,15 @@ async def place_bet(data: BetRequest):
             # ⑥ bet追加
             await conn.execute("""
                 INSERT INTO race_bets
-                (guild_id, race_date, schedule_id, user_id, pet_id, amount)
-                VALUES ($1,$2,$3,$4,$5,$6)
+                (race_id, guild_id, race_date, schedule_id, user_id, pet_id, amount)
+                VALUES ($1,$2,$3,$4,$5,$6,$7)
             """,
+                race["id"],              # ← race_id（これが必須）
                 str(data.guild),
                 race["race_date"],
-                race["id"],
+                race["id"],              # schedule_id
                 str(data.user),
-                str(data.pet_id),   # ← ★ ここをstrにする
+                str(data.pet_id),
                 data.amount
             )
 
@@ -547,6 +548,7 @@ async def place_bet(data: BetRequest):
 
     finally:
         await conn.close()
+
 
 
 
