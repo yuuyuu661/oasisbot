@@ -98,20 +98,25 @@ if not DATABASE_URL:
 async def ensure_schema():
     conn = await asyncpg.connect(DATABASE_URL)
     try:
-        column_exists = await conn.fetchval("""
-            SELECT 1
-            FROM information_schema.columns
-            WHERE table_name='race_bets'
-              AND column_name='guild_id'
-        """)
-
-        if not column_exists:
-            print("🔧 Adding guild_id column to race_bets...")
-            await conn.execute("""
-                ALTER TABLE race_bets
-                ADD COLUMN guild_id TEXT
+        async def ensure_column(table, column, definition):
+            exists = await conn.fetchval(f"""
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_name='{table}'
+                  AND column_name='{column}'
             """)
-            print("✅ guild_id column added")
+            if not exists:
+                print(f"🔧 Adding {column} to {table}...")
+                await conn.execute(f"""
+                    ALTER TABLE {table}
+                    ADD COLUMN {column} {definition}
+                """)
+                print(f"✅ {column} added to {table}")
+
+        # race_bets の不足カラムを補完
+        await ensure_column("race_bets", "guild_id", "TEXT")
+        await ensure_column("race_bets", "schedule_id", "INTEGER")
+        await ensure_column("race_bets", "race_date", "DATE")
 
     finally:
         await conn.close()
@@ -542,6 +547,7 @@ async def place_bet(data: BetRequest):
 
     finally:
         await conn.close()
+
 
 
 
