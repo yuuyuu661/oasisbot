@@ -480,13 +480,13 @@ async def place_bet(data: BetRequest):
                 (race_id, guild_id, race_date, schedule_id, user_id, pet_id, amount)
                 VALUES ($1,$2,$3,$4,$5,$6,$7)
             """,
-                str(race["id"]),      # ← ★ ここもstrにする
-                str(data.guild),
-                race["race_date"],
-                str(race["id"]),      # schedule_id も安全にstr
-                str(data.user),
-                str(data.pet_id),
-                data.amount
+                str(race["id"]),        # race_id → TEXT
+                str(data.guild),        # guild_id → TEXT
+                race["race_date"],      # DATE
+                race["id"],             # schedule_id → INTEGER ← ★ここはintのまま
+                str(data.user),         # user_id → TEXT
+                str(data.pet_id),       # pet_id → TEXT
+                data.amount             # amount → INTEGER
             )
 
             # ⑦ 全体プール更新
@@ -548,6 +548,7 @@ async def place_bet(data: BetRequest):
 
     finally:
         await conn.close()
+
 
 
 
