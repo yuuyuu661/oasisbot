@@ -369,6 +369,17 @@ class Database:
             PRIMARY KEY (guild_id, race_date, schedule_id)
         );
         """)
+        # 🔥 ペット別プール（重要）
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS race_pet_pools (
+            guild_id TEXT NOT NULL,
+            race_date DATE NOT NULL,
+            schedule_id INTEGER NOT NULL,
+            pet_id INTEGER NOT NULL,
+            total_amount INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (guild_id, race_date, schedule_id, pet_id)
+        );
+        """)
 
         # -----------------------------------------
         # race_entries に status カラムがなければ追加
@@ -2483,7 +2494,67 @@ class Database:
             LIMIT 1
         """, guild_id)
 
+    async def place_bet(self, guild_id, race_date, schedule_id, user_id, pet_id, amount):
+        async with self._lock:
 
+            # ① 馬券保存
+            await self._execute("""
+                INSERT INTO race_bets
+                (guild_id, race_date, schedule_id, user_id, pet_id, amount)
+                VALUES ($1, $2, $3, $4, $5, $6)
+            """, guild_id, race_date, schedule_id, user_id, pet_id, amount)
+
+            # ② 全体プール更新
+            await self._execute("""
+                INSERT INTO race_pools
+                (guild_id, race_date, schedule_id, total_pool)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (guild_id, race_date, schedule_id)
+                DO UPDATE SET total_pool = race_pools.total_pool + $4
+            """, guild_id, race_date, schedule_id, amount)
+
+            # ③ ペット別プール更新
+            await self._execute("""
+                INSERT INTO race_pet_pools
+                (guild_id, race_date, schedule_id, pet_id, total_amount)
+                VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT (guild_id, race_date, schedule_id, pet_id)
+                DO UPDATE SET total_amount = race_pet_pools.total_amount + $5
+            """, guild_id, race_date, schedule_id, pet_id, amount)
+
+    async def get_race_pool(self, guild_id, race_date, schedule_id):
+        row = await self._fetchrow("""
+            SELECT total_pool
+            FROM race_pools
+            WHERE guild_id = $1
+              AND race_date = $2
+              AND schedule_id = $3
+        """, guild_id, race_date, schedule_id)
+
+        return row["total_pool"] if row else 0
+
+    async def get_pool_data(self, guild_id, race_date, schedule_id):
+        total_row = await self._fetchrow("""
+            SELECT total_pool
+            FROM race_pools
+            WHERE guild_id = $1
+              AND race_date = $2
+              AND schedule_id = $3
+        """, guild_id, race_date, schedule_id)
+
+        total_pool = total_row["total_pool"] if total_row else 0
+
+        pet_rows = await self._fetch("""
+            SELECT pet_id, total_amount
+            FROM race_pet_pools
+            WHERE guild_id = $1
+              AND race_date = $2
+              AND schedule_id = $3
+        """, guild_id, race_date, schedule_id)
+
+        pet_pools = {r["pet_id"]: r["total_amount"] for r in pet_rows}
+
+        return total_pool, pet_pools
 
 
 
