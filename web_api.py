@@ -60,6 +60,18 @@ def probs_to_odds(probs):
             odds.append(round(o, 1))
     return odds
 
+# =========================
+# 🎯 パリミュチュエル計算式
+# =========================
+def calculate_odds(total_pool, pet_pool, take_rate=0.10):
+    if pet_pool == 0:
+        return 10.0  # 最大値
+
+    payout_pool = total_pool * (1 - take_rate)
+    odds = payout_pool / pet_pool
+
+    return round(max(1.0, min(10.0, odds)), 2)
+
 def get_condition_label(happiness: int):
     if happiness >= 80:
         return "好調", "good"
@@ -305,6 +317,7 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
 
 
