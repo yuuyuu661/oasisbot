@@ -274,13 +274,25 @@ async def get_balance(
     token: str
 ):
     # トークン検証
-    valid = await db.verify_token(user, guild, race, token)
-    if not valid:
+    if not verify_token(user, guild, str(race), token):
         raise HTTPException(status_code=403, detail="Invalid token")
 
-    balance = await db.get_user_balance(user, guild)
+    conn = await asyncpg.connect(DATABASE_URL)
+    try:
+        balance = await conn.fetchval("""
+            SELECT balance
+            FROM users
+            WHERE user_id = $1
+              AND guild_id = $2
+        """, user, guild)
 
-    return {"balance": balance}
+        if balance is None:
+            raise HTTPException(status_code=400, detail="ユーザー未登録")
+
+        return {"balance": balance}
+
+    finally:
+        await conn.close()
 # =========================
 # ★ ここに追加する ★
 # 最新レース取得API
@@ -506,4 +518,5 @@ async def place_bet(data: BetRequest):
 
     finally:
         await conn.close()
+
 
