@@ -81,6 +81,39 @@ def verify_token(user_id: str, guild_id: str, race_id: str, token: str):
 
     return hmac.compare_digest(expected, token)
 
+# =========================
+# 🔐 トークン検証API
+# =========================
+@app.get("/api/verify")
+async def verify(user: str, guild: str, race: str, token: str):
+
+    # ① トークン検証
+    if not verify_token(user, guild, race, token):
+        raise HTTPException(status_code=403, detail="Invalid token")
+
+    # ② レース存在確認（念のため）
+    conn = await asyncpg.connect(DATABASE_URL)
+    try:
+        race_row = await conn.fetchrow("""
+            SELECT id
+            FROM race_schedules
+            WHERE id = $1
+              AND guild_id = $2
+        """, int(race), guild)
+
+        if not race_row:
+            raise HTTPException(status_code=404, detail="Race not found")
+
+    finally:
+        await conn.close()
+
+    return {
+        "status": "ok",
+        "user": user,
+        "guild": guild,
+        "race": race
+    }
+
 app = FastAPI()
 
 # ★ ここを追加
@@ -271,6 +304,7 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
 
 
