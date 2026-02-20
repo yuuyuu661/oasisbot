@@ -355,136 +355,138 @@ async def place_bet(data: BetRequest):
     if data.amount <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
 
-    # 🔥 1口1000rrc固定チェック
+    # 🔒 1000rrc単位チェック
     if data.amount % UNIT_PRICE != 0:
         raise HTTPException(status_code=400, detail="1口1000rrc単位です")
 
     conn = await asyncpg.connect(DATABASE_URL)
 
     try:
-        # ② レース確認
-        race = await conn.fetchrow("""
-            SELECT *
-            FROM race_schedules
-            WHERE id = $1
-              AND guild_id = $2
-        """, data.race, data.guild)
+        async with conn.transaction():
 
-        if not race:
-            raise HTTPException(status_code=404, detail="Race not found")
+            # ② レース確認
+            race = await conn.fetchrow("""
+                SELECT *
+                FROM race_schedules
+                WHERE id = $1
+                  AND guild_id = $2
+            """, data.race, data.guild)
 
-        if race["lottery_done"]:
-            raise HTTPException(status_code=400, detail="Betting closed")
+            if not race:
+                raise HTTPException(status_code=404, detail="Race not found")
 
-        # 🔥 ③ 既存購入額取得（このレースでの合計）
-        total_user_bet = await conn.fetchval("""
-            SELECT COALESCE(SUM(amount),0)
-            FROM race_bets
-            WHERE guild_id = $1
-              AND schedule_id = $2
-              AND user_id = $3
-        """, data.guild, race["id"], data.user)
+            if race["lottery_done"]:
+                raise HTTPException(status_code=400, detail="Betting closed")
 
-        new_total = total_user_bet + data.amount
+            # ③ 現在の購入合計取得
+            total_user_bet = await conn.fetchval("""
+                SELECT COALESCE(SUM(amount),0)
+                FROM race_bets
+                WHERE guild_id = $1
+                  AND schedule_id = $2
+                  AND user_id = $3
+            """, data.guild, race["id"], data.user)
 
-        if new_total > MAX_AMOUNT:
-            raise HTTPException(
-                status_code=400,
-                detail="このレースでは最大100口まで購入できます"
+            new_total = total_user_bet + data.amount
+
+            if new_total > MAX_AMOUNT:
+                raise HTTPException(
+                    status_code=400,
+                    detail="このレースでは最大100口まで購入できます"
+                )
+
+            # ④ 残高取得
+            balance = await conn.fetchval("""
+                SELECT balance
+                FROM users
+                WHERE user_id = $1
+                  AND guild_id = $2
+            """, data.user, data.guild)
+
+            if balance is None:
+                raise HTTPException(status_code=400, detail="ユーザー未登録")
+
+            if balance < data.amount:
+                raise HTTPException(status_code=400, detail="残高不足")
+
+            # ⑤ 残高減算
+            await conn.execute("""
+                UPDATE users
+                SET balance = balance - $1
+                WHERE user_id = $2
+                  AND guild_id = $3
+            """, data.amount, data.user, data.guild)
+
+            # ⑥ bet追加
+            await conn.execute("""
+                INSERT INTO race_bets
+                (guild_id, race_date, schedule_id, user_id, pet_id, amount)
+                VALUES ($1,$2,$3,$4,$5,$6)
+            """,
+                data.guild,
+                race["race_date"],
+                race["id"],
+                data.user,
+                data.pet_id,
+                data.amount
             )
 
-        # ④ bet追加
-        await conn.execute("""
-            INSERT INTO race_bets
-            (guild_id, race_date, schedule_id, user_id, pet_id, amount)
-            VALUES ($1,$2,$3,$4,$5,$6)
-        """,
-            data.guild,
-            race["race_date"],
-            race["id"],
-            data.user,
-            data.pet_id,
-            data.amount
-        )
+            # ⑦ 全体プール更新
+            await conn.execute("""
+                INSERT INTO race_pools
+                (guild_id, race_date, schedule_id, total_pool)
+                VALUES ($1,$2,$3,$4)
+                ON CONFLICT (guild_id, race_date, schedule_id)
+                DO UPDATE SET total_pool = race_pools.total_pool + $4
+            """,
+                data.guild,
+                race["race_date"],
+                race["id"],
+                data.amount
+            )
 
-        # ⑤ 全体プール更新
-        await conn.execute("""
-            INSERT INTO race_pools
-            (guild_id, race_date, schedule_id, total_pool)
-            VALUES ($1,$2,$3,$4)
-            ON CONFLICT (guild_id, race_date, schedule_id)
-            DO UPDATE SET total_pool = race_pools.total_pool + $4
-        """,
-            data.guild,
-            race["race_date"],
-            race["id"],
-            data.amount
-        )
+            # ⑧ 個別プール更新
+            await conn.execute("""
+                INSERT INTO race_pet_pools
+                (guild_id, race_date, schedule_id, pet_id, total_amount)
+                VALUES ($1,$2,$3,$4,$5)
+                ON CONFLICT (guild_id, race_date, schedule_id, pet_id)
+                DO UPDATE SET total_amount = race_pet_pools.total_amount + $5
+            """,
+                data.guild,
+                race["race_date"],
+                race["id"],
+                data.pet_id,
+                data.amount
+            )
 
-        # ⑥ 個別プール更新
-        await conn.execute("""
-            INSERT INTO race_pet_pools
-            (guild_id, race_date, schedule_id, pet_id, total_amount)
-            VALUES ($1,$2,$3,$4,$5)
-            ON CONFLICT (guild_id, race_date, schedule_id, pet_id)
-            DO UPDATE SET total_amount = race_pet_pools.total_amount + $5
-        """,
-            data.guild,
-            race["race_date"],
-            race["id"],
-            data.pet_id,
-            data.amount
-        )
+            # ⑨ 最新オッズ取得
+            total_pool = await conn.fetchval("""
+                SELECT total_pool
+                FROM race_pools
+                WHERE guild_id = $1
+                  AND race_date = $2
+                  AND schedule_id = $3
+            """, data.guild, race["race_date"], race["id"])
 
-        # 最新オッズ取得
-        total_pool = await conn.fetchval("""
-            SELECT total_pool
-            FROM race_pools
-            WHERE guild_id = $1
-              AND race_date = $2
-              AND schedule_id = $3
-        """, data.guild, race["race_date"], race["id"])
+            pet_pool = await conn.fetchval("""
+                SELECT total_amount
+                FROM race_pet_pools
+                WHERE guild_id = $1
+                  AND race_date = $2
+                  AND schedule_id = $3
+                  AND pet_id = $4
+            """, data.guild, race["race_date"], race["id"], data.pet_id)
 
-        pet_pool = await conn.fetchval("""
-            SELECT total_amount
-            FROM race_pet_pools
-            WHERE guild_id = $1
-              AND race_date = $2
-              AND schedule_id = $3
-              AND pet_id = $4
-        """, data.guild, race["race_date"], race["id"], data.pet_id)
+            odds = calculate_odds(total_pool, pet_pool, take_rate=0.10)
 
-        odds = calculate_odds(total_pool, pet_pool, take_rate=0.10)
-
-        return {
-            "status": "ok",
-            "new_odds": odds,
-            "user_total_bet": new_total,
-            "remaining_units": (MAX_AMOUNT - new_total) // UNIT_PRICE
-        }
+            return {
+                "status": "ok",
+                "new_odds": odds,
+                "user_total_bet": new_total,
+                "remaining_units": (MAX_AMOUNT - new_total) // UNIT_PRICE,
+                "remaining_balance": balance - data.amount
+            }
 
     finally:
         await conn.close()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
