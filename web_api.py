@@ -92,6 +92,29 @@ app = FastAPI()
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL が設定されていません")
+
+# 🔥 ここに追加
+@app.on_event("startup")
+async def ensure_schema():
+    conn = await asyncpg.connect(DATABASE_URL)
+    try:
+        column_exists = await conn.fetchval("""
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name='race_bets'
+              AND column_name='guild_id'
+        """)
+
+        if not column_exists:
+            print("🔧 Adding guild_id column to race_bets...")
+            await conn.execute("""
+                ALTER TABLE race_bets
+                ADD COLUMN guild_id TEXT
+            """)
+            print("✅ guild_id column added")
+
+    finally:
+        await conn.close()
 # =========================
 # 🔐 トークン検証API
 # =========================
@@ -519,6 +542,7 @@ async def place_bet(data: BetRequest):
 
     finally:
         await conn.close()
+
 
 
 
