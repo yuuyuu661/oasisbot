@@ -14,6 +14,13 @@ from PIL import Image, ImageSequence
 from datetime import datetime, timezone, timedelta, time as dtime
 JST = timezone(timedelta(hours=9))
 
+WEB_SECRET = os.getenv("WEB_SECRET")
+if not WEB_SECRET:
+    print("❌ WEB_SECRET not loaded in OasistchiCog")
+else:
+    print("🔐 WEB_SECRET loaded in OasistchiCog")
+
+
 def today_jst_date():
     return datetime.now(JST).date()
 def get_today_jst_date():
@@ -2901,6 +2908,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
