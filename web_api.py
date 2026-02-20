@@ -40,37 +40,27 @@ def apply_condition_multiplier(speed, power, stamina, happiness):
     )
 
 
-def calc_ability(speed, power, stamina):
-    # 今はシンプル固定重み
-    return 1.25*speed + 1.0*power + 1.0*stamina
-
-def softmax_probabilities(abilities, k=K_VALUE):
-    weighted = [a**k for a in abilities]
-    total = sum(weighted)
-    return [w/total for w in weighted]
-
-def probs_to_odds(probs):
-    odds = []
-    for p in probs:
-        if p <= 0:
-            odds.append(99.9)
-        else:
-            o = (1 - HOUSE_TAKE) / p
-            o = max(1.4, min(80.0, o))
-            odds.append(round(o, 1))
-    return odds
-
 # =========================
 # 🎯 パリミュチュエル計算式
 # =========================
-def calculate_odds(total_pool, pet_pool, take_rate=0.10):
-    if pet_pool == 0:
-        return 10.0  # 最大値
+def calculate_odds(total_pool: int, pet_pool: int, take_rate: float = 0.10):
+    """
+    total_pool: レース全体の投票総額
+    pet_pool:   そのペットへの投票総額
+    take_rate:  控除率（例 0.10 = 10%）
+    """
+
+    if total_pool <= 0:
+        return 1.1  # まだ誰も賭けてない場合の初期値
+
+    if pet_pool <= 0:
+        return 10.0  # そのペットにまだ票がない場合は最大表示
 
     payout_pool = total_pool * (1 - take_rate)
     odds = payout_pool / pet_pool
 
-    return round(max(1.0, min(10.0, odds)), 2)
+    # 最小1.1倍、最大10倍に制限
+    return round(max(1.1, min(10.0, odds)), 2)
 
 def get_condition_label(happiness: int):
     if happiness >= 80:
@@ -219,28 +209,45 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
                 "surface": race["surface"]
             }
 
-        # ===== 勝率計算 =====
-        abilities = [p["ability"] for p in processed]
-        probs = softmax_probabilities(abilities)
-        odds_list = probs_to_odds(probs)
+        # ===== プール取得 =====
+        total_pool_row = await conn.fetchrow("""
+            SELECT total_pool
+            FROM race_pools
+            WHERE guild_id = $1
+              AND race_date = $2
+              AND schedule_id = $3
+        """, guild_id, race["race_date"], race["id"])
+
+        total_pool = total_pool_row["total_pool"] if total_pool_row else 0
+
+        pet_pool_rows = await conn.fetch("""
+            SELECT pet_id, total_amount
+            FROM race_pet_pools
+            WHERE guild_id = $1
+              AND race_date = $2
+              AND schedule_id = $3
+        """, guild_id, race["race_date"], race["id"])
+
+        pet_pools = {r["pet_id"]: r["total_amount"] for r in pet_pool_rows}
 
         pets = []
-        for i, p in enumerate(processed):
-            label, css_class = get_condition_label(
-                int((p["ratio"] - 0.8) / 0.2 * 100)
-            )
+        for p in processed:
+            pet_id = p["pet_id"]
+            pet_pool = pet_pools.get(pet_id, 0)
+
+            odds = calculate_odds(total_pool, pet_pool, take_rate=0.10)
 
             pets.append({
-                "pet_id": p["pet_id"],
+                "pet_id": pet_id,
                 "name": p["name"],
                 "adult_key": p["adult_key"],
                 "speed": p["speed"],
                 "power": p["power"],
                 "stamina": p["stamina"],
-                "condition_label": label,
-                "condition_class": css_class,
-                "condition_ratio": round(p["ratio"], 2),
-                "odds": odds_list[i]
+                "condition_label": "—",
+                "condition_class": "normal",
+                "condition_ratio": 1.0,
+                "odds": odds
             })
 
         return {
@@ -317,6 +324,7 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
 
 
