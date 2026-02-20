@@ -1509,14 +1509,16 @@ class OasistchiPanelRootView(discord.ui.View):
     @discord.ui.button(label="🌐 レースサイト", style=discord.ButtonStyle.primary)
     async def race_site_button(self, interaction: discord.Interaction, button: discord.ui.Button):
 
+        # 👇 これを最初に入れる
+        await interaction.response.defer(ephemeral=True)
+
         user_id = interaction.user.id
         guild_id = interaction.guild.id
 
-        # 最新レース取得（あなたのDB関数に合わせて）
         race = await interaction.client.db.get_latest_open_race(str(guild_id))
 
         if not race:
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 "現在販売中のレースはありません。",
                 ephemeral=True
             )
@@ -1533,7 +1535,7 @@ class OasistchiPanelRootView(discord.ui.View):
             f"&token={token}"
         )
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"🌐 レースサイトはこちら\n{url}",
             ephemeral=True
         )
@@ -2899,6 +2901,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
