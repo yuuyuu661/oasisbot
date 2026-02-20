@@ -122,6 +122,18 @@ def verify_token(user_id: str, guild_id: str, race_id: str, token: str):
     return hmac.compare_digest(expected, token)
 
 app = FastAPI()
+
+# ★ ここを追加
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://lacesite-production.up.railway.app",
+        "https://oasisbot-production.up.railway.app"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL が設定されていません")
@@ -192,17 +204,7 @@ async def verify(user: str, guild: str, race: str, token: str):
 
 
 
-# ★ ここを追加
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://lacesite-production.up.railway.app",
-        "https://oasisbot-production.up.railway.app"
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
 
 @app.get("/api/race/{guild_id}/{race_date}/{race_no}")
 async def get_race_entries(guild_id: str, race_date: str, race_no: int):
@@ -591,6 +593,7 @@ async def place_bet(data: BetRequest):
 
     finally:
         await conn.close()
+
 
 
 
