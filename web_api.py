@@ -72,9 +72,16 @@ def calculate_odds(total_pool: int, pet_pool: int, take_rate: float = 0.10):
 def get_race_phase(race):
     now = datetime.now(JST)
 
+    race_date = race["race_date"]
+    race_time = race["race_time"]
+
+    # ★ ここが保険コード（文字列対策）
+    if isinstance(race_time, str):
+        race_time = datetime.strptime(race_time, "%H:%M:%S").time()
+
     race_datetime = datetime.combine(
-        race["race_date"],
-        race["race_time"],
+        race_date,
+        race_time,
         JST
     )
 
@@ -160,7 +167,7 @@ async def verify(user: str, guild: str, race: str, token: str):
     conn = await asyncpg.connect(DATABASE_URL)
     try:
         race_row = await conn.fetchrow("""
-            SELECT id
+            SELECT id, race_date, race_time, lottery_done, race_finished
             FROM race_schedules
             WHERE id = $1
               AND guild_id = $2
@@ -169,7 +176,7 @@ async def verify(user: str, guild: str, race: str, token: str):
         if not race_row:
             raise HTTPException(status_code=404, detail="Race not found")
 
-        phase = get_race_phase(race)
+        phase = get_race_phase(race_row)
             
 
     finally:
@@ -179,7 +186,8 @@ async def verify(user: str, guild: str, race: str, token: str):
         "status": "ok",
         "user": user,
         "guild": guild,
-        "race": race
+        "race": race,
+        "phase": phase
     }
 
 
@@ -216,6 +224,8 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
 
         if not race:
             raise HTTPException(status_code=404, detail="Race not found")
+
+        phase = get_race_phase(race)
 
         
 
@@ -581,6 +591,7 @@ async def place_bet(data: BetRequest):
 
     finally:
         await conn.close()
+
 
 
 
