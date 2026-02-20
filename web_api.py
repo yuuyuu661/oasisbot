@@ -7,6 +7,7 @@ import math
 import random
 import hmac
 import hashlib
+from pydantic import BaseModel
 
 WEB_SECRET = os.getenv("WEB_SECRET")
 
@@ -324,6 +325,120 @@ async def get_latest_race(guild_id: str):
     finally:
         await conn.close()
 
+# =========================
+# 🎫 馬券購入API
+# =========================
+
+class BetRequest(BaseModel):
+    user: str
+    guild: str
+    race: int
+    pet_id: int
+    amount: int
+    token: str
+
+
+@app.post("/api/bet")
+async def place_bet(data: BetRequest):
+
+    # ① トークン検証
+    if not verify_token(data.user, data.guild, str(data.race), data.token):
+        raise HTTPException(status_code=403, detail="Invalid token")
+
+    if data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Invalid amount")
+
+    conn = await asyncpg.connect(DATABASE_URL)
+
+    try:
+        # ② レース確認
+        race = await conn.fetchrow("""
+            SELECT *
+            FROM race_schedules
+            WHERE id = $1
+              AND guild_id = $2
+        """, data.race, data.guild)
+
+        if not race:
+            raise HTTPException(status_code=404, detail="Race not found")
+
+        if race["lottery_done"]:
+            raise HTTPException(status_code=400, detail="Betting closed")
+
+        # ③ bet追加
+        await conn.execute("""
+            INSERT INTO race_bets
+            (guild_id, race_date, schedule_id, user_id, pet_id, amount)
+            VALUES ($1,$2,$3,$4,$5,$6)
+        """,
+            data.guild,
+            race["race_date"],
+            race["id"],
+            data.user,
+            data.pet_id,
+            data.amount
+        )
+
+        # ④ 全体プール更新
+        await conn.execute("""
+            INSERT INTO race_pools
+            (guild_id, race_date, schedule_id, total_pool)
+            VALUES ($1,$2,$3,$4)
+            ON CONFLICT (guild_id, race_date, schedule_id)
+            DO UPDATE SET total_pool = race_pools.total_pool + $4
+        """,
+            data.guild,
+            race["race_date"],
+            race["id"],
+            data.amount
+        )
+
+        # ⑤ 個別プール更新
+        await conn.execute("""
+            INSERT INTO race_pet_pools
+            (guild_id, race_date, schedule_id, pet_id, total_amount)
+            VALUES ($1,$2,$3,$4,$5)
+            ON CONFLICT (guild_id, race_date, schedule_id, pet_id)
+            DO UPDATE SET total_amount = race_pet_pools.total_amount + $5
+        """,
+            data.guild,
+            race["race_date"],
+            race["id"],
+            data.pet_id,
+            data.amount
+        )
+
+        # ⑥ 最新オッズ取得
+        total_pool_row = await conn.fetchrow("""
+            SELECT total_pool
+            FROM race_pools
+            WHERE guild_id = $1
+              AND race_date = $2
+              AND schedule_id = $3
+        """, data.guild, race["race_date"], race["id"])
+
+        pet_pool_row = await conn.fetchrow("""
+            SELECT total_amount
+            FROM race_pet_pools
+            WHERE guild_id = $1
+              AND race_date = $2
+              AND schedule_id = $3
+              AND pet_id = $4
+        """, data.guild, race["race_date"], race["id"], data.pet_id)
+
+        total_pool = total_pool_row["total_pool"]
+        pet_pool = pet_pool_row["total_amount"]
+
+        odds = calculate_odds(total_pool, pet_pool, take_rate=0.10)
+
+        return {
+            "status": "ok",
+            "new_odds": odds,
+            "total_pool": total_pool
+        }
+
+    finally:
+        await conn.close()
 
 
 
