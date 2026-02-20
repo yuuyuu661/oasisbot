@@ -8,6 +8,9 @@ import random
 import hmac
 import hashlib
 from pydantic import BaseModel
+UNIT_PRICE = 1000
+MAX_UNITS = 100
+MAX_AMOUNT = UNIT_PRICE * MAX_UNITS  # 100,000rrc
 
 WEB_SECRET = os.getenv("WEB_SECRET")
 
@@ -341,12 +344,20 @@ class BetRequest(BaseModel):
 @app.post("/api/bet")
 async def place_bet(data: BetRequest):
 
+    UNIT_PRICE = 1000
+    MAX_UNITS = 100
+    MAX_AMOUNT = UNIT_PRICE * MAX_UNITS  # 100,000rrc
+
     # ① トークン検証
     if not verify_token(data.user, data.guild, str(data.race), data.token):
         raise HTTPException(status_code=403, detail="Invalid token")
 
     if data.amount <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
+
+    # 🔥 1口1000rrc固定チェック
+    if data.amount % UNIT_PRICE != 0:
+        raise HTTPException(status_code=400, detail="1口1000rrc単位です")
 
     conn = await asyncpg.connect(DATABASE_URL)
 
@@ -365,7 +376,24 @@ async def place_bet(data: BetRequest):
         if race["lottery_done"]:
             raise HTTPException(status_code=400, detail="Betting closed")
 
-        # ③ bet追加
+        # 🔥 ③ 既存購入額取得（このレースでの合計）
+        total_user_bet = await conn.fetchval("""
+            SELECT COALESCE(SUM(amount),0)
+            FROM race_bets
+            WHERE guild_id = $1
+              AND schedule_id = $2
+              AND user_id = $3
+        """, data.guild, race["id"], data.user)
+
+        new_total = total_user_bet + data.amount
+
+        if new_total > MAX_AMOUNT:
+            raise HTTPException(
+                status_code=400,
+                detail="このレースでは最大100口まで購入できます"
+            )
+
+        # ④ bet追加
         await conn.execute("""
             INSERT INTO race_bets
             (guild_id, race_date, schedule_id, user_id, pet_id, amount)
@@ -379,7 +407,7 @@ async def place_bet(data: BetRequest):
             data.amount
         )
 
-        # ④ 全体プール更新
+        # ⑤ 全体プール更新
         await conn.execute("""
             INSERT INTO race_pools
             (guild_id, race_date, schedule_id, total_pool)
@@ -393,7 +421,7 @@ async def place_bet(data: BetRequest):
             data.amount
         )
 
-        # ⑤ 個別プール更新
+        # ⑥ 個別プール更新
         await conn.execute("""
             INSERT INTO race_pet_pools
             (guild_id, race_date, schedule_id, pet_id, total_amount)
@@ -408,8 +436,8 @@ async def place_bet(data: BetRequest):
             data.amount
         )
 
-        # ⑥ 最新オッズ取得
-        total_pool_row = await conn.fetchrow("""
+        # 最新オッズ取得
+        total_pool = await conn.fetchval("""
             SELECT total_pool
             FROM race_pools
             WHERE guild_id = $1
@@ -417,7 +445,7 @@ async def place_bet(data: BetRequest):
               AND schedule_id = $3
         """, data.guild, race["race_date"], race["id"])
 
-        pet_pool_row = await conn.fetchrow("""
+        pet_pool = await conn.fetchval("""
             SELECT total_amount
             FROM race_pet_pools
             WHERE guild_id = $1
@@ -426,19 +454,18 @@ async def place_bet(data: BetRequest):
               AND pet_id = $4
         """, data.guild, race["race_date"], race["id"], data.pet_id)
 
-        total_pool = total_pool_row["total_pool"]
-        pet_pool = pet_pool_row["total_amount"]
-
         odds = calculate_odds(total_pool, pet_pool, take_rate=0.10)
 
         return {
             "status": "ok",
             "new_odds": odds,
-            "total_pool": total_pool
+            "user_total_bet": new_total,
+            "remaining_units": (MAX_AMOUNT - new_total) // UNIT_PRICE
         }
 
     finally:
         await conn.close()
+
 
 
 
