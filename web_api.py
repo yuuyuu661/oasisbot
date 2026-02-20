@@ -84,6 +84,9 @@ def verify_token(user_id: str, guild_id: str, race_id: str, token: str):
     return hmac.compare_digest(expected, token)
 
 app = FastAPI()
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL が設定されていません")
 # =========================
 # 🔐 トークン検証API
 # =========================
@@ -130,7 +133,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-DATABASE_URL = os.getenv("DATABASE_URL")
 
 @app.get("/api/race/{guild_id}/{race_date}/{race_no}")
 async def get_race_entries(guild_id: str, race_date: str, race_no: int):
@@ -185,8 +187,6 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
                 base_speed, base_power, base_stamina, happiness
             )
 
-            ability = calc_ability(speed, power, stamina)
-
             processed.append({
                 "pet_id": e["pet_id"],
                 "name": e["name"],
@@ -194,7 +194,6 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
                 "speed": round(speed),
                 "power": round(power),
                 "stamina": round(stamina),
-                "ability": ability,
                 "ratio": ratio
             })
 
@@ -324,6 +323,7 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
 
 
