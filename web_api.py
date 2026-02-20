@@ -265,6 +265,22 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
 
     finally:
         await conn.close()
+
+@app.get("/api/balance")
+async def get_balance(
+    user: str,
+    guild: str,
+    race: int,
+    token: str
+):
+    # トークン検証
+    valid = await db.verify_token(user, guild, race, token)
+    if not valid:
+        raise HTTPException(status_code=403, detail="Invalid token")
+
+    balance = await db.get_user_balance(user, guild)
+
+    return {"balance": balance}
 # =========================
 # ★ ここに追加する ★
 # 最新レース取得API
@@ -490,3 +506,4 @@ async def place_bet(data: BetRequest):
 
     finally:
         await conn.close()
+
