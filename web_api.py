@@ -480,11 +480,11 @@ async def place_bet(data: BetRequest):
                 (guild_id, race_date, schedule_id, user_id, pet_id, amount)
                 VALUES ($1,$2,$3,$4,$5,$6)
             """,
-                data.guild,
+                str(data.guild),
                 race["race_date"],
                 race["id"],
-                data.user,
-                data.pet_id,
+                str(data.user),
+                str(data.pet_id),   # ← ★ ここをstrにする
                 data.amount
             )
 
@@ -547,6 +547,7 @@ async def place_bet(data: BetRequest):
 
     finally:
         await conn.close()
+
 
 
 
