@@ -8,6 +8,8 @@ import random
 import hmac
 import hashlib
 from pydantic import BaseModel
+from datetime import timedelta, timezone
+JST = timezone(timedelta(hours=9))
 UNIT_PRICE = 1000
 MAX_UNITS = 100
 MAX_AMOUNT = UNIT_PRICE * MAX_UNITS  # 100,000rrc
@@ -66,6 +68,30 @@ def calculate_odds(total_pool: int, pet_pool: int, take_rate: float = 0.10):
 
     # 最小1.1倍、最大10倍に制限
     return round(max(1.1, min(10.0, odds)), 2)
+
+def get_race_phase(race):
+    now = datetime.now(JST)
+
+    race_datetime = datetime.combine(
+        race["race_date"],
+        race["race_time"],
+        JST
+    )
+
+    entry_close = race_datetime - timedelta(hours=1)
+    race_end = race_datetime + timedelta(hours=1)
+
+    if now < entry_close:
+        return "entry"
+
+    elif entry_close <= now < race_datetime:
+        return "betting"
+
+    elif race_datetime <= now < race_end:
+        return "racing"
+
+    else:
+        return "closed"
 
 def get_condition_label(happiness: int):
     if happiness >= 80:
@@ -143,6 +169,9 @@ async def verify(user: str, guild: str, race: str, token: str):
         if not race_row:
             raise HTTPException(status_code=404, detail="Race not found")
 
+        phase = get_race_phase(race)
+            
+
     finally:
         await conn.close()
 
@@ -187,6 +216,8 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
 
         if not race:
             raise HTTPException(status_code=404, detail="Race not found")
+
+        
 
         locked = race["lottery_done"] is True and race["race_finished"] is False
 
@@ -236,7 +267,8 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
                 "race_date": race_date,
                 "race_time": race["race_time"],
                 "locked": locked,
-                "pets": [],  # ← 空配列にする
+                "phase": phase,   # ← ★ これ追加
+                "pets": [],
                 "distance": race["distance"],
                 "surface": race["surface"]
             }
@@ -287,6 +319,7 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
             "race_date": race_date,
             "race_time": race["race_time"],
             "locked": locked,
+            "phase": phase,      # ← ★ ここ追加
             "pets": pets,
             "distance": race["distance"],
             "surface": race["surface"]
@@ -548,6 +581,7 @@ async def place_bet(data: BetRequest):
 
     finally:
         await conn.close()
+
 
 
 
