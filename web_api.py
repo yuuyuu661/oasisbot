@@ -81,6 +81,7 @@ def verify_token(user_id: str, guild_id: str, race_id: str, token: str):
 
     return hmac.compare_digest(expected, token)
 
+app = FastAPI()
 # =========================
 # 🔐 トークン検証API
 # =========================
@@ -114,7 +115,7 @@ async def verify(user: str, guild: str, race: str, token: str):
         "race": race
     }
 
-app = FastAPI()
+
 
 # ★ ここを追加
 app.add_middleware(
@@ -304,6 +305,7 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+
 
 
 
