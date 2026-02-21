@@ -1911,6 +1911,12 @@ class Database:
         if "condition" not in existing:
             alter_sqls.append("ADD COLUMN condition TEXT")
 
+        if "race_finished" not in existing:
+            alter_sqls.append("ADD COLUMN race_finished BOOLEAN DEFAULT FALSE")
+
+        if "result_sent" not in existing:
+            alter_sqls.append("ADD COLUMN result_sent BOOLEAN DEFAULT FALSE")
+
         if alter_sqls:
             sql = "ALTER TABLE race_schedules " + ", ".join(alter_sqls) + ";"
             print("🛠 race_schedules カラム補完:", sql)
@@ -2662,6 +2668,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
