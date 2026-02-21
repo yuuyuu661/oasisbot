@@ -75,9 +75,12 @@ def get_race_phase(race):
     race_date = race["race_date"]
     race_time = race["race_time"]
 
-    # ★ ここが保険コード（文字列対策）
+    # ★ 完全安全変換
     if isinstance(race_time, str):
-        race_time = datetime.strptime(race_time, "%H:%M:%S").time()
+        try:
+            race_time = datetime.strptime(race_time, "%H:%M:%S").time()
+        except ValueError:
+            race_time = datetime.strptime(race_time, "%H:%M").time()
 
     race_datetime = datetime.combine(
         race_date,
@@ -90,13 +93,10 @@ def get_race_phase(race):
 
     if now < entry_close:
         return "entry"
-
     elif entry_close <= now < race_datetime:
         return "betting"
-
     elif race_datetime <= now < race_end:
         return "racing"
-
     else:
         return "closed"
 
@@ -587,6 +587,7 @@ async def place_bet(data: BetRequest):
 
     finally:
         await conn.close()
+
 
 
 
