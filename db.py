@@ -55,7 +55,9 @@ class Database:
             "長距離": {"speed": 0.6, "power": 1.0, "stamina": 1.6},
         }
 
-        balance = DISTANCE_BALANCE[distance]
+        balance = DISTANCE_BALANCE.get(distance)
+        if not balance:
+            raise ValueError(f"不明な距離: {distance}")
         results = []
 
         for e in entries:
@@ -1786,24 +1788,12 @@ class Database:
             ORDER BY created_at
         """, race_date, schedule_id, str(guild_id))
 
-    async def save_race_result(
-        self, race_date, schedule_id, user_id, pet_id, position, reward
-    ):
-        await self._execute(
-            """
-            INSERT INTO race_results
-            (race_date, schedule_id, user_id, pet_id, position, reward)
-            VALUES ($1,$2,$3,$4,$5,$6)
-            """,
-            race_date, schedule_id, user_id, pet_id, position, reward
-        )
-
     async def get_race_results(self, race_date, schedule_id):
         return await self._fetch(
             """
             SELECT * FROM race_results
             WHERE race_date = $1 AND schedule_id = $2
-            ORDER BY position
+            ORDER BY rank
             """,
             race_date, schedule_id
         )
@@ -2672,6 +2662,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
