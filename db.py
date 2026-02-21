@@ -47,6 +47,47 @@ class Database:
         with open(self.badge_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
+    def simulate_race(entries, distance):
+        DISTANCE_BALANCE = {
+            1000: {"speed": 1.4, "power": 0.8, "stamina": 0.5},
+            1500: {"speed": 1.2, "power": 1.2, "stamina": 0.8},
+            2000: {"speed": 0.9, "power": 1.3, "stamina": 1.3},
+            2500: {"speed": 0.6, "power": 1.0, "stamina": 1.6}
+        }
+
+        balance = DISTANCE_BALANCE[distance]
+        results = []
+
+        for e in entries:
+            speed = e["speed"] * balance["speed"] + e["power"] * balance["power"]
+            stamina = e["stamina"]
+
+            # スタミナ消費シミュレーション
+            stamina_loss = 50 * balance["stamina"]
+            stamina_after = stamina - stamina_loss
+
+            if stamina_after <= 0:
+                speed *= 0.6
+
+            # ランダム微揺らぎ（±5%）
+            rand_factor = random.uniform(0.95, 1.05)
+
+            final_score = speed * rand_factor
+
+            results.append({
+                "pet_id": e["pet_id"],
+                "score": final_score
+            })
+
+        # スコア順に並べる
+        results.sort(key=lambda x: x["score"], reverse=True)
+
+        # rank付与
+        for i, r in enumerate(results):
+            r["rank"] = i + 1
+
+        return results
+
     # ------------------------------------------------------
     #   DB接続
     # ------------------------------------------------------
@@ -367,6 +408,20 @@ class Database:
             schedule_id INTEGER NOT NULL,
             total_pool INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (guild_id, race_date, schedule_id)
+        );
+        """)
+        # =========================
+        # レース結果テーブル
+        # =========================
+        await self.conn.execute("""
+        CREATE TABLE IF NOT EXISTS race_results (
+            guild_id TEXT NOT NULL,
+            race_date DATE NOT NULL,
+            schedule_id INTEGER NOT NULL,
+            pet_id TEXT NOT NULL,
+            rank INTEGER NOT NULL,
+            final_score DOUBLE PRECISION NOT NULL,
+            PRIMARY KEY (guild_id, race_date, schedule_id, pet_id)
         );
         """)
         # 🔥 ペット別プール（重要）
@@ -2556,6 +2611,27 @@ class Database:
 
         return total_pool, pet_pools
 
+    async def finalize_race(self, guild_id, race_date, schedule_id, distance):
+
+        entries = await self.get_selected_entries(guild_id, race_date, schedule_id)
+
+        results = simulate_race(entries, distance)
+
+        for r in results:
+            await self.conn.execute("""
+                INSERT INTO race_results
+                (guild_id, race_date, schedule_id, pet_id, rank, final_score)
+                VALUES ($1,$2,$3,$4,$5,$6)
+            """,
+                guild_id,
+                race_date,
+                schedule_id,
+                r["pet_id"],
+                r["rank"],
+                r["score"]
+            )
+
+        return results
 
 
 
