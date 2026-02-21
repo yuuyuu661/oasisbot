@@ -400,12 +400,12 @@ class Database:
         # =========================
         # レース結果テーブル
         # =========================
-        await self.conn.execute("""
+        await self._execute("""
         CREATE TABLE IF NOT EXISTS race_results (
             guild_id TEXT NOT NULL,
             race_date DATE NOT NULL,
             schedule_id INTEGER NOT NULL,
-            pet_id TEXT NOT NULL,
+            pet_id INTEGER NOT NULL,
             rank INTEGER NOT NULL,
             final_score DOUBLE PRECISION NOT NULL,
             PRIMARY KEY (guild_id, race_date, schedule_id, pet_id)
@@ -2602,25 +2602,77 @@ class Database:
 
     async def finalize_race(self, guild_id, race_date, schedule_id, distance):
 
-        entries = await self.get_selected_entries(guild_id, race_date, schedule_id)
+        await self._ensure_pool()
 
-        results = self.simulate_race(entries, distance)
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
 
-        for r in results:
-            await self._execute("""
-                INSERT INTO race_results
-                (guild_id, race_date, schedule_id, pet_id, rank, final_score)
-                VALUES ($1,$2,$3,$4,$5,$6)
-            """,
-                guild_id,
-                race_date,
-                schedule_id,
-                r["pet_id"],
-                r["rank"],
-                r["score"]
-            )
+                # 二重実行防止
+                race = await conn.fetchrow("""
+                    SELECT race_finished
+                    FROM race_schedules
+                    WHERE id = $1
+                    FOR UPDATE
+                """, schedule_id)
 
-        return results
+                if not race or race["race_finished"]:
+                    return []
+
+                # 出走確定馬取得
+                entries = await conn.fetch("""
+                    SELECT *
+                    FROM race_entries
+                    WHERE guild_id = $1
+                      AND race_date = $2
+                      AND schedule_id = $3
+                      AND status = 'selected'
+                """, guild_id, race_date, schedule_id)
+
+                if not entries:
+                    return []
+
+                # simulate
+                results = self.simulate_race(entries, distance)
+
+                for r in results:
+
+                    # race_results 保存
+                    await conn.execute("""
+                        INSERT INTO race_results
+                        (guild_id, race_date, schedule_id, pet_id, rank, final_score)
+                        VALUES ($1,$2,$3,$4,$5,$6)
+                    """,
+                        guild_id,
+                        race_date,
+                        schedule_id,
+                        r["pet_id"],
+                        r["rank"],
+                        r["score"]
+                    )
+
+                    # race_entries にも結果反映
+                    await conn.execute("""
+                        UPDATE race_entries
+                        SET rank = $1,
+                            score = $2
+                        WHERE schedule_id = $3
+                          AND pet_id = $4
+                    """,
+                        r["rank"],
+                        r["score"],
+                        schedule_id,
+                        r["pet_id"]
+                    )
+
+                # レース完了フラグ
+                await conn.execute("""
+                    UPDATE race_schedules
+                    SET race_finished = TRUE
+                    WHERE id = $1
+                """, schedule_id)
+
+                return results
+
 
 
 
