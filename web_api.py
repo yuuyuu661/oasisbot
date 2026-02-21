@@ -423,6 +423,34 @@ async def get_latest_race(guild_id: str):
 
     finally:
         await conn.close()
+# =========================
+# レース順位API
+# =========================
+@app.get("/api/race/result/{guild_id}/{race_date}/{schedule_id}")
+async def get_race_result(guild_id: str, race_date: str, schedule_id: int):
+
+    rows = await db.fetch("""
+        SELECT re.pet_id,
+               re.rank,
+               re.score,
+               p.name,
+               p.base_speed,
+               p.train_speed,
+               p.base_stamina,
+               p.train_stamina,
+               p.base_power,
+               p.train_power
+        FROM race_entries re
+        JOIN oasistchi_pets p
+          ON p.id = re.pet_id
+        WHERE re.guild_id = $1
+          AND re.race_date = $2
+          AND re.schedule_id = $3
+          AND re.status = 'selected'
+        ORDER BY re.rank ASC
+    """, guild_id, race_date, schedule_id)
+
+    return {"results": rows}
 
 # =========================
 # 🎫 馬券購入API
@@ -587,6 +615,7 @@ async def place_bet(data: BetRequest):
 
     finally:
         await conn.close()
+
 
 
 
