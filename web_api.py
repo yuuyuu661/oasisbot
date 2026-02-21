@@ -9,6 +9,7 @@ import hmac
 import hashlib
 from pydantic import BaseModel
 from datetime import timedelta, timezone
+
 JST = timezone(timedelta(hours=9))
 UNIT_PRICE = 1000
 MAX_UNITS = 100
@@ -429,6 +430,12 @@ async def get_latest_race(guild_id: str):
 @app.get("/api/race/result/{guild_id}/{race_date}/{schedule_id}")
 async def get_race_result(guild_id: str, race_date: str, schedule_id: int):
 
+    # 🔥 ここが重要
+    try:
+        race_date_obj = datetime.strptime(race_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
     conn = await asyncpg.connect(DATABASE_URL)
     try:
         rows = await conn.fetch("""
@@ -450,7 +457,7 @@ async def get_race_result(guild_id: str, race_date: str, schedule_id: int):
               AND re.schedule_id = $3
               AND re.status = 'selected'
             ORDER BY re.rank ASC
-        """, guild_id, race_date, schedule_id)
+        """, guild_id, race_date_obj, schedule_id)
 
         return {
             "results": [dict(r) for r in rows]
@@ -622,6 +629,7 @@ async def place_bet(data: BetRequest):
 
     finally:
         await conn.close()
+
 
 
 
