@@ -995,6 +995,7 @@ class OasistchiCog(commands.Cog):
                                     schedule_id=race["id"],
                                     distance=race.get("distance")
                                 )
+                                race["race_finished"] = True
 
                         # =========================
                         # ③ 結果パネル（10分後）
@@ -1044,6 +1045,7 @@ class OasistchiCog(commands.Cog):
 
                                 if formatted:
                                     await self.send_race_result_embed(race, formatted)
+                                    race["result_sent"] = True
                                 else:
                                     print(f"[RACE WARNING] no results race_id={race.get('id')}")
 
@@ -2987,6 +2989,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
