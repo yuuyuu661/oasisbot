@@ -47,12 +47,12 @@ class Database:
         with open(self.badge_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
-    def simulate_race(entries, distance):
+    def simulate_race(self, entries, distance):
         DISTANCE_BALANCE = {
-            1000: {"speed": 1.4, "power": 0.8, "stamina": 0.5},
-            1500: {"speed": 1.2, "power": 1.2, "stamina": 0.8},
-            2000: {"speed": 0.9, "power": 1.3, "stamina": 1.3},
-            2500: {"speed": 0.6, "power": 1.0, "stamina": 1.6}
+            "短距離": {"speed": 1.4, "power": 0.8, "stamina": 0.5},
+            "マイル": {"speed": 1.2, "power": 1.2, "stamina": 0.8},
+            "中距離": {"speed": 0.9, "power": 1.3, "stamina": 1.3},
+            "長距離": {"speed": 0.6, "power": 1.0, "stamina": 1.6},
         }
 
         balance = DISTANCE_BALANCE[distance]
@@ -369,19 +369,6 @@ class Database:
         );
         """)
 
-        await self._execute("""
-        CREATE TABLE IF NOT EXISTS race_results (
-            id SERIAL PRIMARY KEY,
-            race_date DATE NOT NULL,
-            schedule_id INTEGER NOT NULL,
-            user_id TEXT NOT NULL,
-            pet_id INTEGER NOT NULL,
-            position INTEGER NOT NULL,
-            reward INTEGER NOT NULL,
-            created_at TIMESTAMP DEFAULT NOW(),
-            UNIQUE (race_date, schedule_id, pet_id)
-        );
-        """)
         # =========================
         # 馬券関連テーブル（パリミュチュエル方式）
         # =========================
@@ -2209,13 +2196,15 @@ class Database:
     # --------------------------------------------------
     # 出走確定エントリー取得
     # --------------------------------------------------
-    async def get_selected_entries(self, schedule_id: int):
+    async def get_selected_entries(self, guild_id: str, race_date: date, schedule_id: int):
         return await self._fetch("""
             SELECT *
             FROM race_entries
-            WHERE schedule_id = $1
+            WHERE guild_id = $1
+              AND race_date = $2
+              AND schedule_id = $3
               AND status = 'selected'
-        """, schedule_id)
+        """, guild_id, race_date, schedule_id)
 
     # --------------------------------------------------
     # レース結果保存
@@ -2615,10 +2604,10 @@ class Database:
 
         entries = await self.get_selected_entries(guild_id, race_date, schedule_id)
 
-        results = simulate_race(entries, distance)
+        results = self.simulate_race(entries, distance)
 
         for r in results:
-            await self.conn.execute("""
+            await self._execute("""
                 INSERT INTO race_results
                 (guild_id, race_date, schedule_id, pet_id, rank, final_score)
                 VALUES ($1,$2,$3,$4,$5,$6)
@@ -2632,6 +2621,7 @@ class Database:
             )
 
         return results
+
 
 
 
