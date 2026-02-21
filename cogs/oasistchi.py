@@ -792,6 +792,12 @@ class OasistchiCog(commands.Cog):
             )
 
         await channel.send(embed=embed)
+        # 🔐 連投防止フラグ
+        await self.bot.db._execute("""
+            UPDATE race_schedules
+            SET result_sent = TRUE
+            WHERE id = $1
+       """, race["id"])
 
     # =========================
     # レース処理（正規版・完成）
@@ -923,57 +929,104 @@ class OasistchiCog(commands.Cog):
         for guild in self.bot.guilds:
             guild_id = str(guild.id)
 
-            # 今日の未完了レース取得
             races = await self.bot.db.get_unfinished_races_by_date(
                 today,
                 guild_id
             )
 
             for race in races:
-                # race_time は TEXT（"09:00"）
+
                 race_time = datetime.strptime(
                     race["race_time"], "%H:%M"
                 ).time()
 
                 race_dt = datetime.combine(today, race_time, tzinfo=JST)
 
-                # エントリー締切時刻
                 close_dt = race_dt - timedelta(
                     minutes=race["entry_open_minutes"]
                 )
 
-                # まだ締切前
-                if now < close_dt:
-                    continue
+                # =========================
+                # ① 抽選
+                # =========================
+                if not race["lottery_done"] and now >= close_dt:
 
-                # すでに抽選済み
-                if race["lottery_done"]:
-                    continue
-
-                print(
-                    f"[RACE LOTTERY] guild={guild_id} "
-                    f"date={today} race_no={race['race_no']}"
-                )
-
-                # ✅ 抽選は DB に任せる
-                result = await self.bot.db.run_race_lottery(
-                    guild_id=guild_id,
-                    race_date=today,
-                    schedule_id=race["id"]
-                )
-
-                print(
-                    f"[RACE LOTTERY DONE] "
-                    f"selected={len(result['selected'])} "
-                    f"cancelled={len(result['cancelled'])}"
-                )
-
-                # 🔽 表示は Cog の責務
-                if len(result["selected"]) >= 2:
-                    await self.send_race_entry_panel(
-                        race,
-                        result["selected"]
+                    result = await self.bot.db.run_race_lottery(
+                        guild_id=guild_id,
+                        race_date=today,
+                        schedule_id=race["id"]
                     )
+
+                    if len(result["selected"]) >= 2:
+                        await self.send_race_entry_panel(
+                            race,
+                            result["selected"]
+                        )
+
+                    continue  # 抽選したら次ループへ
+
+                # =========================
+                # ② レース確定（開始時刻）
+                # =========================
+                if race["lottery_done"] and not race["race_finished"]:
+
+                    if now >= race_dt:
+
+                        print(f"[RACE START] race_id={race['id']}")
+
+                        await self.bot.db.finalize_race(
+                            guild_id=guild_id,
+                            race_date=today,
+                            schedule_id=race["id"],
+                            distance=race["distance"]
+                        )
+
+                # =========================
+                # ③ 結果パネル（10分後）
+                # =========================
+                if race["race_finished"] and not race.get("result_sent", False):
+
+                    result_dt = race_dt + timedelta(minutes=10)
+
+                    if now >= result_dt:
+
+                        # DBから確定順位取得
+                        results = await self.bot.db._fetch("""
+                            SELECT re.user_id,
+                                   re.pet_id,
+                                   re.rank,
+                                   re.score,
+                                   p.name,
+                                   p.base_speed,
+                                   p.train_speed,
+                                   p.base_stamina,
+                                   p.train_stamina,
+                                   p.base_power,
+                                   p.train_power
+                            FROM race_entries re
+                            JOIN oasistchi_pets p
+                              ON p.id = re.pet_id
+                            WHERE re.schedule_id = $1
+                              AND re.status = 'selected'
+                            ORDER BY re.rank ASC
+                        """, race["id"])
+
+                        # 整形
+                        formatted = []
+                        for r in results:
+                            formatted.append({
+                                "user_id": r["user_id"],
+                                "name": r["name"],
+                                "score": r["score"],
+                                "stats": {
+                                    "speed": r["base_speed"] + r["train_speed"],
+                                    "stamina": r["base_stamina"] + r["train_stamina"],
+                                    "power": r["base_power"] + r["train_power"],
+                                    "guts": False
+                                }
+                            })
+
+                        await self.send_race_result_embed(race, formatted)
 
 
     # 共通：時間差分処理
@@ -2908,6 +2961,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
