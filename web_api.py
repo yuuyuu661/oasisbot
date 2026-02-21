@@ -171,15 +171,13 @@ async def ensure_schema():
 @app.get("/api/verify")
 async def verify(user: str, guild: str, race: str, token: str):
 
-    # ① トークン検証
     if not verify_token(user, guild, race, token):
         raise HTTPException(status_code=403, detail="Invalid token")
 
-    # ② レース存在確認（念のため）
     conn = await asyncpg.connect(DATABASE_URL)
     try:
         race_row = await conn.fetchrow("""
-            SELECT id, race_date, race_time, lottery_done, race_finished
+            SELECT id
             FROM race_schedules
             WHERE id = $1
               AND guild_id = $2
@@ -188,9 +186,6 @@ async def verify(user: str, guild: str, race: str, token: str):
         if not race_row:
             raise HTTPException(status_code=404, detail="Race not found")
 
-        phase = get_race_phase(race_row)
-            
-
     finally:
         await conn.close()
 
@@ -198,8 +193,7 @@ async def verify(user: str, guild: str, race: str, token: str):
         "status": "ok",
         "user": user,
         "guild": guild,
-        "race": race,
-        "phase": phase
+        "race": race
     }
 
 
@@ -593,6 +587,7 @@ async def place_bet(data: BetRequest):
 
     finally:
         await conn.close()
+
 
 
 
