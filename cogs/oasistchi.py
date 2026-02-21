@@ -919,111 +919,140 @@ class OasistchiCog(commands.Cog):
             except Exception as dm_err:
                 print(f"[RACE DM ERROR] user_id={e['user_id']} err={dm_err!r}")
 
-    # レース抽選タスク
+
+    # =========================
+    # レース抽選タスク（完全防御版）
     # =========================
     @tasks.loop(seconds=30)
     async def race_lottery_watcher(self):
-        now = datetime.now(JST)
-        today = now.date()
 
-        for guild in self.bot.guilds:
-            guild_id = str(guild.id)
+        try:
+            now = datetime.now(JST)
+            today = now.date()
 
-            races = await self.bot.db.get_today_race_schedules(today, guild_id)
+            for guild in self.bot.guilds:
+                guild_id = str(guild.id)
 
-            for race in races:
+                try:
+                    races = await self.bot.db.get_today_race_schedules(today, guild_id)
+                except Exception as e:
+                    print(f"[RACE ERROR] get_today_race_schedules guild={guild_id} err={e!r}")
+                    continue
 
-                race_time = datetime.strptime(
-                    race["race_time"], "%H:%M"
-                ).time()
+                for race in races:
 
-                race_dt = datetime.combine(today, race_time, tzinfo=JST)
+                    try:
+                        # -------------------------
+                        # race_time 安全変換
+                        # -------------------------
+                        race_time_raw = race.get("race_time")
 
-                close_dt = race_dt - timedelta(
-                    minutes=race["entry_open_minutes"]
-                )
+                        if isinstance(race_time_raw, str):
+                            h, m = map(int, race_time_raw.split(":"))
+                            race_time = dtime(hour=h, minute=m)
+                        else:
+                            race_time = race_time_raw
 
-                # =========================
-                # ① 抽選
-                # =========================
-                if not race["lottery_done"] and now >= close_dt:
+                        race_dt = datetime.combine(today, race_time, tzinfo=JST)
 
-                    result = await self.bot.db.run_race_lottery(
-                        guild_id=guild_id,
-                        race_date=today,
-                        schedule_id=race["id"]
-                    )
-
-                    if len(result["selected"]) >= 2:
-                        await self.send_race_entry_panel(
-                            race,
-                            result["selected"]
+                        close_dt = race_dt - timedelta(
+                            minutes=race.get("entry_open_minutes", 10)
                         )
 
-                    continue  # 抽選したら次ループへ
+                        # =========================
+                        # ① 抽選
+                        # =========================
+                        if not race.get("lottery_done") and now >= close_dt:
 
-                # =========================
-                # ② レース確定（開始時刻）
-                # =========================
-                if race["lottery_done"] and not race["race_finished"]:
+                            print(f"[RACE LOTTERY] race_id={race.get('id')}")
 
-                    if now >= race_dt:
+                            result = await self.bot.db.run_race_lottery(
+                                guild_id=guild_id,
+                                race_date=today,
+                                schedule_id=race["id"]
+                            )
 
-                        print(f"[RACE START] race_id={race['id']}")
+                            if result and len(result.get("selected", [])) >= 2:
+                                await self.send_race_entry_panel(
+                                    race,
+                                    result["selected"]
+                                )
 
-                        await self.bot.db.finalize_race(
-                            guild_id=guild_id,
-                            race_date=today,
-                            schedule_id=race["id"],
-                            distance=race["distance"]
-                        )
+                            continue  # 抽選後は次へ
 
-                # =========================
-                # ③ 結果パネル（10分後）
-                # =========================
-                if race["race_finished"] and not race.get("result_sent", False):
+                        # =========================
+                        # ② レース確定（開始時刻）
+                        # =========================
+                        if race.get("lottery_done") and not race.get("race_finished"):
 
-                    result_dt = race_dt + timedelta(minutes=10)
+                            if now >= race_dt:
 
-                    if now >= result_dt:
+                                print(f"[RACE START] race_id={race.get('id')}")
 
-                        # DBから確定順位取得
-                        results = await self.bot.db._fetch("""
-                            SELECT re.user_id,
-                                   re.pet_id,
-                                   re.rank,
-                                   re.score,
-                                   p.name,
-                                   p.base_speed,
-                                   p.train_speed,
-                                   p.base_stamina,
-                                   p.train_stamina,
-                                   p.base_power,
-                                   p.train_power
-                            FROM race_entries re
-                            JOIN oasistchi_pets p
-                              ON p.id = re.pet_id
-                            WHERE re.schedule_id = $1
-                              AND re.status = 'selected'
-                            ORDER BY re.rank ASC
-                        """, race["id"])
+                                await self.bot.db.finalize_race(
+                                    guild_id=guild_id,
+                                    race_date=today,
+                                    schedule_id=race["id"],
+                                    distance=race.get("distance")
+                                )
 
-                        # 整形
-                        formatted = []
-                        for r in results:
-                            formatted.append({
-                                "user_id": r["user_id"],
-                                "name": r["name"],
-                                "score": r["score"],
-                                "stats": {
-                                    "speed": r["base_speed"] + r["train_speed"],
-                                    "stamina": r["base_stamina"] + r["train_stamina"],
-                                    "power": r["base_power"] + r["train_power"],
-                                    "guts": False
-                                }
-                            })
+                        # =========================
+                        # ③ 結果パネル（10分後）
+                        # =========================
+                        if race.get("race_finished") and not race.get("result_sent", False):
 
-                        await self.send_race_result_embed(race, formatted)
+                            result_dt = race_dt + timedelta(minutes=10)
+
+                            if now >= result_dt:
+
+                                print(f"[RACE RESULT SEND] race_id={race.get('id')}")
+
+                                results = await self.bot.db._fetch("""
+                                    SELECT re.user_id,
+                                           re.pet_id,
+                                           re.rank,
+                                           re.score,
+                                           p.name,
+                                           p.base_speed,
+                                           p.train_speed,
+                                           p.base_stamina,
+                                           p.train_stamina,
+                                           p.base_power,
+                                           p.train_power
+                                    FROM race_entries re
+                                    JOIN oasistchi_pets p
+                                      ON p.id = re.pet_id
+                                    WHERE re.schedule_id = $1
+                                      AND re.status = 'selected'
+                                    ORDER BY re.rank ASC
+                                """, race["id"])
+
+                                formatted = []
+
+                                for r in results:
+                                    formatted.append({
+                                        "user_id": r["user_id"],
+                                        "name": r["name"],
+                                        "score": r["score"],
+                                        "stats": {
+                                            "speed": (r["base_speed"] or 0) + (r["train_speed"] or 0),
+                                            "stamina": (r["base_stamina"] or 0) + (r["train_stamina"] or 0),
+                                            "power": (r["base_power"] or 0) + (r["train_power"] or 0),
+                                            "guts": False
+                                        }
+                                    })
+
+                                if formatted:
+                                    await self.send_race_result_embed(race, formatted)
+                                else:
+                                    print(f"[RACE WARNING] no results race_id={race.get('id')}")
+
+                    except Exception as race_err:
+                        print(f"[RACE LOOP ERROR] race_id={race.get('id')} err={race_err!r}")
+                        continue
+
+        except Exception as fatal:
+            print(f"[RACE WATCHER FATAL] {fatal!r}")
 
 
     # 共通：時間差分処理
@@ -2958,6 +2987,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
