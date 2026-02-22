@@ -2692,6 +2692,7 @@ class Database:
                     pet = await conn.fetchrow("""
                         SELECT
                             passive_skill,
+                            adult_key,
                             base_speed,
                             train_speed,
                             base_power,
@@ -2753,6 +2754,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
