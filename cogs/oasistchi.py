@@ -1803,6 +1803,11 @@ class OasistchiCog(commands.Cog):
             passive_text = get_passive_display(passive)
 
             stats_text += f"\n✨ パッシブスキル：{passive_text}"
+            # 説明文追加
+            if passive_key and passive_key in PASSIVE_SKILLS:
+                description = PASSIVE_SKILLS[passive_key].get("description", "")
+                if description:
+                    stats_text += f"\n📝 {description}"
 
             embed.add_field(
                 name="📊 ステータス",
@@ -3431,6 +3436,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
