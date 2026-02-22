@@ -1066,6 +1066,64 @@ class OasistchiCog(commands.Cog):
                                     ORDER BY re.rank ASC
                                 """, race["id"])
 
+                                if not results:
+                                    print(f"[RACE WARNING] no results race_id={race.get('id')}")
+                                    continue
+
+                                # =========================
+                                # 💰 払い戻し処理（ここ！！）
+                                # =========================
+
+                                winner_pet_id = results[0]["pet_id"]
+
+                                bets = await self.bot.db._fetch("""
+                                    SELECT rb.user_id,
+                                           rb.pet_id,
+                                           rb.amount,
+                                           re.final_odds
+                                    FROM race_bets rb
+                                    JOIN race_entries re
+                                      ON re.schedule_id = rb.schedule_id
+                                     AND re.pet_id = rb.pet_id
+                                    WHERE rb.schedule_id = $1
+                                """, race["id"])
+
+                                for bet in bets:
+
+                                    if bet["pet_id"] == winner_pet_id:
+
+                                        final_odds = bet["final_odds"] or 0
+                                        payout = int(bet["amount"] * final_odds)
+
+                                        print(
+                                            f"[PAYOUT] race={race['id']} "
+                                            f"user={bet['user_id']} "
+                                            f"amount={bet['amount']} "
+                                            f"odds={final_odds} "
+                                            f"payout={payout}"
+                                        )
+
+                                        await self.bot.db.add_balance(
+                                            str(bet["user_id"]),
+                                            str(race["guild_id"]),
+                                            payout
+                                        )
+
+                                        try:
+                                            user_obj = await self.bot.fetch_user(int(bet["user_id"]))
+                                            await user_obj.send(
+                                                f"🎉 **的中！**\n"
+                                                f"🏁 第{race['race_no']}レース\n"
+                                                f"💰 払戻：{payout:,} rrc\n"
+                                                f"📊 確定オッズ：{final_odds:.2f}倍"
+                                            )
+                                        except Exception as e:
+                                            print(f"[PAYOUT DM ERROR] {e!r}")
+
+                                # =========================
+                                # 結果整形
+                                # =========================
+
                                 formatted = []
 
                                 for r in results:
@@ -1081,18 +1139,8 @@ class OasistchiCog(commands.Cog):
                                         }
                                     })
 
-                                if formatted:
-                                    await self.send_race_result_embed(race, formatted)
-                                    race["result_sent"] = True
-                                else:
-                                    print(f"[RACE WARNING] no results race_id={race.get('id')}")
-
-                    except Exception as race_err:
-                        print(f"[RACE LOOP ERROR] race_id={race.get('id')} err={race_err!r}")
-                        continue
-
-        except Exception as fatal:
-            print(f"[RACE WATCHER FATAL] {fatal!r}")
+                                await self.send_race_result_embed(race, formatted)
+                                race["result_sent"] = True
 
 
     # 共通：時間差分処理
@@ -3027,6 +3075,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
