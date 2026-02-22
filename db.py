@@ -91,6 +91,22 @@ class Database:
             }
 
             stats = apply_passive_effect(stats, e, context)
+            # =========================
+            # 🔥 根性発動判定
+            # =========================
+            happiness = e.get("happiness", 0)
+
+            # 幸福度0〜100 → 0〜0.10
+            base_guts_rate = (happiness / 100) * 0.10
+
+            # gamblerなら+5%
+            if e.get("passive_skill") == "gambler":
+                base_guts_rate += 0.05
+
+            guts_triggered = random.random() < base_guts_rate
+
+            if guts_triggered:
+                speed *= 1.10  # 根性ブースト
 
             # =========================
             # 🏇 距離補正込み能力計算
@@ -110,7 +126,8 @@ class Database:
 
             results.append({
                 "pet_id": e["pet_id"],
-                "score": final_score
+                "score": final_score,
+                "guts": guts_triggered   
             })
 
         results.sort(key=lambda x: x["score"], reverse=True)
@@ -2736,6 +2753,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
