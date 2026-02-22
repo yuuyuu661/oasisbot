@@ -139,22 +139,40 @@ PASSIVE_SKILLS = {
     "speed_s": {
         "label": "スピードアップ小",
         "emoji": "🏃",
+        "type": "stat",
+        "target": "speed",
+        "multiplier": 1.10,
+        "description": "スピードが10%上昇する。"
     },
     "stamina_s": {
         "label": "スタミナアップ小",
         "emoji": "🫀",
+        "type": "stat",
+        "target": "stamina",
+        "multiplier": 1.10,
+        "description": "スタミナが10%上昇する。"
     },
     "power_s": {
         "label": "パワーアップ小",
         "emoji": "💥",
+        "type": "stat",
+        "target": "power",
+        "multiplier": 1.10,
+        "description": "パワーが10%上昇する。"
     },
     "all_rounder": {
         "label": "万能型",
         "emoji": "🌈",
+        "type": "all",
+        "multiplier": 1.05,
+        "description": "全ステータスが5%上昇する。"
     },
     "guts_up": {
         "label": "根性体質",
         "emoji": "🔥",
+        "type": "guts",
+        "bonus": 5,
+        "description": "根性発動率が5%上昇する。"
     },
 }
 
@@ -3154,6 +3172,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
