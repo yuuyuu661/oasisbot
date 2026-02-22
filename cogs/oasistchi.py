@@ -1418,17 +1418,20 @@ class OasistchiCog(commands.Cog):
                                 formatted = []
 
                                 for r in results:
+                                    stats = {
+                                        "speed": (r["base_speed"] or 0) + (r["train_speed"] or 0),
+                                        "stamina": (r["base_stamina"] or 0) + (r["train_stamina"] or 0),
+                                        "power": (r["base_power"] or 0) + (r["train_power"] or 0),
+                                        "guts": False,
+                                        "guts_chance": 0  # ← これ追加
+                                    }
+
                                     formatted.append({
                                         "user_id": r["user_id"],
                                         "name": r["name"],
                                         "score": r["score"],
-                                        "stats": {
-                                            "speed": (r["base_speed"] or 0) + (r["train_speed"] or 0),
-                                            "stamina": (r["base_stamina"] or 0) + (r["train_stamina"] or 0),
-                                            "power": (r["base_power"] or 0) + (r["train_power"] or 0),
-                                            "guts": False
-                                        }
-                                    })
+                                        "stats": stats
+                                   })
 
                                 await self.send_race_result_embed(race, formatted)
                                 race["result_sent"] = True
@@ -3423,3 +3426,4 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
