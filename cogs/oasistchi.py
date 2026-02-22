@@ -243,14 +243,7 @@ PASSIVE_SKILLS = {
     # ------------------------
     # 条件系
     # ------------------------
-    "lucky7": {
-        "label": "ラッキー7",
-        "emoji": "🎰",
-        "type": "gate_number",
-        "gate": 7,
-        "multiplier": 1.20,
-        "description": "自分の枠番が7番のとき、すべてのステータスが大幅に上がる。"
-    },
+
 
     "gambler": {
         "label": "勝負師",
@@ -3438,6 +3431,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
