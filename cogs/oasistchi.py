@@ -1479,6 +1479,17 @@ class OasistchiCog(commands.Cog):
         # -------------------------
         embed = self.make_status_embed(selected_pet)
         view = CareView(uid, selected_pet["id"], selected_pet)
+        # =========================
+        # ✨ ランクアップ条件判定
+        # =========================
+        can_rankup = (
+            selected_pet["stage"] == "adult"
+            and selected_pet.get("growth", 0) >= 100
+            and not selected_pet.get("passive_skill")
+        )
+
+        if can_rankup:
+            view.add_item(RankUpButton())
 
         pet_file = self.get_pet_image(selected_pet)
         gauge_file = build_growth_gauge_file(selected_pet["growth"])
@@ -1525,6 +1536,10 @@ class OasistchiCog(commands.Cog):
             training_count = pet.get("training_count", 0)
 
             stats_text += f"\n\n🏋️ 特訓回数：{training_count} / 30"
+            passive = pet.get("passive_skill")
+            passive_text = get_passive_display(passive)
+
+            stats_text += f"\n✨ パッシブスキル：{passive_text}"
 
             embed.add_field(
                 name="📊 ステータス",
@@ -2680,7 +2695,44 @@ class TrainingSelect(discord.ui.Select):
             f"🏋️ 特訓回数：{pet.get('training_count', 0) + 1} / 30",
             ephemeral=True
         )
+class RankUpButton(discord.ui.Button):
+    def __init__(self, pet_id: int):
+        super().__init__(
+            label="ランクアップ",
+            style=discord.ButtonStyle.success,
+            emoji="✨"
+        )
+        self.pet_id = pet_id
 
+    async def callback(self, interaction: discord.Interaction):
+        db = interaction.client.db
+
+        pet = await db.get_oasistchi_pet(self.pet_id)
+        if not pet:
+            return await interaction.response.send_message(
+                "ペットが見つかりません。",
+                ephemeral=True
+            )
+
+        if pet.get("passive_skill"):
+            return await interaction.response.send_message(
+                "すでにパッシブを所持しています。",
+                ephemeral=True
+            )
+
+        new_skill = random.choice(list(PASSIVE_SKILLS.keys()))
+
+        await db._execute(
+            "UPDATE oasistchi_pets SET passive_skill=$1 WHERE id=$2",
+            new_skill,
+            self.pet_id
+        )
+
+        await interaction.response.send_message(
+            f"✨ ランクアップ成功！\n"
+            f"{get_passive_display(new_skill)} を獲得しました！",
+            ephemeral=True
+        )
 
 class OasisBot(commands.Bot):
     async def setup_hook(self):
@@ -3102,6 +3154,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
