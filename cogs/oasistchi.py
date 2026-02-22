@@ -1714,10 +1714,6 @@ class OasistchiCog(commands.Cog):
         pet: str | None = None
     ):
         await interaction.response.defer(ephemeral=True)
-        await interaction.followup.send(
-            "🐣 おあしすっちを確認中…",
-            ephemeral=True
-        )
         db = interaction.client.db
         uid = str(interaction.user.id)
 
@@ -3426,4 +3422,5 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
