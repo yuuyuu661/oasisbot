@@ -1422,8 +1422,7 @@ class OasistchiCog(commands.Cog):
                                         "speed": (r["base_speed"] or 0) + (r["train_speed"] or 0),
                                         "stamina": (r["base_stamina"] or 0) + (r["train_stamina"] or 0),
                                         "power": (r["base_power"] or 0) + (r["train_power"] or 0),
-                                        "guts": False,
-                                        "guts_chance": 0  # ← これ追加
+                                        "guts": r.get("guts", False),
                                     }
 
                                     formatted.append({
@@ -3439,6 +3438,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
