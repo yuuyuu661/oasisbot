@@ -2648,7 +2648,7 @@ class Database:
                     return []
 
                 # 出走確定馬取得
-                entries = await conn.fetch("""
+                raw_entries = await conn.fetch("""
                     SELECT *
                     FROM race_entries
                     WHERE guild_id = $1
@@ -2657,11 +2657,37 @@ class Database:
                       AND status = 'selected'
                 """, guild_id, race_date, schedule_id)
 
-                if not entries:
+                if not raw_entries:
                     return []
 
-                # simulate
-                results = self.simulate_race(entries, distance)
+                entries = []
+
+                for e in raw_entries:
+
+                    pet = await conn.fetchrow("""
+                        SELECT
+                            passive_skill,
+                            base_speed,
+                            train_speed,
+                            base_power,
+                            train_power,
+                            base_stamina,
+                            train_stamina
+                        FROM oasistchi_pets
+                        WHERE id = $1
+                    """, e["pet_id"])
+
+                    entries.append({
+                        "pet_id": e["pet_id"],
+                        "passive_skill": pet["passive_skill"],
+                        "speed": (pet["base_speed"] or 0) + (pet["train_speed"] or 0),
+                        "power": (pet["base_power"] or 0) + (pet["train_power"] or 0),
+                        "stamina": (pet["base_stamina"] or 0) + (pet["train_stamina"] or 0),
+                        "gate": e.get("gate")
+                    })
+
+                # simulate（※distanceではなくraceを渡す）
+                results = self.simulate_race(entries, race)
 
                 for r in results:
 
@@ -2701,6 +2727,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
