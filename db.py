@@ -492,6 +492,17 @@ class Database:
                 ADD COLUMN guild_id TEXT;
             """)
 
+        # --------------------------------------------------
+        # おあしすっち：パッシブスキルカラム補完
+        # --------------------------------------------------
+        if "passive_skill" not in existing_cols:
+            print("🛠 oasistchi_pets に passive_skill カラムを追加します…")
+            await self._execute("""
+                ALTER TABLE oasistchi_pets
+                ADD COLUMN passive_skill TEXT;
+            """)
+            print("✅ passive_skill 追加完了")
+
 
 
         # --------------------------------------------------
@@ -2668,6 +2679,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
