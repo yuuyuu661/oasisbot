@@ -1799,10 +1799,11 @@ class OasistchiCog(commands.Cog):
             training_count = pet.get("training_count", 0)
 
             stats_text += f"\n\n🏋️ 特訓回数：{training_count} / 30"
-            passive = pet.get("passive_skill")
-            passive_text = get_passive_display(passive)
+            passive_key = pet.get("passive_skill")
+            passive_text = get_passive_display(passive_key)
 
             stats_text += f"\n✨ パッシブスキル：{passive_text}"
+
             # 説明文追加
             if passive_key and passive_key in PASSIVE_SKILLS:
                 description = PASSIVE_SKILLS[passive_key].get("description", "")
@@ -3436,6 +3437,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
