@@ -972,13 +972,51 @@ class OasistchiCog(commands.Cog):
                                 schedule_id=race["id"]
                             )
 
-                            if result and len(result.get("selected", [])) >= 2:
+                            if not result:
+                                print(f"[RACE ERROR] lottery returned None race_id={race.get('id')}")
+                                continue
+
+                            selected_entries = result.get("selected", [])
+
+                            # =========================
+                            # 🏁 オッズ確定処理
+                            # =========================
+                            if len(selected_entries) >= 2:
+
+                                pets = []
+
+                                for entry in selected_entries:
+                                    pet = await self.bot.db.get_oasistchi_pet(entry["pet_id"])
+                                    if pet:
+                                        pets.append(pet)
+
+                                if len(pets) >= 2:
+
+                                    probs = calc_win_probabilities(pets, race)
+                                    odds_list = calc_odds_from_probs(probs)
+
+                                    for pet, odds in zip(pets, odds_list):
+
+                                        await self.bot.db._execute("""
+                                            UPDATE race_entries
+                                            SET final_odds = $1
+                                            WHERE schedule_id = $2
+                                              AND pet_id = $3
+                                              AND status = 'selected'
+                                        """, odds, race["id"], pet["id"])
+
+                                    print(f"[ODDS FIXED] race_id={race['id']}")
+
+                                # 出走パネル送信（オッズ確定後）
                                 await self.send_race_entry_panel(
                                     race,
-                                    result["selected"]
+                                    selected_entries
                                 )
 
-                            continue  # 抽選後は次へ
+                            else:
+                                print(f"[RACE WARNING] less than 2 selected race_id={race.get('id')}")
+
+                            continue  # 抽選処理終了
 
                         # =========================
                         # ② レース確定（開始時刻）
@@ -2989,6 +3027,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
