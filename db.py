@@ -67,6 +67,14 @@ class Database:
         for e in entries:
 
             # =========================
+            # 🔎 同族判定
+            # =========================
+            same_adult_exists = any(
+                other["adult_key"] == e["adult_key"] and other["pet_id"] != e["pet_id"]
+                for other in entries
+            )
+
+            # =========================
             # 🔥 パッシブ適用
             # =========================
             stats = {
@@ -79,7 +87,7 @@ class Database:
                 "gate": e.get("gate"),
                 "surface": surface,
                 "distance": distance,
-                "same_adult_exists": False  # 今は固定
+                "same_adult_exists": same_adult_exists
             }
 
             stats = apply_passive_effect(stats, e, context)
@@ -2680,6 +2688,7 @@ class Database:
                     entries.append({
                         "pet_id": e["pet_id"],
                         "passive_skill": pet["passive_skill"],
+                        "adult_key": pet["adult_key"],  # ← これ追加
                         "speed": (pet["base_speed"] or 0) + (pet["train_speed"] or 0),
                         "power": (pet["base_power"] or 0) + (pet["train_power"] or 0),
                         "stamina": (pet["base_stamina"] or 0) + (pet["train_stamina"] or 0),
@@ -2727,6 +2736,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
