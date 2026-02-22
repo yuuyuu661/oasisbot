@@ -47,7 +47,7 @@ class Database:
         with open(self.badge_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
-    def simulate_race(self, entries, distance):
+    def simulate_race(self, entries, race):
         DISTANCE_BALANCE = {
             "短距離": {"speed": 1.4, "power": 0.8, "stamina": 0.5},
             "マイル": {"speed": 1.2, "power": 1.2, "stamina": 0.8},
@@ -55,23 +55,47 @@ class Database:
             "長距離": {"speed": 0.6, "power": 1.0, "stamina": 1.6},
         }
 
+        distance = race["distance"]
+        surface = race["surface"]
+
         balance = DISTANCE_BALANCE.get(distance)
         if not balance:
             raise ValueError(f"不明な距離: {distance}")
+
         results = []
 
         for e in entries:
-            speed = e["speed"] * balance["speed"] + e["power"] * balance["power"]
-            stamina = e["stamina"]
 
-            # スタミナ消費シミュレーション
+            # =========================
+            # 🔥 パッシブ適用
+            # =========================
+            stats = {
+                "speed": e["speed"],
+                "stamina": e["stamina"],
+                "power": e["power"]
+            }
+
+            context = {
+                "gate": e.get("gate"),
+                "surface": surface,
+                "distance": distance,
+                "same_adult_exists": False  # 今は固定
+            }
+
+            stats = apply_passive_effect(stats, e, context)
+
+            # =========================
+            # 🏇 距離補正込み能力計算
+            # =========================
+            speed = stats["speed"] * balance["speed"] + stats["power"] * balance["power"]
+            stamina = stats["stamina"]
+
             stamina_loss = 50 * balance["stamina"]
             stamina_after = stamina - stamina_loss
 
             if stamina_after <= 0:
                 speed *= 0.6
 
-            # ランダム微揺らぎ（±5%）
             rand_factor = random.uniform(0.95, 1.05)
 
             final_score = speed * rand_factor
@@ -81,10 +105,8 @@ class Database:
                 "score": final_score
             })
 
-        # スコア順に並べる
         results.sort(key=lambda x: x["score"], reverse=True)
 
-        # rank付与
         for i, r in enumerate(results):
             r["rank"] = i + 1
 
@@ -2679,6 +2701,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
