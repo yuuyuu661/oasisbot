@@ -333,7 +333,15 @@ PASSIVE_SKILLS = {
         "description": "遠距離レースで全ステータスが上がる。"
     },
 }
+def get_passive_display(passive_key: str | None) -> str:
+    if not passive_key:
+        return "なし"
 
+    data = PASSIVE_SKILLS.get(passive_key)
+    if not data:
+        return "なし"
+
+    return f"{data['emoji']} {data['label']}"
 RACE_TIMES = ["09:00", "12:00", "15:00", "18:00", "21:00"]
 
 DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
@@ -3422,5 +3430,6 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
