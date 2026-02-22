@@ -1765,7 +1765,6 @@ class OasistchiCog(commands.Cog):
         can_rankup = (
             selected_pet["stage"] == "adult"
             and selected_pet.get("growth", 0) >= 100
-            and not selected_pet.get("passive_skill")
         )
 
         if can_rankup:
@@ -2994,23 +2993,37 @@ class RankUpButton(discord.ui.Button):
                 ephemeral=True
             )
 
-        if pet.get("passive_skill"):
+        # ✅ 条件チェック（成体＆ゲージMAX）
+        if pet["stage"] != "adult" or pet.get("growth", 0) < 100:
             return await interaction.response.send_message(
-                "すでにパッシブを所持しています。",
+                "ランクアップ条件を満たしていません。",
                 ephemeral=True
             )
 
+        old_skill = pet.get("passive_skill")
+
+        # ✅ 新スキル抽選（均等）
         new_skill = random.choice(list(PASSIVE_SKILLS.keys()))
 
+        # ✅ 上書き＋ゲージ消費
         await db._execute(
-            "UPDATE oasistchi_pets SET passive_skill=$1 WHERE id=$2",
+            """
+            UPDATE oasistchi_pets
+            SET passive_skill = $1,
+                growth = 0
+            WHERE id = $2
+            """,
             new_skill,
             self.pet_id
         )
 
+        old_text = get_passive_display(old_skill) if old_skill else "なし"
+        new_text = get_passive_display(new_skill)
+
         await interaction.response.send_message(
             f"✨ ランクアップ成功！\n"
-            f"{get_passive_display(new_skill)} を獲得しました！",
+            f"旧スキル：{old_text}\n"
+            f"新スキル：{new_text}",
             ephemeral=True
         )
 
@@ -3434,6 +3447,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
