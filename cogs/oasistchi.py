@@ -286,14 +286,6 @@ PASSIVE_SKILLS = {
         "description": "同じ種類のおあしすっちが出場しているとき、全ステータスが大幅に上がる。"
     },
 
-    "underdog": {
-        "label": "雑草魂",
-        "emoji": "🌾",
-        "type": "odds_rank",
-        "formula": "1 + rank * 0.02",
-        "description": "不人気なほど全ステータスが上がる。"
-    },
-
     # ------------------------
     # 距離適性
     # ------------------------
@@ -3447,6 +3439,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
