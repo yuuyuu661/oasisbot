@@ -2663,7 +2663,10 @@ class Database:
 
                 # 二重実行防止
                 race = await conn.fetchrow("""
-                    SELECT race_finished
+                    SELECT race_finished,
+                           distance,
+                           surface,
+                           condition
                     FROM race_schedules
                     WHERE id = $1
                     FOR UPDATE
@@ -2754,6 +2757,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
