@@ -135,6 +135,28 @@ TRAIN_RESULTS = [
     (4, "今回はすばらしい！"),
     (5, "今回は大成功だ！！！"),
 ]
+PASSIVE_SKILLS = {
+    "speed_s": {
+        "label": "スピードアップ小",
+        "emoji": "🏃",
+    },
+    "stamina_s": {
+        "label": "スタミナアップ小",
+        "emoji": "🫀",
+    },
+    "power_s": {
+        "label": "パワーアップ小",
+        "emoji": "💥",
+    },
+    "all_rounder": {
+        "label": "万能型",
+        "emoji": "🌈",
+    },
+    "guts_up": {
+        "label": "根性体質",
+        "emoji": "🔥",
+    },
+}
 
 RACE_TIMES = ["09:00", "12:00", "15:00", "18:00", "21:00"]
 
@@ -3080,6 +3102,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
