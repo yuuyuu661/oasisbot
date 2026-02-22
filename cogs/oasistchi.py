@@ -1019,17 +1019,17 @@ class OasistchiCog(commands.Cog):
                     continue
 
                 # ⑤ 抽選実行
-                try:
-                    await db.run_race_lottery(
-                        guild_id,
-                        race["race_date"],
-                        race["id"]
-                   )
+                #try:
+                #    await db.run_race_lottery(
+                #        guild_id,
+                #        race["race_date"],
+                #        race["id"]
+                #   )
 
-                    print(f"[RACE] 抽選完了 race_id={race['id']} guild={guild_id}")
+                #    print(f"[RACE] 抽選完了 race_id={race['id']} guild={guild_id}")
 
-                except Exception as e:
-                    print(f"[RACE ERROR] lottery failed race_id={race['id']} guild={guild_id}: {e}")
+                #except Exception as e:
+                #    print(f"[RACE ERROR] lottery failed race_id={race['id']} guild={guild_id}: {e}")
 
 
 
@@ -3437,6 +3437,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
