@@ -1752,7 +1752,7 @@ class OasistchiCog(commands.Cog):
         )
 
         if can_rankup:
-            view.add_item(RankUpButton())
+            view.add_item(RankUpButton(selected_pet["id"]))
 
         pet_file = self.get_pet_image(selected_pet)
         gauge_file = build_growth_gauge_file(selected_pet["growth"])
@@ -3431,6 +3431,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
