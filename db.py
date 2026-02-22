@@ -499,7 +499,7 @@ class Database:
             print("🛠 oasistchi_pets に passive_skill カラムを追加します…")
             await self._execute("""
                 ALTER TABLE oasistchi_pets
-                ADD COLUMN passive_skill TEXT;
+                ADD COLUMN IF NOT EXISTS passive_skill TEXT;
             """)
             print("✅ passive_skill 追加完了")
 
@@ -2679,6 +2679,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
