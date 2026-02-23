@@ -1121,6 +1121,7 @@ class Database:
         await self.init_jumbo_tables()
         await self.ensure_race_schedule_columns()
         await self.ensure_race_entry_columns()
+        await self.ensure_race_results_columns()
         await self.ensure_race_schedule_time_text()
         await self.init_race_tables()
 
@@ -2261,6 +2262,37 @@ class Database:
             sql = "ALTER TABLE race_entries " + ", ".join(alter_sqls) + ";"
             print("🛠 race_entries カラム補完:", sql)
             await self._execute(sql)
+
+    # -----------------------------------------
+    # race_results テーブル カラム補完 ← ★ここ追加
+    # -----------------------------------------
+    async def ensure_race_results_columns(self):
+        cols = await self._fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'race_results';
+        """)
+        existing = {c["column_name"] for c in cols}
+
+        if "guild_id" not in existing:
+            print("🛠 race_results に guild_id を追加します…")
+            await self._execute(
+                "ALTER TABLE race_results ADD COLUMN guild_id TEXT;"
+            )
+            print("✅ race_results.guild_id 追加完了")
+
+        # 既存データ補完（安全版）
+        try:
+            await self._execute("""
+                UPDATE race_results rr
+                SET guild_id = rs.guild_id
+                FROM race_schedules rs
+                WHERE rr.schedule_id = rs.id
+                  AND rr.race_date   = rs.race_date
+                  AND rr.guild_id IS NULL;
+            """)
+        except Exception as e:
+            print(f"[RACE MIGRATE WARNING] {e!r}")
             
     # -----------------------------------------
     # 型修正用の補完
@@ -3015,6 +3047,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
