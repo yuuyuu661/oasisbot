@@ -3031,23 +3031,35 @@ class Database:
 
                 # simulate（※distanceではなくraceを渡す）
                 results = self.simulate_race(entries, race)
+                # =========================
+                # 🏆 報酬計算
+                # =========================
+                if r["rank"] == 1:
+                    reward = 50000
+                elif r["rank"] == 2:
+                    reward = 30000
+                elif r["rank"] == 3:
+                    reward = 10000
+                else:
+                    reward = 0
 
                 for r in results:
 
                     # race_results 保存
                     await conn.execute("""
                         INSERT INTO race_results
-                        (guild_id, race_date, schedule_id, pet_id, user_id, position, rank, final_score)
-                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+                        (guild_id, race_date, schedule_id, pet_id, user_id, position, rank, final_score, reward)
+                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
                     """,
                         guild_id,
                         race_date,
                         schedule_id,
                         r["pet_id"],
                         r["user_id"],
-                        r["rank"],   
-                        r["rank"],
-                        r["score"]
+                        r["rank"],     # position
+                        r["rank"],     # rank
+                        r["score"],
+                        reward         # ← ここ変更
                     )
 
                     # race_entries にも結果反映
@@ -3072,6 +3084,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
