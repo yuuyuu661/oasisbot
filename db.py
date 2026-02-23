@@ -1132,6 +1132,8 @@ class Database:
     # ------------------------------------------------------
     async def get_user(self, user_id, guild_id):
         await self._ensure_pool()
+        user_id = str(user_id)
+        guild_id = str(guild_id)
         await self._execute("""
             INSERT INTO users (user_id, guild_id, balance)
             VALUES ($1, $2, 0)
@@ -1158,6 +1160,8 @@ class Database:
 
     async def add_balance(self, user_id, guild_id, amount):
         await self._ensure_pool()
+        user_id = str(user_id)
+        guild_id = str(guild_id)
         async with self.pool.acquire() as conn:
             return await conn.fetchval("""
                 INSERT INTO users (user_id, guild_id, balance)
@@ -1169,6 +1173,8 @@ class Database:
 
     async def remove_balance(self, user_id, guild_id, amount):
         await self._ensure_pool()
+        user_id = str(user_id)
+        guild_id = str(guild_id)
         async with self.pool.acquire() as conn:
             return await conn.fetchval("""
                 UPDATE users
@@ -3013,7 +3019,7 @@ class Database:
                       AND race_date = $2
                       AND schedule_id = $3
                       AND status = 'selected'
-                """, guild_id, race_date, schedule_id)
+                """, str(guild_id), race_date, schedule_id)
 
                 if not raw_entries:
                     return []
@@ -3110,6 +3116,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
