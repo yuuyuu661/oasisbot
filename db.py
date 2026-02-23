@@ -3037,14 +3037,15 @@ class Database:
                     # race_results 保存
                     await conn.execute("""
                         INSERT INTO race_results
-                        (guild_id, race_date, schedule_id, pet_id, user_id, rank, final_score)
-                        VALUES ($1,$2,$3,$4,$5,$6,$7)
+                        (guild_id, race_date, schedule_id, pet_id, user_id, position, rank, final_score)
+                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
                     """,
                         guild_id,
                         race_date,
                         schedule_id,
                         r["pet_id"],
-                        r["user_id"],   
+                        r["user_id"],
+                        r["rank"],   
                         r["rank"],
                         r["score"]
                     )
@@ -3071,6 +3072,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
