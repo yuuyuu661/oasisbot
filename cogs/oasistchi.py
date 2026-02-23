@@ -1052,34 +1052,54 @@ class OasistchiCog(commands.Cog):
                                     continue
 
                                 # =========================
-                                # 💰 払い戻し処理（ここ！！）
+                                # 💰 完全プール式 払い戻し
                                 # =========================
+
+                                HOUSE_TAKE = 0.20  # 控除率20%
 
                                 winner_pet_id = results[0]["pet_id"]
 
-                                bets = await self.bot.db._fetch("""
-                                    SELECT rb.user_id,
-                                           rb.pet_id,
-                                           rb.amount,
-                                           re.final_odds
-                                    FROM race_bets rb
-                                    JOIN race_entries re
-                                      ON re.schedule_id = rb.schedule_id
-                                     AND re.pet_id = rb.pet_id
-                                    WHERE rb.schedule_id = $1
+                                # 総投票額
+                                total_pool_row = await self.bot.db._fetchrow("""
+                                    SELECT SUM(amount) AS total
+                                    FROM race_bets
+                                    WHERE schedule_id = $1
                                 """, race["id"])
 
-                                for bet in bets:
+                                total_pool = total_pool_row["total"] or 0
 
-                                    if bet["pet_id"] == winner_pet_id:
+                                # 勝ち馬への総投票額
+                                winner_pool_row = await self.bot.db._fetchrow("""
+                                    SELECT SUM(amount) AS total
+                                    FROM race_bets
+                                    WHERE schedule_id = $1
+                                      AND pet_id = $2
+                                """, race["id"], winner_pet_id)
 
-                                        payout = (total_pool * (1 - take_rate)) * (bet_amount / winner_pool)
+                                winner_pool = winner_pool_row["total"] or 0
+
+                                print(f"[POOL] total={total_pool} winner_pool={winner_pool}")
+
+                                # 払戻原資
+                                payout_pool = total_pool * (1 - HOUSE_TAKE)
+
+                                if winner_pool > 0:
+
+                                    winning_bets = await self.bot.db._fetch("""
+                                        SELECT user_id, amount
+                                        FROM race_bets
+                                        WHERE schedule_id = $1
+                                          AND pet_id = $2
+                                    """, race["id"], winner_pet_id)
+
+                                    for bet in winning_bets:
+
+                                        payout = int(payout_pool * (bet["amount"] / winner_pool))
 
                                         print(
                                             f"[PAYOUT] race={race['id']} "
                                             f"user={bet['user_id']} "
-                                            f"amount={bet['amount']} "
-                                            f"odds={final_odds} "
+                                            f"bet={bet['amount']} "
                                             f"payout={payout}"
                                         )
 
@@ -1094,11 +1114,13 @@ class OasistchiCog(commands.Cog):
                                             await user_obj.send(
                                                 f"🎉 **的中！**\n"
                                                 f"🏁 第{race['race_no']}レース\n"
-                                                f"💰 払戻：{payout:,} rrc\n"
-                                                f"📊 確定オッズ：{final_odds:.2f}倍"
+                                                f"💰 払戻：{payout:,} rrc"
                                             )
                                         except Exception as e:
                                             print(f"[PAYOUT DM ERROR] {e!r}")
+
+                                else:
+                                    print(f"[NO WINNERS] race_id={race['id']} winner_pool=0")
 
                                 # =========================
                                 # 結果整形
@@ -3133,6 +3155,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
