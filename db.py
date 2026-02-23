@@ -3051,6 +3051,13 @@ class Database:
                         INSERT INTO race_results
                         (guild_id, race_date, schedule_id, pet_id, user_id, position, rank, final_score, reward)
                         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+                        ON CONFLICT (race_date, schedule_id, pet_id)
+                        DO UPDATE SET
+                            user_id = EXCLUDED.user_id,
+                            position = EXCLUDED.position,
+                            rank = EXCLUDED.rank,
+                            final_score = EXCLUDED.final_score,
+                            reward = EXCLUDED.reward
                     """,
                         guild_id,
                         race_date,
@@ -3085,6 +3092,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
