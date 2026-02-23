@@ -373,17 +373,22 @@ class Database:
             # =========================
             happiness = e.get("happiness", 0)
 
-            # 幸福度0〜100 → 0〜0.10
             base_guts_rate = (happiness / 100) * 0.10
 
-            # gamblerなら+5%
             if e.get("passive_skill") == "gambler":
                 base_guts_rate += 0.05
 
             guts_triggered = random.random() < base_guts_rate
 
+            # ① まず基礎スピードを作る
+            base_speed = stats["speed"]
+
+            # ② 根性補正
             if guts_triggered:
-                speed *= 1.10  # 根性ブースト
+                base_speed *= 1.10
+
+            # ③ 距離補正込み能力計算
+            speed = base_speed * balance["speed"] + stats["power"] * balance["power"]
 
             # =========================
             # 🏇 距離補正込み能力計算
@@ -3034,6 +3039,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
