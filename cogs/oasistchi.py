@@ -413,98 +413,7 @@ def calc_effective_stats(pet: dict):
         "rate": rate,              # デバッグ・表示用
         "guts_chance": guts_chance # ログ・演出用
     }
-def apply_passive_effect(stats: dict, pet: dict, context: dict) -> dict:
 
-    passive_key = pet.get("passive_skill")
-    passive = PASSIVE_SKILLS.get(passive_key)
-
-    if not passive:
-        return stats
-
-    speed = stats["speed"]
-    stamina = stats["stamina"]
-    power = stats["power"]
-
-    ptype = passive["type"]
-
-    # ------------------------
-    # 単体
-    # ------------------------
-    if ptype == "stat":
-        target = passive["target"]
-        stats[target] *= passive["multiplier"]
-
-    # ------------------------
-    # 全体
-    # ------------------------
-    elif ptype == "all":
-        m = passive["multiplier"]
-        speed *= m
-        stamina *= m
-        power *= m
-
-    # ------------------------
-    # トレード
-    # ------------------------
-    elif ptype == "trade":
-        for k, v in passive["effects"].items():
-            stats[k] *= v
-
-    # ------------------------
-    # 枠番
-    # ------------------------
-    elif ptype == "gate_number":
-        if context.get("gate") == passive["gate"]:
-            m = passive["multiplier"]
-            speed *= m
-            stamina *= m
-            power *= m
-
-    # ------------------------
-    # バ場
-    # ------------------------
-    elif ptype == "surface":
-        if context.get("surface") == passive["surface"]:
-            m = passive["multiplier"]
-            speed *= m
-            stamina *= m
-            power *= m
-
-    # ------------------------
-    # 距離
-    # ------------------------
-    elif ptype == "distance":
-        if context.get("distance") == passive["distance"]:
-            m = passive["multiplier"]
-            speed *= m
-            stamina *= m
-            power *= m
-
-    # ------------------------
-    # 同族
-    # ------------------------
-    elif ptype == "same_adult":
-        if context.get("same_adult_exists"):
-            m = passive["multiplier"]
-            speed *= m
-            stamina *= m
-            power *= m
-
-    # ------------------------
-    # 雑草魂
-    # ------------------------
-    elif ptype == "odds_rank":
-        rank = context.get("odds_rank", 1)
-        m = 1 + rank * 0.02
-        speed *= m
-        stamina *= m
-        power *= m
-
-    stats["speed"] = int(speed)
-    stats["stamina"] = int(stamina)
-    stats["power"] = int(power)
-
-    return stats    
 def get_condition_text(happiness: int) -> str:
     if happiness >= 80:
         return "好調 😄"
@@ -3437,6 +3346,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
