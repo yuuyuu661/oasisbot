@@ -2264,7 +2264,7 @@ class Database:
             await self._execute(sql)
 
     # -----------------------------------------
-    # race_results テーブル カラム補完 ← ★ここ追加
+    # race_results テーブル カラム補完（救済版）
     # -----------------------------------------
     async def ensure_race_results_columns(self):
         cols = await self._fetch("""
@@ -2274,14 +2274,32 @@ class Database:
         """)
         existing = {c["column_name"] for c in cols}
 
+        # まず不足カラムを追加
         if "guild_id" not in existing:
             print("🛠 race_results に guild_id を追加します…")
-            await self._execute(
-                "ALTER TABLE race_results ADD COLUMN guild_id TEXT;"
-            )
-            print("✅ race_results.guild_id 追加完了")
+            await self._execute("ALTER TABLE race_results ADD COLUMN guild_id TEXT;")
 
-        # 既存データ補完（安全版）
+        if "race_date" not in existing:
+            print("🛠 race_results に race_date を追加します…")
+            await self._execute("ALTER TABLE race_results ADD COLUMN race_date DATE;")
+
+        if "schedule_id" not in existing:
+            print("🛠 race_results に schedule_id を追加します…")
+            await self._execute("ALTER TABLE race_results ADD COLUMN schedule_id INTEGER;")
+
+        if "pet_id" not in existing:
+            print("🛠 race_results に pet_id を追加します…")
+            await self._execute("ALTER TABLE race_results ADD COLUMN pet_id INTEGER;")
+
+        if "rank" not in existing:
+            print("🛠 race_results に rank を追加します…")
+            await self._execute("ALTER TABLE race_results ADD COLUMN rank INTEGER;")
+
+        if "final_score" not in existing:
+            print("🛠 race_results に final_score を追加します…")
+            await self._execute("ALTER TABLE race_results ADD COLUMN final_score DOUBLE PRECISION;")
+
+        # guild_id の既存データ補完（あっても害なし）
         try:
             await self._execute("""
                 UPDATE race_results rr
@@ -2289,10 +2307,13 @@ class Database:
                 FROM race_schedules rs
                 WHERE rr.schedule_id = rs.id
                   AND rr.race_date   = rs.race_date
-                  AND rr.guild_id IS NULL;
+                  AND (rr.guild_id IS NULL OR rr.guild_id = '');
             """)
         except Exception as e:
             print(f"[RACE MIGRATE WARNING] {e!r}")
+
+        print("✅ race_results カラム補完完了")
+
             
     # -----------------------------------------
     # 型修正用の補完
@@ -3047,6 +3068,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
