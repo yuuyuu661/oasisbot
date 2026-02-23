@@ -12,7 +12,7 @@ from io import BytesIO
 import asyncio
 from PIL import Image, ImageSequence
 from datetime import datetime, timezone, timedelta, time as dtime
-from cogs.db import PASSIVE_SKILLS
+from db import PASSIVE_SKILLS
 JST = timezone(timedelta(hours=9))
 
 WEB_SECRET = os.getenv("WEB_SECRET")
@@ -3156,6 +3156,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
