@@ -2300,6 +2300,24 @@ class Database:
             print("🛠 race_results に final_score を追加します…")
             await self._execute("ALTER TABLE race_results ADD COLUMN final_score DOUBLE PRECISION;")
 
+        if "user_id" not in existing:
+            print("🛠 race_results に user_id を追加します…")
+            await self._execute(
+                "ALTER TABLE race_results ADD COLUMN user_id TEXT;"
+            )
+
+        if "position" not in existing:
+            print("🛠 race_results に position を追加します…")
+            await self._execute(
+                "ALTER TABLE race_results ADD COLUMN position INTEGER;"
+            )
+
+        if "reward" not in existing:
+            print("🛠 race_results に reward を追加します…")
+            await self._execute(
+                "ALTER TABLE race_results ADD COLUMN reward INTEGER DEFAULT 0;"
+            )
+
         # guild_id の既存データ補完（あっても害なし）
         try:
             await self._execute("""
@@ -3092,6 +3110,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
