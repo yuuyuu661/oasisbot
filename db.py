@@ -231,8 +231,8 @@ class Database:
         with open(self.badge_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
+    @staticmethod
     def apply_passive_effect(stats: dict, pet: dict, context: dict) -> dict:
-
         passive_key = pet.get("passive_skill")
         passive = PASSIVE_SKILLS.get(passive_key)
 
@@ -245,32 +245,20 @@ class Database:
 
         ptype = passive["type"]
 
-        # ------------------------
-        # 単体
-        # ------------------------
         if ptype == "stat":
             target = passive["target"]
             stats[target] *= passive["multiplier"]
 
-        # ------------------------
-        # 全体
-        # ------------------------
         elif ptype == "all":
             m = passive["multiplier"]
             speed *= m
             stamina *= m
             power *= m
 
-        # ------------------------
-        # トレード
-        # ------------------------
         elif ptype == "trade":
             for k, v in passive["effects"].items():
                 stats[k] *= v
 
-        # ------------------------
-        # 枠番
-        # ------------------------
         elif ptype == "gate_number":
             if context.get("gate") == passive["gate"]:
                 m = passive["multiplier"]
@@ -278,9 +266,6 @@ class Database:
                 stamina *= m
                 power *= m
 
-        # ------------------------
-        # バ場
-        # ------------------------
         elif ptype == "surface":
             if context.get("surface") == passive["surface"]:
                 m = passive["multiplier"]
@@ -288,9 +273,6 @@ class Database:
                 stamina *= m
                 power *= m
 
-        # ------------------------
-        # 距離
-        # ------------------------
         elif ptype == "distance":
             if context.get("distance") == passive["distance"]:
                 m = passive["multiplier"]
@@ -298,9 +280,6 @@ class Database:
                 stamina *= m
                 power *= m
 
-        # ------------------------
-        # 同族
-        # ------------------------
         elif ptype == "same_adult":
             if context.get("same_adult_exists"):
                 m = passive["multiplier"]
@@ -308,9 +287,6 @@ class Database:
                 stamina *= m
                 power *= m
 
-        # ------------------------
-        # 雑草魂
-        # ------------------------
         elif ptype == "odds_rank":
             rank = context.get("odds_rank", 1)
             m = 1 + rank * 0.02
@@ -367,7 +343,7 @@ class Database:
                 "same_adult_exists": same_adult_exists
             }
 
-            stats = apply_passive_effect(stats, e, context)
+            stats = self.apply_passive_effect(stats, e, context)
             # =========================
             # 🔥 根性発動判定
             # =========================
@@ -3039,6 +3015,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
