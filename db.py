@@ -384,8 +384,9 @@ class Database:
 
             results.append({
                 "pet_id": e["pet_id"],
+                "user_id": e["user_id"],   
                 "score": final_score,
-                "guts": guts_triggered   
+                "guts": guts_triggered
             })
 
         results.sort(key=lambda x: x["score"], reverse=True)
@@ -3070,5 +3071,6 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
