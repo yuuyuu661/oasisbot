@@ -18,6 +18,190 @@ SURFACES = ["芝", "ダート"]
 CONDITIONS = ["良", "稍重", "重", "不良"]
 ENTRY_OPEN_MINUTES = 60  # レース開始60分前に締切
 
+PASSIVE_SKILLS = {
+
+    # ------------------------
+    # 単体強化（小）
+    # ------------------------
+    "speed_s": {
+        "label": "スピード小アップ",
+        "emoji": "🏃",
+        "type": "stat",
+        "target": "speed",
+        "multiplier": 1.10,
+        "description": "スピードが少し上がる。"
+    },
+    "stamina_s": {
+        "label": "スタミナ小アップ",
+        "emoji": "🫀",
+        "type": "stat",
+        "target": "stamina",
+        "multiplier": 1.10,
+        "description": "スタミナが少し上がる。"
+    },
+    "power_s": {
+        "label": "パワー小アップ",
+        "emoji": "💥",
+        "type": "stat",
+        "target": "power",
+        "multiplier": 1.10,
+        "description": "パワーが少し上がる。"
+    },
+
+    # ------------------------
+    # 単体強化（大）
+    # ------------------------
+    "speed_l": {
+        "label": "スピード大アップ",
+        "emoji": "🚀",
+        "type": "stat",
+        "target": "speed",
+        "multiplier": 1.20,
+        "description": "スピードが大幅に上がる。"
+    },
+    "stamina_l": {
+        "label": "スタミナ大アップ",
+        "emoji": "❤️‍🔥",
+        "type": "stat",
+        "target": "stamina",
+        "multiplier": 1.20,
+        "description": "スタミナが大幅に上がる。"
+    },
+    "power_l": {
+        "label": "パワー大アップ",
+        "emoji": "💣",
+        "type": "stat",
+        "target": "power",
+        "multiplier": 1.20,
+        "description": "パワーが大幅に上がる。"
+    },
+
+    # ------------------------
+    # 全体系
+    # ------------------------
+    "jack_of_all": {
+        "label": "器用貧乏",
+        "emoji": "🌈",
+        "type": "all",
+        "multiplier": 1.05,
+        "description": "すべてのステータスが少し上がる。"
+    },
+
+    # ------------------------
+    # トレードオフ系
+    # ------------------------
+    "muscle_head": {
+        "label": "脳筋",
+        "emoji": "💪",
+        "type": "trade",
+        "effects": {
+            "power": 1.25,
+            "speed": 0.90
+        },
+        "description": "パワーが大幅に上がる代わりにスピードが少し下がる。"
+    },
+
+    "speed_star": {
+        "label": "スピードスター",
+        "emoji": "⚡",
+        "type": "trade",
+        "effects": {
+            "speed": 1.25,
+            "stamina": 0.90
+        },
+        "description": "スピードが大幅に上がる代わりにスタミナが少し下がる。"
+    },
+
+    "steady_runner": {
+        "label": "マイペース",
+        "emoji": "🐢",
+        "type": "trade",
+        "effects": {
+            "stamina": 1.25,
+            "power": 0.90
+        },
+        "description": "スタミナが大幅に上がる代わりにパワーが少し下がる。"
+    },
+
+    # ------------------------
+    # 条件系
+    # ------------------------
+
+
+    "gambler": {
+        "label": "勝負師",
+        "emoji": "🔥",
+        "type": "guts",
+        "bonus": 5,
+        "description": "少し根性が発動しやすくなる。"
+    },
+
+    "turf_specialist": {
+        "label": "芝得意",
+        "emoji": "🌱",
+        "type": "surface",
+        "surface": "芝",
+        "multiplier": 1.10,
+        "description": "バ場が芝のとき、すべてのステータスが少し上がる。"
+    },
+
+    "dirt_specialist": {
+        "label": "ダート得意",
+        "emoji": "🏜️",
+        "type": "surface",
+        "surface": "ダート",
+        "multiplier": 1.10,
+        "description": "バ場がダートのとき、すべてのステータスが少し上がる。"
+    },
+
+    "same_kind_boost": {
+        "label": "同族嫌悪",
+        "emoji": "👥",
+        "type": "same_adult",
+        "multiplier": 1.15,
+        "description": "同じ種類のおあしすっちが出場しているとき、全ステータスが大幅に上がる。"
+    },
+
+    # ------------------------
+    # 距離適性
+    # ------------------------
+    "short_special": {
+        "label": "短距離得意",
+        "emoji": "🏎️",
+        "type": "distance",
+        "distance": "短距離",
+        "multiplier": 1.15,
+        "description": "短距離レースで全ステータスが上がる。"
+    },
+
+    "mile_special": {
+        "label": "マイル得意",
+        "emoji": "🏇",
+        "type": "distance",
+        "distance": "マイル",
+        "multiplier": 1.15,
+        "description": "マイルレースで全ステータスが上がる。"
+    },
+
+    "middle_special": {
+        "label": "中距離得意",
+        "emoji": "🏃‍♂️",
+        "type": "distance",
+        "distance": "中距離",
+        "multiplier": 1.15,
+        "description": "中距離レースで全ステータスが上がる。"
+    },
+
+    "long_special": {
+        "label": "遠距離得意",
+        "emoji": "🌌",
+        "type": "distance",
+        "distance": "長距離",
+        "multiplier": 1.15,
+        "description": "遠距離レースで全ステータスが上がる。"
+    },
+}
+
 
 class Database:
     def __init__(self):
@@ -2850,6 +3034,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
