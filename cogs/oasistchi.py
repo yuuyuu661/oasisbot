@@ -828,7 +828,7 @@ class OasistchiCog(commands.Cog):
         print("[RACE DEBUG] sending race entry panel...")
 
         # 念のためシャッフル（枠番ランダム）
-        entries = list(selected_entries)
+        entries = [dict(e) for e in selected_entries] 
         random.shuffle(entries)
         for i, entry in enumerate(entries, start=1):
             entry["gate"] = i
@@ -3156,6 +3156,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
