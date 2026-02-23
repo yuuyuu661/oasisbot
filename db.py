@@ -3018,9 +3018,10 @@ class Database:
                     """, e["pet_id"])
 
                     entries.append({
+                        "user_id": e["user_id"],  
                         "pet_id": e["pet_id"],
                         "passive_skill": pet["passive_skill"],
-                        "adult_key": pet["adult_key"],  # ← これ追加
+                        "adult_key": pet["adult_key"],
                         "speed": (pet["base_speed"] or 0) + (pet["train_speed"] or 0),
                         "power": (pet["base_power"] or 0) + (pet["train_power"] or 0),
                         "stamina": (pet["base_stamina"] or 0) + (pet["train_stamina"] or 0),
@@ -3068,47 +3069,4 @@ class Database:
                 """, schedule_id)
 
                 return results
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
