@@ -1075,7 +1075,7 @@ class OasistchiCog(commands.Cog):
                                     FROM race_bets
                                     WHERE schedule_id = $1
                                       AND pet_id = $2
-                                """, race["id"], winner_pet_id)
+                                """, race["id"], str(winner_pet_id))
 
                                 winner_pool = winner_pool_row["total"] or 0
 
@@ -1091,7 +1091,7 @@ class OasistchiCog(commands.Cog):
                                         FROM race_bets
                                         WHERE schedule_id = $1
                                           AND pet_id = $2
-                                    """, race["id"], winner_pet_id)
+                                    """, race["id"], str(winner_pet_id))
 
                                     for bet in winning_bets:
 
@@ -3156,6 +3156,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
