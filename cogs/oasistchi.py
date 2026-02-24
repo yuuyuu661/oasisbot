@@ -1015,7 +1015,6 @@ class OasistchiCog(commands.Cog):
                                     schedule_id=race["id"],
                                     distance=race.get("distance")
                                 )
-                                race["race_finished"] = True
 
                         # =========================
                         # ③ 結果パネル（10分後）
@@ -3155,6 +3154,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
