@@ -103,11 +103,11 @@ def get_race_phase(race):
 
 def get_condition_label(happiness: int):
     if happiness >= 80:
-        return "好調", "good"
+        return "好調 😄", "good"
     elif happiness >= 50:
-        return "普通", "normal"
+        return "普通 😐", "normal"
     else:
-        return "不調", "bad"
+        return "不調 😰", "bad"
 
 # =========================
 # 🔐 トークン検証
@@ -629,6 +629,7 @@ async def place_bet(data: BetRequest):
 
     finally:
         await conn.close()
+
 
 
 
