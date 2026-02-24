@@ -124,6 +124,19 @@ ADULT_CATALOG = [
     {"key": "take","name": "たけのこ","groups": ["blue"]},
     {"key": "tokimi","name": "トキミノ","groups": ["green"]},
 
+    {"key": "cyama","name": "ちゃま","groups": ["purple"]},
+    {"key": "ika","name": "いか","groups": ["yellow"]},
+    {"key": "kare","name": "カレー","groups": ["red"]},  
+    {"key": "lv","name": "lv","groups": ["blue"]},
+    {"key": "mata","name": "まったり","groups": ["green"]},
+
+    {"key": "noa","name": "のあ","groups": ["purple"]},
+    {"key": "raise","name": "きみのよめ","groups": ["yellow"]},
+    {"key": "syuu","name": "しゅうや","groups": ["red"]},  
+    {"key": "takana","name": "たかな","groups": ["blue"]},
+    {"key": "yomo","name": "よもチ","groups": ["green"]},
+
+
 
 
 ]
@@ -3154,6 +3167,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
