@@ -1145,7 +1145,6 @@ class OasistchiCog(commands.Cog):
                                    })
 
                                 await self.send_race_result_embed(race, formatted)
-                                race["result_sent"] = True
                     except Exception as race_err:
                         print(f"[RACE LOOP ERROR] race_id={race.get('id')} err={race_err!r}")
                         continue
@@ -3156,6 +3155,7 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
 
