@@ -3107,6 +3107,22 @@ class Database:
                         schedule_id,
                         r["pet_id"]
                     )
+                    # =========================
+                    # 💰 オーナー固定賞金 支払い ← ★ここに追加
+                    # =========================
+                    if reward > 0:
+                        await conn.execute("""
+                            INSERT INTO users (user_id, guild_id, balance)
+                            VALUES ($1, $2, $3)
+                            ON CONFLICT (user_id, guild_id)
+                            DO UPDATE SET balance = users.balance + $3
+                        """,
+                            str(r["user_id"]),
+                            str(guild_id),
+                            reward
+                        )
+
+                        print(f"[OWNER PRIZE] rank={r['rank']} user={r['user_id']} prize={reward}")
 
                 # レース完了フラグ
                 await conn.execute("""
@@ -3116,6 +3132,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
 
 
