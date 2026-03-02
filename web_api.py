@@ -655,7 +655,7 @@ async def place_bet(data: BetRequest):
                 race["race_date"], # DATE
                 race["id"],        # INTEGER
                 str(data.user),    # TEXT
-                data.pet_id,       # ← ★ここはそのまま整数
+                str(data.pet_id),       # ← ★ここはそのまま整数
                 data.amount        # INTEGER
             )
             # ⑦ 全体プール更新
