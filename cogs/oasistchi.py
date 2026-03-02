@@ -130,6 +130,12 @@ ADULT_CATALOG = [
     {"key": "takana","name": "たかな","groups": ["blue"]},
     {"key": "yomo","name": "よもチ","groups": ["green"]},
 
+    {"key": "bachio","name": "はっちお","groups": ["purple"]},
+    {"key": "cry","name": "cry","groups": ["yellow"]},
+    {"key": "hyou","name": "メビウス","groups": ["red"]},  
+    {"key": "jyaku","name": "弱","groups": ["blue"]},
+    {"key": "kuko","name": "くこ","groups": ["green"]},
+
 
 
 
@@ -796,6 +802,22 @@ class OasistchiCog(commands.Cog):
             medal = medals[i - 1] if i <= 3 else f"{i}着"
             guts = "🔥 根性" if r["stats"].get("guts") else ""
 
+            # -------------------------
+            # 最終オッズ表示
+            # -------------------------
+            odds_text = ""
+            if r.get("final_odds", 0) > 0:
+                odds_text = f"\n📈 最終オッズ {r['final_odds']}倍"
+
+            # -------------------------
+            # パッシブ表示
+            # -------------------------
+            passive_text = ""
+
+            if r.get("passive_skill"):
+                display = get_passive_display(r["passive_skill"])
+                passive_text = f"\n✨ パッシブ：{display}"
+
             embed.add_field(
                 name=f"{medal} {r['name']}",
                 value=(
@@ -804,10 +826,11 @@ class OasistchiCog(commands.Cog):
                     f"🫀 スタミナ {r['stats']['stamina']}\n"
                     f"💥 パワー {r['stats']['power']} {guts}\n"
                     f"📊 score {r['score']:.1f}"
+                    f"{odds_text}"
+                    f"{passive_text}"
                 ),
                 inline=False
             )
-
         await channel.send(embed=embed)
         # 🔐 連投防止フラグ
         await self.bot.db._execute("""
@@ -1046,7 +1069,8 @@ class OasistchiCog(commands.Cog):
                                            p.base_stamina,
                                            p.train_stamina,
                                            p.base_power,
-                                           p.train_power
+                                           p.train_power,
+                                           p.passive_skill
                                     FROM race_entries re
                                     JOIN oasistchi_pets p
                                       ON p.id = re.pet_id
@@ -1124,11 +1148,16 @@ class OasistchiCog(commands.Cog):
 
                                         try:
                                             user_obj = await self.bot.fetch_user(int(bet["user_id"]))
+
+
                                             await user_obj.send(
                                                 f"🎉 **的中！**\n"
-                                                f"🏁 第{race['race_no']}レース\n"
+                                                f"🏁 第{race['race_no']}レース\n\n"
+                                                f"🎫 購入額：{bet['amount']:,} rrc\n"
+                                                f"📈 最終オッズ：{final_odds}倍\n"
                                                 f"💰 払戻：{payout:,} rrc"
                                             )
+
                                         except Exception as e:
                                             print(f"[PAYOUT DM ERROR] {e!r}")
 
@@ -1136,12 +1165,16 @@ class OasistchiCog(commands.Cog):
                                     print(f"[NO WINNERS] race_id={race['id']} winner_pool=0")
 
                                 # =========================
-                                # 結果整形
+                                # 結果整形（最終オッズ＋パッシブ付き）
                                 # =========================
 
                                 formatted = []
 
                                 for r in results:
+
+                                    # -------------------------
+                                    # ステータス合算
+                                    # -------------------------
                                     stats = {
                                         "speed": (r["base_speed"] or 0) + (r["train_speed"] or 0),
                                         "stamina": (r["base_stamina"] or 0) + (r["train_stamina"] or 0),
@@ -1149,21 +1182,44 @@ class OasistchiCog(commands.Cog):
                                         "guts": r.get("guts", False),
                                     }
 
+                                    # -------------------------
+                                    # その馬への総投票額取得
+                                    # -------------------------
+                                    pet_pool_row = await self.bot.db._fetchrow("""
+                                        SELECT SUM(amount) AS total
+                                        FROM race_bets
+                                        WHERE schedule_id = $1
+                                          AND pet_id = $2
+                                    """, race["id"], r["pet_id"])
+
+                                    pet_pool = pet_pool_row["total"] or 0
+
+                                    # -------------------------
+                                    # 最終オッズ計算
+                                    # -------------------------
+                                    if pet_pool > 0:
+                                        final_odds = round(total_pool / pet_pool, 2)
+                                    else:
+                                        final_odds = 0
+
                                     formatted.append({
                                         "user_id": r["user_id"],
                                         "name": r["name"],
                                         "score": r["score"],
-                                        "stats": stats
-                                   })
+                                        "stats": stats,
+                                        "final_odds": final_odds,
+                                        "pet_id": r["pet_id"],
+                                        "passive_skill": r.get("passive_skill")
+                                    })
 
                                 await self.send_race_result_embed(race, formatted)
+
                                 await self.bot.db._execute("""
                                     UPDATE race_schedules
                                     SET race_finished = TRUE,
                                         result_sent = TRUE
                                     WHERE id = $1
                                 """, race["id"])
-
 
 
 
@@ -1757,7 +1813,7 @@ class OasistchiPanelRootView(discord.ui.View):
 
         # レースが存在しない
         if not race:
-            url = f"https://racetest-production.up.railway.app/index.html?guild={guild_id}"
+            url = f"https://lacesite-production.up.railway.app/index.html?guild={guild_id}"
             return await interaction.followup.send(
                 f"🌐 レースサイトはこちら\n{url}",
                 ephemeral=True
@@ -1770,7 +1826,7 @@ class OasistchiPanelRootView(discord.ui.View):
         token = generate_token(str(user_id), str(guild_id), str(race_id))
 
         url = (
-            "https://racetest-production.up.railway.app/index.html"
+            "https://lacesite-production.up.railway.app/index.html"
             f"?guild={guild_id}"
             f"&user={user_id}"
             f"&race={race_id}"
