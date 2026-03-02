@@ -1221,6 +1221,41 @@ class Database:
                 UPDATE hotel_settings SET category_ids = ARRAY[]::TEXT[] WHERE category_ids IS NULL;
             """)
 
+        # race_pet_pools.total_amount
+        col_info = await self._fetch("""
+            SELECT data_type
+           FROM information_schema.columns
+            WHERE table_name = 'race_pet_pools'
+              AND column_name = 'total_amount';
+        """)
+
+        if col_info and col_info[0]["data_type"] != "integer":
+            print("🛠 race_pet_pools.total_amount を INTEGER に修正します…")
+            await self._execute("""
+                ALTER TABLE race_pet_pools
+                ALTER COLUMN total_amount TYPE INTEGER
+                USING total_amount::integer;
+            """)
+            print("✅ race_pet_pools.total_amount 型修正完了")
+
+
+        # race_pools.total_pool
+        col_info = await self._fetch("""
+            SELECT data_type
+            FROM information_schema.columns
+            WHERE table_name = 'race_pools'
+              AND column_name = 'total_pool';
+        """)
+
+        if col_info and col_info[0]["data_type"] != "integer":
+            print("🛠 race_pools.total_pool を INTEGER に修正します…")
+            await self._execute("""
+                ALTER TABLE race_pools
+                ALTER COLUMN total_pool TYPE INTEGER
+                USING total_pool::integer;
+            """)
+            print("✅ race_pools.total_pool 型修正完了")
+
         # ==================================================
         #テーブル初期化
         # ==================================================
