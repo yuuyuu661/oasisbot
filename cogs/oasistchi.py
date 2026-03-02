@@ -15,7 +15,7 @@ from datetime import datetime, timezone, timedelta, time as dtime
 from db import PASSIVE_SKILLS
 JST = timezone(timedelta(hours=9))
 
-WEB_SECRET = "9f3a7c4d8b2e1f0a6c8d9e7f1a2b3c4d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4"
+WEB_SECRET = "9f3a7c4d8b2e1f0a6c8d9e7f1a2b3c4d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a5"
 
 def today_jst_date():
     return datetime.now(JST).date()
