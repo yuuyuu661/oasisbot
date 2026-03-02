@@ -3425,3 +3425,154 @@ class Database:
                     amount
                 )
 
+    # ======================================================
+    # 3連単：精算処理（キャリー対応）
+    # ======================================================
+    async def settle_trifecta(
+        self,
+        guild_id,
+        race_date,
+        schedule_id,
+        next_schedule_id=None  # キャリー先（同日次レース）
+    ):
+        guild_id = str(guild_id)
+        schedule_id = int(schedule_id)
+
+        await self._ensure_pool()
+
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+
+                # =========================
+                # ① 1〜3着取得
+                # =========================
+                top3 = await conn.fetch("""
+                    SELECT pet_id
+                    FROM race_results
+                    WHERE guild_id=$1
+                      AND race_date=$2
+                      AND schedule_id=$3
+                      AND rank <= 3
+                    ORDER BY rank ASC
+                """, guild_id, race_date, schedule_id)
+
+                if len(top3) < 3:
+                    return {"status": "no_result"}
+
+                first = top3[0]["pet_id"]
+                second = top3[1]["pet_id"]
+                third = top3[2]["pet_id"]
+
+                # =========================
+                # ② 総プール取得（ロック）
+                # =========================
+                pool_row = await conn.fetchrow("""
+                    SELECT total_pool, carry_in
+                    FROM race_trifecta_pools
+                    WHERE guild_id=$1
+                      AND race_date=$2
+                      AND schedule_id=$3
+                    FOR UPDATE
+                """, guild_id, race_date, schedule_id)
+
+                if not pool_row or pool_row["total_pool"] == 0:
+                    return {"status": "no_pool"}
+
+                total_pool = pool_row["total_pool"]
+
+                # =========================
+                # ③ 的中者取得
+                # =========================
+                winners = await conn.fetch("""
+                    SELECT user_id, amount
+                    FROM race_trifecta_bets
+                    WHERE guild_id=$1
+                      AND race_date=$2
+                      AND schedule_id=$3
+                      AND first_pet_id=$4
+                      AND second_pet_id=$5
+                      AND third_pet_id=$6
+                """,
+                    guild_id,
+                    race_date,
+                    schedule_id,
+                    first,
+                    second,
+                    third
+                )
+
+                # =========================
+                # ④ 的中者がいる場合
+                # =========================
+                if winners:
+
+                    total_winning_amount = sum(w["amount"] for w in winners)
+
+                    payouts = []
+
+                    for w in winners:
+                        share = total_pool * (w["amount"] / total_winning_amount)
+                        share = int(share)
+
+                        await conn.execute("""
+                            UPDATE users
+                            SET balance = balance + $1
+                            WHERE user_id=$2 AND guild_id=$3
+                        """, share, w["user_id"], guild_id)
+
+                        payouts.append({
+                            "user_id": w["user_id"],
+                            "payout": share
+                        })
+
+                    # プールリセット
+                    await conn.execute("""
+                        UPDATE race_trifecta_pools
+                        SET total_pool = 0,
+                           carry_in = 0
+                        WHERE guild_id=$1
+                          AND race_date=$2
+                          AND schedule_id=$3
+                    """, guild_id, race_date, schedule_id)
+
+                    return {
+                        "status": "hit",
+                        "payouts": payouts,
+                        "total_pool": total_pool
+                    }
+
+                # =========================
+                # ⑤ 的中ゼロ → キャリー
+                # =========================
+                else:
+
+                    if next_schedule_id:
+                        # 次レースにキャリー追加
+                        await conn.execute("""
+                            INSERT INTO race_trifecta_pools
+                            (guild_id, race_date, schedule_id, total_pool, carry_in)
+                            VALUES ($1,$2,$3,$4,$4)
+                            ON CONFLICT (guild_id, race_date, schedule_id)
+                            DO UPDATE SET
+                                total_pool = race_trifecta_pools.total_pool + $4,
+                                carry_in = race_trifecta_pools.carry_in + $4
+                        """,
+                            guild_id,
+                            race_date,
+                            next_schedule_id,
+                            total_pool
+                        )
+
+                    # 今レースはリセット
+                    await conn.execute("""
+                        UPDATE race_trifecta_pools
+                        SET total_pool = 0
+                        WHERE guild_id=$1
+                          AND race_date=$2
+                          AND schedule_id=$3
+                    """, guild_id, race_date, schedule_id)
+
+                    return {
+                        "status": "carry",
+                        "carry_amount": total_pool
+                    }
