@@ -3574,11 +3574,16 @@ class Database:
     async def add_user_badge(self, user_id: str, guild_id: str, badge: str):
         await self._ensure_pool()
         async with self.pool.acquire() as conn:
-            await conn.execute("""
+            result = await conn.execute("""
                 INSERT INTO user_badges (guild_id, user_id, badge)
                 VALUES ($1, $2, $3)
                 ON CONFLICT DO NOTHING
             """, guild_id, user_id, badge)
+
+            print("INSERT RESULT:", result)
+
+            rows = await conn.fetch("SELECT * FROM user_badges;")
+            print("TABLE NOW:", rows)
 
     # ======================================================
     # ユーザーのバッジ一覧取得
