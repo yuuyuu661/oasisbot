@@ -35,6 +35,8 @@ def build_badge_image(badges: list[str]) -> io.BytesIO | None:
         imgs.append(img)
 
     if not imgs:
+        print("NO IMAGES LOADED")
+        print("BADGES:", badges)
         return None
 
     width = len(imgs) * size + (len(imgs) - 1) * gap
