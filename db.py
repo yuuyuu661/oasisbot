@@ -3284,6 +3284,7 @@ class Database:
         return row["sub_role"] if row else None
 
     async def get_trifecta_pool(self, guild_id, race_date, schedule_id):
+        guild_id = str(guild_id)
         row = await self._fetchrow("""
             SELECT total_pool, carry_in
             FROM race_trifecta_pools
