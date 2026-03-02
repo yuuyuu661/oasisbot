@@ -3283,5 +3283,28 @@ class Database:
         )
         return row["sub_role"] if row else None
 
+    async def get_trifecta_pool(self, guild_id, race_date, schedule_id):
+        row = await self._fetchrow("""
+            SELECT total_pool, carry_in
+            FROM race_trifecta_pools
+            WHERE guild_id=$1 AND race_date=$2 AND schedule_id=$3
+        """, guild_id, race_date, schedule_id)
+
+        if not row:
+            return {
+                "total_pool": 0,
+                "carry_in": 0,
+                "current_sales": 0
+            }
+
+        total = row["total_pool"]
+        carry = row["carry_in"]
+
+        return {
+            "total_pool": total,
+            "carry_in": carry,
+            "current_sales": total - carry
+        }
+
 
 
