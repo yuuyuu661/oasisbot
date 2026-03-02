@@ -3283,6 +3283,10 @@ class Database:
         )
         return row["sub_role"] if row else None
 
+    # ======================================================
+    # 3連単プール表示3.1
+    # ======================================================
+
     async def get_trifecta_pool(self, guild_id, race_date, schedule_id):
         guild_id = str(guild_id)
         row = await self._fetchrow("""
@@ -3307,5 +3311,117 @@ class Database:
             "current_sales": total - carry
         }
 
+    # ======================================================
+    # 3連単：購入処理3.1
+    # ======================================================
+    async def place_trifecta_bet(
+        self,
+        guild_id,
+        race_date,
+        schedule_id,
+        user_id,
+        first_pet_id,
+        second_pet_id,
+        third_pet_id,
+        amount
+    ):
+        guild_id = str(guild_id)
+        user_id = str(user_id)
+        schedule_id = int(schedule_id)
 
+        # 同じ馬を重複指定していないかチェック
+        if len({first_pet_id, second_pet_id, third_pet_id}) != 3:
+            raise RuntimeError("同じおあしすっちは指定できません")
+
+        await self._ensure_pool()
+
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+
+                # =========================
+                # ① 残高ロック
+                # =========================
+                balance_row = await conn.fetchrow("""
+                    SELECT balance
+                    FROM users
+                    WHERE user_id=$1 AND guild_id=$2
+                    FOR UPDATE
+                """, user_id, guild_id)
+
+                if not balance_row or balance_row["balance"] < amount:
+                    raise RuntimeError("残高不足")
+
+                # =========================
+                # ② 残高減算
+                # =========================
+                await conn.execute("""
+                    UPDATE users
+                    SET balance = balance - $1
+                    WHERE user_id=$2 AND guild_id=$3
+                """, amount, user_id, guild_id)
+
+                # =========================
+                # ③ ユーザー別ベット保存
+                # =========================
+                await conn.execute("""
+                    INSERT INTO race_trifecta_bets
+                    (guild_id, race_date, schedule_id, user_id,
+                     first_pet_id, second_pet_id, third_pet_id, amount)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+                """,
+                    guild_id,
+                    race_date,
+                    schedule_id,
+                    user_id,
+                    first_pet_id,
+                    second_pet_id,
+                    third_pet_id,
+                    amount
+                )
+
+                # =========================
+                # ④ 総プール更新
+                # =========================
+                await conn.execute("""
+                    INSERT INTO race_trifecta_pools
+                    (guild_id, race_date, schedule_id, total_pool)
+                    VALUES ($1,$2,$3,$4)
+                    ON CONFLICT (guild_id, race_date, schedule_id)
+                    DO UPDATE SET total_pool =
+                        race_trifecta_pools.total_pool + $4
+                """,
+                    guild_id,
+                    race_date,
+                    schedule_id,
+                    amount
+                )
+
+                # =========================
+                # ⑤ 組み合わせ別プール更新
+                # =========================
+                await conn.execute("""
+                    INSERT INTO race_trifecta_combo_pools
+                    (guild_id, race_date, schedule_id,
+                     first_pet_id, second_pet_id, third_pet_id,
+                     total_amount)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7)
+                    ON CONFLICT (
+                        guild_id,
+                        race_date,
+                       schedule_id,
+                        first_pet_id,
+                        second_pet_id,
+                        third_pet_id
+                    )
+                    DO UPDATE SET total_amount =
+                        race_trifecta_combo_pools.total_amount + $7
+                """,
+                    guild_id,
+                    race_date,
+                    schedule_id,
+                    first_pet_id,
+                    second_pet_id,
+                    third_pet_id,
+                    amount
+                )
 
