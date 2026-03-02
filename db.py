@@ -3351,9 +3351,26 @@ class Database:
         third_pet_id,
         amount
     ):
+        TRIFECTA_UNIT_PRICE = 10000
+        TRIFECTA_MAX_UNITS = 10
+        TRIFECTA_MAX_AMOUNT = TRIFECTA_UNIT_PRICE * TRIFECTA_MAX_UNITS  # 100,000
+
         guild_id = str(guild_id)
         user_id = str(user_id)
         schedule_id = int(schedule_id)
+        amount = int(amount)
+
+        # =========================
+        # 0) 入力チェック（口数制限）
+        # =========================
+        if amount <= 0:
+            raise RuntimeError("購入金額が不正です")
+
+        if amount % TRIFECTA_UNIT_PRICE != 0:
+            raise RuntimeError("3連単は1口10,000rrc単位です")
+
+        if amount > TRIFECTA_MAX_AMOUNT:
+            raise RuntimeError("3連単は最大10口（100,000rrc）までです")
 
         # 同じ馬を重複指定していないかチェック
         if len({first_pet_id, second_pet_id, third_pet_id}) != 3:
@@ -3374,8 +3391,28 @@ class Database:
                     FOR UPDATE
                 """, user_id, guild_id)
 
-                if not balance_row or balance_row["balance"] < amount:
+                if not balance_row:
+                    raise RuntimeError("ユーザー未登録")
+
+                if balance_row["balance"] < amount:
                     raise RuntimeError("残高不足")
+
+                # =========================
+                # ★ 1.5) 3連単の購入上限チェック（このレース合計）
+                # =========================
+                user_total = await conn.fetchval("""
+                    SELECT COALESCE(SUM(amount), 0)
+                    FROM race_trifecta_bets
+                    WHERE guild_id=$1
+                      AND race_date=$2
+                      AND schedule_id=$3
+                      AND user_id=$4
+                """, guild_id, race_date, schedule_id, user_id)
+
+                new_total = int(user_total) + amount
+                if new_total > TRIFECTA_MAX_AMOUNT:
+                    remaining = (TRIFECTA_MAX_AMOUNT - int(user_total)) // TRIFECTA_UNIT_PRICE
+                    raise RuntimeError(f"3連単はこのレースで最大10口までです（残り {remaining}口）")
 
                 # =========================
                 # ② 残高減算
@@ -3434,7 +3471,7 @@ class Database:
                     ON CONFLICT (
                         guild_id,
                         race_date,
-                       schedule_id,
+                        schedule_id,
                         first_pet_id,
                         second_pet_id,
                         third_pet_id
@@ -3450,6 +3487,16 @@ class Database:
                     third_pet_id,
                     amount
                 )
+
+                remaining_units = (TRIFECTA_MAX_AMOUNT - new_total) // TRIFECTA_UNIT_PRICE
+
+                return {
+                    "status": "ok",
+                    "spent": amount,
+                    "user_total": new_total,
+                    "remaining_units": remaining_units,
+                    "balance_after": balance_row["balance"] - amount
+                }
 
     # ======================================================
     # 3連単：精算処理（キャリー対応）
