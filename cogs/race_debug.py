@@ -20,6 +20,15 @@ class RaceDebug(commands.Cog):
     async def debug_race_lottery(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
+        if interaction.user.id != 716667546241335328:
+                return await interaction.followup.send(
+                    "❌ このコマンドは使用できません。",
+                    ephemeral=True
+                )
+
+
+
+
         today = today_jst_date()
         guild_id = str(interaction.guild.id)
 
@@ -125,6 +134,13 @@ class RaceDebug(commands.Cog):
     async def race_entries_debug(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
+        if interaction.user.id != 716667546241335328:
+                return await interaction.followup.send(
+                    "❌ このコマンドは使用できません。",
+                    ephemeral=True
+                )
+
+
         race_date = datetime.now(JST).date()
         guild_id = str(interaction.guild.id)
 
@@ -182,6 +198,14 @@ class RaceDebug(commands.Cog):
     )
     async def race_entries_reset(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
+
+
+        if interaction.user.id != 716667546241335328:
+                return await interaction.followup.send(
+                    "❌ このコマンドは使用できません。",
+                    ephemeral=True
+                )
+
 
         race_date = today_jst_date()
 

@@ -15,12 +15,7 @@ from datetime import datetime, timezone, timedelta, time as dtime
 from db import PASSIVE_SKILLS
 JST = timezone(timedelta(hours=9))
 
-WEB_SECRET = os.getenv("WEB_SECRET")
-if not WEB_SECRET:
-    print("❌ WEB_SECRET not loaded in OasistchiCog")
-else:
-    print("🔐 WEB_SECRET loaded in OasistchiCog")
-
+WEB_SECRET = "9f3a7c4d8b2e1f0a6c8d9e7f1a2b3c4d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4"
 
 def today_jst_date():
     return datetime.now(JST).date()
@@ -85,7 +80,6 @@ ADULT_CATALOG = [
     {"key": "hiro","name": "ヒロ","groups": ["purple"]},
     {"key": "mio","name": "mio","groups": ["yellow"]},
     {"key": "bul","name": "おいら","groups": ["red"]},
-    {"key": "yabo","name": "やぼう","groups": ["blue"]},
     {"key": "hana","name": "はなこ","groups": ["green"]},
     {"key": "inu","name": "いぬ","groups": ["purple"]},
     {"key": "saku","name": "さく","groups": ["yellow"]},
@@ -408,7 +402,7 @@ def get_pet_notify_name(pet: dict) -> str:
     ・🔴 あかいたまご
     """
     if pet.get("stage") == "adult":
-        return f"🧬 {pet.get('name', 'おあしすっち')}"
+        return f"   {pet.get('name', 'おあしすっち')}"
 
     # たまご
     egg_type = pet.get("egg_type", "red")
@@ -1013,10 +1007,11 @@ class OasistchiCog(commands.Cog):
 
                             continue  # 抽選処理終了
 
+
                         # =========================
                         # ② レース確定（開始時刻）
                         # =========================
-                        if race.get("lottery_done") and not race.get("race_finished"):
+                        if race.get("lottery_done") and not race.get("reward_paid", False):
 
                             if now >= race_dt:
 
@@ -1032,7 +1027,7 @@ class OasistchiCog(commands.Cog):
                         # =========================
                         # ③ 結果パネル（10分後）
                         # =========================
-                        if race.get("race_finished") and not race.get("result_sent", False):
+                        if race.get("reward_paid", False) and not race.get("result_sent", False):
 
                             result_dt = race_dt + timedelta(minutes=10)
 
@@ -1068,7 +1063,6 @@ class OasistchiCog(commands.Cog):
                                 # 💰 完全プール式 払い戻し
                                 # =========================
 
-                                HOUSE_TAKE = 0.20  # 控除率20%
 
                                 winner_pet_id = results[0]["pet_id"]
 
@@ -1081,29 +1075,33 @@ class OasistchiCog(commands.Cog):
 
                                 total_pool = total_pool_row["total"] or 0
 
+
                                 # 勝ち馬への総投票額
+
                                 winner_pool_row = await self.bot.db._fetchrow("""
                                     SELECT SUM(amount) AS total
                                     FROM race_bets
                                     WHERE schedule_id = $1
                                       AND pet_id = $2
-                                """, race["id"], str(winner_pet_id))
+                                """, race["id"], int(winner_pet_id))
+
 
                                 winner_pool = winner_pool_row["total"] or 0
 
                                 print(f"[POOL] total={total_pool} winner_pool={winner_pool}")
 
                                 # 払戻原資
-                                payout_pool = total_pool * (1 - HOUSE_TAKE)
+                                payout_pool = total_pool
 
                                 if winner_pool > 0:
+
 
                                     winning_bets = await self.bot.db._fetch("""
                                         SELECT user_id, amount
                                         FROM race_bets
                                         WHERE schedule_id = $1
                                           AND pet_id = $2
-                                    """, race["id"], str(winner_pet_id))
+                                    """, race["id"], int(winner_pet_id))
 
                                     for bet in winning_bets:
 
@@ -1116,11 +1114,13 @@ class OasistchiCog(commands.Cog):
                                             f"payout={payout}"
                                         )
 
+
                                         await self.bot.db.add_balance(
-                                            str(bet["user_id"]),
-                                            str(race["guild_id"]),
+                                            int(bet["user_id"]),
+                                            int(race["guild_id"]),
                                             payout
                                         )
+
 
                                         try:
                                             user_obj = await self.bot.fetch_user(int(bet["user_id"]))
@@ -1157,6 +1157,16 @@ class OasistchiCog(commands.Cog):
                                    })
 
                                 await self.send_race_result_embed(race, formatted)
+                                await self.bot.db._execute("""
+                                    UPDATE race_schedules
+                                    SET race_finished = TRUE,
+                                        result_sent = TRUE
+                                    WHERE id = $1
+                                """, race["id"])
+
+
+
+
                     except Exception as race_err:
                         print(f"[RACE LOOP ERROR] race_id={race.get('id')} err={race_err!r}")
                         continue
@@ -1635,8 +1645,7 @@ class OasistchiCog(commands.Cog):
 
     @tasks.loop(minutes=1)
     async def race_tick(self):
-        if not self.bot.is_ready():
-            return
+        print("[RACE TICK] tick")
 
         async with self._race_lock:
             try:
@@ -1644,6 +1653,12 @@ class OasistchiCog(commands.Cog):
             except Exception as e:
                 print(f"[RACE TICK ERROR] {e!r}")
 
+
+    @race_tick.before_loop
+    async def before_race_tick(self):
+        print("[RACE TICK] waiting for ready...")
+        await self.bot.wait_until_ready()
+        print("[RACE TICK] started")
 
 # =========================
 # ボタンView
@@ -1695,7 +1710,13 @@ class OasistchiPanelRootView(discord.ui.View):
             ephemeral=True
         )
 
-    @discord.ui.button(label="レース予定", style=discord.ButtonStyle.primary)
+    @discord.ui.button(
+        label="レース予定",
+        style=discord.ButtonStyle.primary,
+        custom_id="oasistchi:race_schedule"
+    )
+
+
     async def show_race_schedule(
         self,
         interaction: discord.Interaction,
@@ -1721,10 +1742,12 @@ class OasistchiPanelRootView(discord.ui.View):
         embed = build_race_schedule_embed(schedules)
         await interaction.followup.send(embed=embed, ephemeral=True)
 
+
+
+
     @discord.ui.button(label="🌐 レースサイト", style=discord.ButtonStyle.primary)
     async def race_site_button(self, interaction: discord.Interaction, button: discord.ui.Button):
 
-        # 👇 これを最初に入れる
         await interaction.response.defer(ephemeral=True)
 
         user_id = interaction.user.id
@@ -1732,18 +1755,22 @@ class OasistchiPanelRootView(discord.ui.View):
 
         race = await interaction.client.db.get_latest_open_race(str(guild_id))
 
+        # レースが存在しない
         if not race:
+            url = f"https://lacesite-production.up.railway.app/index.html?guild={guild_id}"
             return await interaction.followup.send(
-                "現在販売中のレースはありません。",
+                f"🌐 レースサイトはこちら\n{url}",
                 ephemeral=True
             )
 
+        # 🔥 ここが重要
         race_id = race["id"]
 
-        token = generate_token(user_id, guild_id, race_id)
+        # 文字列で渡す（HMAC安定）
+        token = generate_token(str(user_id), str(guild_id), str(race_id))
 
         url = (
-            f"https://lacesite-production.up.railway.app/index.html"
+            "https://lacesite-production.up.railway.app/index.html"
             f"?guild={guild_id}"
             f"&user={user_id}"
             f"&race={race_id}"
@@ -1754,6 +1781,7 @@ class OasistchiPanelRootView(discord.ui.View):
             f"🌐 レースサイトはこちら\n{url}",
             ephemeral=True
         )
+
 
 # =========================
 # プルダウン View
@@ -2156,13 +2184,12 @@ class CareView(discord.ui.View):
         now = now_ts()
 
         # ④ クールタイム判定（defer後は followup を使う）
-        # if now - pet.get("last_pet", 0) < 10800:
-        #     await interaction.followup.send(
-        #         "まだなでなでできません。（3時間クールタイム）",
-        #         ephemeral=True
-        #     )
-        #     return
-
+        if now - pet.get("last_pet", 0) < 10800:
+            await interaction.followup.send(
+                "まだなでなでできません。（3時間クールタイム）",
+                ephemeral=True
+            )
+            return
         # ⑤ ステータス更新
         new_happiness = min(100, pet["happiness"] + 10)
         new_growth = min(100.0, pet["growth"] + 5.0)
@@ -2374,7 +2401,7 @@ class CareView(discord.ui.View):
 
         view = TrainingView(self.pet_id) 
         await interaction.response.send_message(
-            "🏋️ どのステータスを特訓しますか？\n選択後「決定」を押してください。",
+            "  ️ どのステータスを特訓しますか？\n選択後「決定」を押してください。",
             view=view,
             ephemeral=True
         )
@@ -3042,7 +3069,7 @@ class RaceEntryConfirmView(discord.ui.View):
         self.add_item(RaceSelect(self, schedules))
 
     # -----------------------------------------
-    # ✅ エントリー確定
+    # ✅ エントリー確定（修正版：ペット単位で制御）
     # -----------------------------------------
     @discord.ui.button(label="✅ エントリー確定", style=discord.ButtonStyle.success)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -3052,53 +3079,55 @@ class RaceEntryConfirmView(discord.ui.View):
             return await interaction.response.send_message(
                 "❌ レースを選択してください。",
                 ephemeral=True
-           )
+            )
 
-       # ★ ここでボタンを無効化
+        # ボタン無効化（連打防止）
         button.disabled = True
         await interaction.response.edit_message(view=self)
-
 
         db = interaction.client.db
         pet = self.pet
         race = self.selected_race
 
-        schedule_id = race["id"]
+        schedule_id = int(race["id"])
         race_date = race["race_date"]
         uid = str(interaction.user.id)
         guild_id = str(interaction.guild.id)
 
-        # ① 同一レースに同一ユーザーが既にエントリーしていないか
-        if await db.has_user_entry_for_race(schedule_id, uid):
+        # ① 同一レースに同一ペットが既にエントリーしていないか
+        if await db.has_pet_entry_for_race(schedule_id, int(pet["id"])):
             return await interaction.followup.send(
-                "❌ このレースにはすでにエントリーしています。",
+                "❌ このおあしすっちはすでにこのレースへエントリーしています。",
                 ephemeral=True
             )
 
-        # ② 同一ユーザーが本日すでに出走確定していないか
-        if await db.has_user_selected_today(uid, race_date):
+        # ② 同一ペットが本日すでに出走確定（selected）していないか
+        # ※「同じペットは1日1回」ルールを維持するなら必要
+        if await db.has_pet_selected_today(int(pet["id"]), race_date):
             return await interaction.followup.send(
-                "❌ 本日はすでに別のレースに出走しています。",
+                "❌ このおあしすっちは本日すでに出走しています。（別のおあしすっちで参加してください）",
                 ephemeral=True
             )
 
         # ③ エントリー保存（pending）
-        guild_id = str(interaction.guild.id)
-
         await db.insert_race_entry(
             schedule_id=schedule_id,
             guild_id=guild_id,
-            user_id=str(interaction.user.id),
-            pet_id=self.pet["id"],
+            user_id=uid,
+            pet_id=int(pet["id"]),       # ★ここが「個体ID」になっていることが重要
             race_date=race_date,
-            entry_fee=50000,   # race_schedules と同じ値
+            entry_fee=self.entry_fee,    # ★50000固定じゃなく、viewに渡した entry_fee を使うのが安全
             paid=True
         )
-        await db.remove_balance(uid, guild_id, self.entry_fee)
 
-        # ④ 同一おあしすっちの他レースエントリーを無効化
+        # 参加費処理（ENTRY_FEEが0なら実質ノーダメ）
+        if self.entry_fee > 0:
+            await db.remove_balance(uid, guild_id, self.entry_fee)
+
+        # ④ 同一おあしすっちの「同日・他レース」エントリーを無効化（pendingだけ潰す）
+        # ＝同じペットで別レースに入れようとしたら、後勝ち/前勝ちの仕様をここで作れる
         await db.cancel_other_entries(
-            pet_id=pet["id"],
+            pet_id=int(pet["id"]),
             race_date=race_date,
             exclude_schedule_id=schedule_id
         )
@@ -3112,7 +3141,6 @@ class RaceEntryConfirmView(discord.ui.View):
         )
 
         self.stop()
-
     # =========================
     # キャンセル
     # =========================
