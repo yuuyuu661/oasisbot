@@ -3597,6 +3597,7 @@ class Database:
                 WHERE user_id = $1
             """, user_id)
 
+        print("ROWS:", rows)
         return [r["badge"] for r in rows]
 
     # ======================================================
