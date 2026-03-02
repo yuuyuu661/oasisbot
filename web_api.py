@@ -528,6 +528,34 @@ async def get_race_result(guild_id: str, race_date: str, schedule_id: int):
         return {
             "results": [dict(r) for r in rows]
         }
+# =========================
+# 3連単用順位API
+# =========================
+@app.get("/api/trifecta/odds")
+async def get_trifecta_odds(
+    guild: str,
+    race_date: str,
+    schedule_id: int,
+    first: int,
+    second: int,
+    third: int
+):
+    odds = await db.get_trifecta_odds(
+        guild,
+        race_date,
+        schedule_id,
+        first,
+        second,
+        third
+    )
+
+    if odds is None:
+        return {"status": "no_bets"}
+
+    return {
+        "status": "ok",
+        "odds": odds
+    }
 
 # =========================
 # 🎫 馬券購入API
