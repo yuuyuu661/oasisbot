@@ -3228,7 +3228,58 @@ class Database:
         )
         return row["sub_role"] if row else None
 
+    # =========================
+    # 3連単：総プール（キャリー対応）
+    # =========================
+    await self._execute("""
+    CREATE TABLE IF NOT EXISTS race_trifecta_pools (
+        guild_id TEXT NOT NULL,
+        race_date DATE NOT NULL,
+        schedule_id INTEGER NOT NULL,
+        total_pool INTEGER NOT NULL DEFAULT 0,
+        carry_in INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (guild_id, race_date, schedule_id)
+    );
+    """)
 
+    # =========================
+    # 3連単：組み合わせ別プール
+    # =========================
+    await self._execute("""
+    CREATE TABLE IF NOT EXISTS race_trifecta_combo_pools (
+        guild_id TEXT NOT NULL,
+        race_date DATE NOT NULL,
+        schedule_id INTEGER NOT NULL,
+        first_pet_id INTEGER NOT NULL,
+        second_pet_id INTEGER NOT NULL,
+        third_pet_id INTEGER NOT NULL,
+        total_amount INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (
+            guild_id,
+            race_date,
+            schedule_id,
+            first_pet_id,
+            second_pet_id,
+            third_pet_id
+        )
+    );
+    """)
 
+    # 3連単：ユーザー別ベット
+    # =========================
+    await self._execute("""
+    CREATE TABLE IF NOT EXISTS race_trifecta_bets (
+        id SERIAL PRIMARY KEY,
+        guild_id TEXT NOT NULL,
+        race_date DATE NOT NULL,
+        schedule_id INTEGER NOT NULL,
+        user_id TEXT NOT NULL,
+        first_pet_id INTEGER NOT NULL,
+        second_pet_id INTEGER NOT NULL,
+        third_pet_id INTEGER NOT NULL,
+        amount INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+    """)
 
 
