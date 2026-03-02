@@ -9,6 +9,7 @@ import hmac
 import hashlib
 from pydantic import BaseModel
 from datetime import timedelta, timezone
+from fastapi.middleware.cors import CORSMiddleware
 
 JST = timezone(timedelta(hours=9))
 UNIT_PRICE = 1000
@@ -16,12 +17,11 @@ MAX_UNITS = 100
 MAX_AMOUNT = UNIT_PRICE * MAX_UNITS  # 100,000rrc
 TEST_MODE = True
 
-WEB_SECRET = os.getenv("WEB_SECRET")
-
-if not WEB_SECRET:
-    raise ValueError("WEB_SECRET が設定されていません")
+WEB_SECRET = "9f3a7c4d8b2e1f0a6c8d9e7f1a2b3c4d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4"
 
 print("🔐 WEB_SECRET loaded (WEB)")
+
+
 
 # ===== レース用計算ロジック =====
 
@@ -59,16 +59,17 @@ def calculate_odds(total_pool: int, pet_pool: int, take_rate: float = 0.10):
     """
 
     if total_pool <= 0:
-        return 1.1  # まだ誰も賭けてない場合の初期値
+        return 1.5  # まだ誰も賭けてない場合の初期値
 
     if pet_pool <= 0:
-        return 10.0  # そのペットにまだ票がない場合は最大表示
+        return 1.5  # そのペットにまだ票がない場合は最大表示
+
 
     payout_pool = total_pool * (1 - take_rate)
     odds = payout_pool / pet_pool
 
     # 最小1.1倍、最大10倍に制限
-    return round(max(1.1, min(10.0, odds)), 2)
+    return round(max(1.0, odds), 2)
 
 def get_race_phase(race):
     now = datetime.now(JST)
@@ -103,11 +104,11 @@ def get_race_phase(race):
 
 def get_condition_label(happiness: int):
     if happiness >= 80:
-        return "好調 😄", "good"
+        return "好調", "good"
     elif happiness >= 50:
-        return "普通 😐", "normal"
+        return "普通", "normal"
     else:
-        return "不調 😰", "bad"
+        return "不調", "bad"
 
 # =========================
 # 🔐 トークン検証
@@ -124,33 +125,38 @@ def verify_token(user_id: str, guild_id: str, race_id: str, token: str):
 
 app = FastAPI()
 
-# ★ ここを追加
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://lacesite-production.up.railway.app",
-        "https://oasisbot-production.up.railway.app"
-    ],
+    allow_origins=["*"],  # ← まずはこれで確認
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL が設定されていません")
 
-# 🔥 ここに追加
+# =========================
+# 🔥 POOL作成 + schema補完
+# =========================
 @app.on_event("startup")
 async def ensure_schema():
-    conn = await asyncpg.connect(DATABASE_URL)
-    try:
+    app.state.pool = await asyncpg.create_pool(
+        DATABASE_URL,
+        min_size=1,
+        max_size=10
+    )
+
+    async with app.state.pool.acquire() as conn:
         async def ensure_column(table, column, definition):
-            exists = await conn.fetchval(f"""
+            exists = await conn.fetchval("""
                 SELECT 1
                 FROM information_schema.columns
-                WHERE table_name='{table}'
-                  AND column_name='{column}'
-            """)
+                WHERE table_name=$1
+                  AND column_name=$2
+            """, table, column)
             if not exists:
                 print(f"🔧 Adding {column} to {table}...")
                 await conn.execute(f"""
@@ -164,8 +170,111 @@ async def ensure_schema():
         await ensure_column("race_bets", "schedule_id", "INTEGER")
         await ensure_column("race_bets", "race_date", "DATE")
 
-    finally:
-        await conn.close()
+@app.on_event("shutdown")
+async def shutdown():
+    await app.state.pool.close()
+
+@app.get("/api/race/by-id/{guild_id}/{schedule_id}")
+async def get_race_by_id(guild_id: str, schedule_id: int):
+
+    async with app.state.pool.acquire() as conn:
+
+        race = await conn.fetchrow("""
+            SELECT *
+            FROM race_schedules
+            WHERE guild_id = $1
+              AND id = $2
+        """, guild_id, schedule_id)
+
+        if not race:
+            raise HTTPException(status_code=404, detail="Race not found")
+
+        phase = get_race_phase(race)
+
+        # =========================
+        # 出走馬取得
+        # =========================
+        entries = await conn.fetch("""
+            SELECT
+                e.pet_id,
+                p.name,
+                p.adult_key,
+                (p.base_speed + p.train_speed) AS speed,
+                (p.base_power + p.train_power) AS power,
+                (p.base_stamina + p.train_stamina) AS stamina,
+                p.happiness,
+                p.passive_skill
+            FROM race_entries e
+            JOIN oasistchi_pets p ON p.id = e.pet_id
+            WHERE e.schedule_id = $1
+              AND e.guild_id = $2
+              AND e.status = 'selected'
+            ORDER BY e.created_at
+        """, schedule_id, guild_id)
+
+        # =========================
+        # 🔥 全体プール取得
+        # =========================
+        total_pool_row = await conn.fetchrow("""
+            SELECT total_pool
+            FROM race_pools
+            WHERE guild_id = $1
+              AND race_date = $2
+              AND schedule_id = $3
+        """, guild_id, race["race_date"], race["id"])
+
+        total_pool = total_pool_row["total_pool"] if total_pool_row else 0
+
+        # =========================
+        # 🔥 ペット別プール取得
+        # =========================
+        pet_pool_rows = await conn.fetch("""
+            SELECT pet_id, total_amount
+            FROM race_pet_pools
+            WHERE guild_id = $1
+              AND race_date = $2
+              AND schedule_id = $3
+        """, guild_id, race["race_date"], race["id"])
+
+        pet_pools = {r["pet_id"]: r["total_amount"] for r in pet_pool_rows}
+
+        pets = []
+
+        for e in entries:
+
+            # ペットのプール額
+            pet_pool = pet_pools.get(e["pet_id"], 0)
+
+            # オッズ計算
+            odds = calculate_odds(total_pool, pet_pool, take_rate=0.10)
+
+            # コンディション表示
+            label, cls = get_condition_label(e["happiness"])
+
+            pets.append({
+                "pet_id": e["pet_id"],
+                "name": e["name"],
+                "adult_key": e["adult_key"],
+                "speed": e["speed"],
+                "power": e["power"],
+                "stamina": e["stamina"],
+                "condition_label": label,
+                "condition_class": cls,
+                "passive_skill": e["passive_skill"],
+                "odds": odds
+            })
+
+        return {
+            "schedule_id": race["id"],
+            "race_date": str(race["race_date"]),
+            "race_time": race["race_time"],
+            "distance": race["distance"],
+            "surface": race["surface"],
+            "phase": phase,
+            "locked": race["lottery_done"],
+            "pets": pets
+        }
+
 # =========================
 # 🔐 トークン検証API
 # =========================
@@ -175,8 +284,7 @@ async def verify(user: str, guild: str, race: str, token: str):
     if not verify_token(user, guild, race, token):
         raise HTTPException(status_code=403, detail="Invalid token")
 
-    conn = await asyncpg.connect(DATABASE_URL)
-    try:
+    async with app.state.pool.acquire() as conn:
         race_row = await conn.fetchrow("""
             SELECT id
             FROM race_schedules
@@ -186,9 +294,6 @@ async def verify(user: str, guild: str, race: str, token: str):
 
         if not race_row:
             raise HTTPException(status_code=404, detail="Race not found")
-
-    finally:
-        await conn.close()
 
     return {
         "status": "ok",
@@ -209,8 +314,8 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
 
-    conn = await asyncpg.connect(DATABASE_URL)
-    try:
+    async with app.state.pool.acquire() as conn:
+
         race = await conn.fetchrow("""
             SELECT *
             FROM race_schedules
@@ -332,9 +437,6 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
             "surface": race["surface"]
         }
 
-    finally:
-        await conn.close()
-
 @app.get("/api/balance")
 async def get_balance(
     user: str,
@@ -346,8 +448,7 @@ async def get_balance(
     if not verify_token(user, guild, str(race), token):
         raise HTTPException(status_code=403, detail="Invalid token")
 
-    conn = await asyncpg.connect(DATABASE_URL)
-    try:
+    async with app.state.pool.acquire() as conn:
         balance = await conn.fetchval("""
             SELECT balance
             FROM users
@@ -360,70 +461,36 @@ async def get_balance(
 
         return {"balance": balance}
 
-    finally:
-        await conn.close()
 # =========================
 # ★ ここに追加する ★
 # 最新レース取得API
 # =========================
+
 @app.get("/api/race/latest/{guild_id}")
 async def get_latest_race(guild_id: str):
-    conn = await asyncpg.connect(DATABASE_URL)
-    try:
-        # 抽選済み＆未完了の最新レース
+    async with app.state.pool.acquire() as conn:
         race = await conn.fetchrow("""
             SELECT *
             FROM race_schedules
             WHERE guild_id = $1
-              AND lottery_done = TRUE
-              AND race_finished = FALSE
             ORDER BY race_date DESC, race_no DESC
             LIMIT 1
         """, guild_id)
 
         if not race:
-            return {
-                "locked": False,
-                "pets": []
-            }
+            return {"exists": False}
 
-        entries = await conn.fetch("""
-            SELECT
-                e.pet_id,
-                p.name,
-                p.adult_key,
-                (p.base_speed + p.train_speed) AS speed,
-                (p.base_power + p.train_power) AS power,
-                (p.base_stamina + p.train_stamina) AS stamina,
-                p.happiness
-            FROM race_entries e
-            JOIN oasistchi_pets p ON p.id = e.pet_id
-            WHERE e.schedule_id = $1
-              AND e.status = 'selected'
-            ORDER BY e.created_at
-        """, race["id"])
-
-        pets = [{
-            "pet_id": e["pet_id"],
-            "name": e["name"],
-            "adult_key": e["adult_key"],
-            "speed": e["speed"],
-            "power": e["power"],
-            "stamina": e["stamina"],
-            "condition": "normal"
-        } for e in entries]
+        phase = get_race_phase(race)
 
         return {
+            "exists": True,
+            "phase": phase,
             "schedule_id": race["id"],
             "race_no": race["race_no"],
             "race_date": str(race["race_date"]),
-            "race_time": race["race_time"],
-            "locked": True,
-            "pets": pets
+            "race_time": race["race_time"]
         }
 
-    finally:
-        await conn.close()
 # =========================
 # レース順位API
 # =========================
@@ -436,8 +503,7 @@ async def get_race_result(guild_id: str, race_date: str, schedule_id: int):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
 
-    conn = await asyncpg.connect(DATABASE_URL)
-    try:
+    async with app.state.pool.acquire() as conn:
         rows = await conn.fetch("""
             SELECT re.pet_id,
                    re.rank,
@@ -462,9 +528,6 @@ async def get_race_result(guild_id: str, race_date: str, schedule_id: int):
         return {
             "results": [dict(r) for r in rows]
         }
-
-    finally:
-        await conn.close()
 
 # =========================
 # 🎫 馬券購入API
@@ -497,9 +560,7 @@ async def place_bet(data: BetRequest):
     if data.amount % UNIT_PRICE != 0:
         raise HTTPException(status_code=400, detail="1口1000rrc単位です")
 
-    conn = await asyncpg.connect(DATABASE_URL)
-
-    try:
+    async with app.state.pool.acquire() as conn:
         async with conn.transaction():
 
             # ② レース確認
@@ -561,15 +622,14 @@ async def place_bet(data: BetRequest):
                 (race_id, guild_id, race_date, schedule_id, user_id, pet_id, amount)
                 VALUES ($1,$2,$3,$4,$5,$6,$7)
             """,
-                str(race["id"]),        # race_id → TEXT
-                str(data.guild),        # guild_id → TEXT
-                race["race_date"],      # DATE
-                race["id"],             # schedule_id → INTEGER ← ★ここはintのまま
-                str(data.user),         # user_id → TEXT
-                str(data.pet_id),       # pet_id → TEXT
-                data.amount             # amount → INTEGER
+                str(race["id"]),   # TEXT
+                str(data.guild),   # TEXT
+                race["race_date"], # DATE
+                race["id"],        # INTEGER
+                str(data.user),    # TEXT
+                data.pet_id,       # ← ★ここはそのまま整数
+                data.amount        # INTEGER
             )
-
             # ⑦ 全体プール更新
             await conn.execute("""
                 INSERT INTO race_pools
@@ -626,24 +686,3 @@ async def place_bet(data: BetRequest):
                 "remaining_units": (MAX_AMOUNT - new_total) // UNIT_PRICE,
                 "remaining_balance": balance - data.amount
             }
-
-    finally:
-        await conn.close()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

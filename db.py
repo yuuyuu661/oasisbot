@@ -366,11 +366,10 @@ class Database:
             # ③ 距離補正込み能力計算
             speed = base_speed * balance["speed"] + stats["power"] * balance["power"]
 
-            # =========================
-            # 🏇 距離補正込み能力計算
-            # =========================
             speed = stats["speed"] * balance["speed"] + stats["power"] * balance["power"]
             stamina = stats["stamina"]
+
+
 
             stamina_loss = 50 * balance["stamina"]
             stamina_after = stamina - stamina_loss
@@ -695,6 +694,25 @@ class Database:
         );
         """)
 
+        # 🔧 race_bets に race_id カラム補完
+        cols = await self._fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'race_bets';
+        """)
+        existing_cols = {c["column_name"] for c in cols}
+
+        if "race_id" not in existing_cols:
+            print("🛠 race_bets に race_id カラムを追加します…")
+            await self._execute("""
+                ALTER TABLE race_bets
+                ADD COLUMN race_id TEXT;
+            """)
+            print("✅ race_id 追加完了")
+
+
+
+
         # レースごとの総プール
         await self._execute("""
         CREATE TABLE IF NOT EXISTS race_pools (
@@ -1016,6 +1034,25 @@ class Database:
             SET locked = FALSE
             WHERE locked IS NULL;
         """)
+
+        # -----------------------------------------
+        # race_schedules に reward_paid が無ければ追加
+        # -----------------------------------------
+        if "reward_paid" not in existing_cols:
+            print("🛠 race_schedules に reward_paid カラムを追加します…")
+            await self._execute("""
+                ALTER TABLE race_schedules
+                ADD COLUMN reward_paid BOOLEAN DEFAULT FALSE;
+            """)
+            print("✅ reward_paid カラム追加完了")
+
+        # NULL対策（念のため）
+        await self._execute("""
+            UPDATE race_schedules
+            SET reward_paid = FALSE
+            WHERE reward_paid IS NULL;
+        """)
+
 
         # -----------------------------------------
         # race_schedules テーブルに レース用
@@ -2419,6 +2456,7 @@ class Database:
               AND status = 'pending'
         """, pet_id, race_date, exclude_schedule_id)
 
+
     # =====================================================
     # レース：同一ユーザーの重複エントリーチェック
     # =====================================================
@@ -2432,6 +2470,23 @@ class Database:
         """, schedule_id, user_id)
 
         return row is not None
+
+
+    # db.py に追加（has_user_entry_for_race の近くに置くのがわかりやすい）
+    async def has_pet_entry_for_race(self, schedule_id: int, pet_id: int) -> bool:
+        row = await self._fetchrow("""
+            SELECT 1
+            FROM race_entries
+            WHERE schedule_id = $1
+              AND pet_id = $2
+              AND status IN ('pending', 'selected')   -- cancelled は無視
+            LIMIT 1;
+        """, schedule_id, pet_id)
+        return row is not None
+
+
+
+
     # =====================================================
     # おあしすっち出走済みかチェック
     # =====================================================
@@ -2917,13 +2972,13 @@ class Database:
         async with self.pool.acquire() as c:
             return await c.execute(query, *args)
 
+
     async def get_latest_open_race(self, guild_id):
         return await self._fetchrow("""
             SELECT *
             FROM race_schedules
             WHERE guild_id = $1
               AND lottery_done = TRUE
-              AND race_finished = FALSE
             ORDER BY race_date DESC, race_no DESC
             LIMIT 1
         """, guild_id)
@@ -2992,14 +3047,20 @@ class Database:
 
     async def finalize_race(self, guild_id, race_date, schedule_id, distance):
 
+        guild_id = str(guild_id)
+        schedule_id = int(schedule_id)
+
         await self._ensure_pool()
 
         async with self.pool.acquire() as conn:
             async with conn.transaction():
 
-                # 二重実行防止
+                # =========================
+                # 🔒 二重実行防止（reward_paidで制御）
+                # =========================
                 race = await conn.fetchrow("""
                     SELECT race_finished,
+                           reward_paid,
                            distance,
                            surface,
                            condition
@@ -3008,10 +3069,12 @@ class Database:
                     FOR UPDATE
                 """, schedule_id)
 
-                if not race or race["race_finished"]:
+                if not race or race["reward_paid"]:
                     return []
 
-                # 出走確定馬取得
+                # =========================
+                # 🐎 出走確定馬取得
+                # =========================
                 raw_entries = await conn.fetch("""
                     SELECT *
                     FROM race_entries
@@ -3019,7 +3082,7 @@ class Database:
                       AND race_date = $2
                       AND schedule_id = $3
                       AND status = 'selected'
-                """, str(guild_id), race_date, schedule_id)
+                """, guild_id, race_date, schedule_id)
 
                 if not raw_entries:
                     return []
@@ -3043,7 +3106,7 @@ class Database:
                     """, e["pet_id"])
 
                     entries.append({
-                        "user_id": e["user_id"],  
+                        "user_id": e["user_id"],
                         "pet_id": e["pet_id"],
                         "passive_skill": pet["passive_skill"],
                         "adult_key": pet["adult_key"],
@@ -3053,19 +3116,25 @@ class Database:
                         "gate": e.get("gate")
                     })
 
-                # simulate（※distanceではなくraceを渡す）
+                # simulate
                 results = self.simulate_race(entries, race)
 
+                # =========================
+                # 🏆 結果保存 + 賞金処理
+                # =========================
                 for r in results:
 
-                    # =========================
-                    # 🏆 報酬計算
-                    # =========================
-                    if r["rank"] == 1:
+                    rank = int(r["rank"])
+                    score = int(r["score"])
+                    pet_id = int(r["pet_id"])
+                    schedule_id_int = schedule_id
+
+                    # 報酬計算
+                    if rank == 1:
                         reward = 50000
-                    elif r["rank"] == 2:
+                    elif rank == 2:
                         reward = 30000
-                    elif r["rank"] == 3:
+                    elif rank == 3:
                         reward = 10000
                     else:
                         reward = 0
@@ -3085,12 +3154,12 @@ class Database:
                     """,
                         guild_id,
                         race_date,
-                        schedule_id,
-                        r["pet_id"],
-                        r["user_id"],
-                        r["rank"],
-                        r["rank"],
-                        r["score"],
+                        schedule_id_int,
+                        pet_id,
+                        str(r["user_id"]),
+                        rank,
+                        rank,
+                        score,
                         reward
                     )
 
@@ -3102,14 +3171,13 @@ class Database:
                         WHERE schedule_id = $3
                           AND pet_id = $4
                     """,
-                        r["rank"],
-                        r["score"],
-                        schedule_id,
-                        r["pet_id"]
+                        rank,
+                        score,
+                        schedule_id_int,
+                        pet_id
                     )
-                    # =========================
-                    # 💰 オーナー固定賞金 支払い ← ★ここに追加
-                    # =========================
+
+                    # 💰 オーナー賞金
                     if reward > 0:
                         await conn.execute("""
                             INSERT INTO users (user_id, guild_id, balance)
@@ -3118,25 +3186,47 @@ class Database:
                             DO UPDATE SET balance = users.balance + $3
                         """,
                             str(r["user_id"]),
-                            str(guild_id),
+                            guild_id,
                             reward
                         )
+                        print(f"[OWNER PRIZE] rank={rank} user={r['user_id']} prize={reward}")
 
-                        print(f"[OWNER PRIZE] rank={r['rank']} user={r['user_id']} prize={reward}")
-
-                # レース完了フラグ
+                # =========================
+                # 🔐 賞金支払い完了フラグ
+                # =========================
                 await conn.execute("""
                     UPDATE race_schedules
-                    SET race_finished = TRUE
+                    SET reward_paid = TRUE
                     WHERE id = $1
                 """, schedule_id)
 
                 return results
 
+    async def get_latest_active_race(self, guild_id: str):
+        """
+        open / locked / racing のいずれかの
+        最新レースを取得する（観戦用）
+        """
+        await self._ensure_pool()
+
+        async with self.pool.acquire() as conn:
+            return await conn.fetchrow("""
+                SELECT *
+                FROM race_schedules
+                WHERE guild_id = $1
+                  AND phase IN ('open', 'locked', 'racing')
+                ORDER BY race_date DESC, race_no DESC
+                LIMIT 1
+            """, guild_id)
 
 
-
-
+    async def get_hotel_sub_role(self, guild_id: str):
+        await self._ensure_pool()
+        row = await self._fetchrow(
+            "SELECT sub_role FROM hotel_settings WHERE guild_id=$1",
+            str(guild_id)
+        )
+        return row["sub_role"] if row else None
 
 
 
