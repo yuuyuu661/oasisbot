@@ -3040,6 +3040,8 @@ class Database:
 
     async def place_bet(self, guild_id, race_date, schedule_id, user_id, pet_id, amount):
         async with self._lock:
+            guild_id = str(guild_id)
+            user_id = str(user_id)
 
             # ① 馬券保存
             await self._execute("""
