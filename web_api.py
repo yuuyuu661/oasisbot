@@ -127,7 +127,10 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # ← まずはこれで確認
+    allow_origins=[
+        "https://racetest-production.up.railway.app",
+        "https://oasisbot-production.up.railway.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
