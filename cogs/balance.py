@@ -309,7 +309,10 @@ class BalanceCog(commands.Cog):
         # ------------------------
         # バッジ画像生成
         # ------------------------
-        user_badges = await db.get_user_badges(str(member.id))
+        user_badges = await db.get_user_badges(
+            str(member.id),
+            str(guild.id)
+        )
         badge_buf = build_badge_image(user_badges)
 
         # ------------------------
