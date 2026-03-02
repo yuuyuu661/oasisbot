@@ -804,6 +804,19 @@ class Database:
         );
         """)
 
+        # =========================
+        # ユーザーバッジ
+        # =========================
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS user_badges (
+            guild_id TEXT NOT NULL,
+            user_id  TEXT NOT NULL,
+            badge    TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW(),
+            PRIMARY KEY (guild_id, user_id, badge)
+        );
+        """)
+
         # -----------------------------------------
         # race_entries に status カラムがなければ追加
         # -----------------------------------------
@@ -2963,31 +2976,7 @@ class Database:
 
 
 
-    async def get_user_badges(self, user_id: str, guild_id: str | None = None) -> list[str]:
-        async with self._lock:
-            data = self._load_badges()
 
-            if guild_id:
-                return data.get(guild_id, {}).get(user_id, [])
-            else:
-                # guild未指定なら全guild分まとめる（保険）
-                badges = []
-                for g in data.values():
-                    badges.extend(g.get(user_id, []))
-                return list(set(badges))
-
-
-    async def add_user_badge(self, user_id: str, guild_id: str, badge: str):
-        async with self._lock:
-            data = self._load_badges()
-
-            guild = data.setdefault(guild_id, {})
-            badges = guild.setdefault(user_id, [])
-
-            if badge not in badges:
-                badges.append(badge)
-
-            self._save_badges(data)
 
     async def remove_user_badge(self, user_id: str, guild_id: str, badge: str):
         async with self._lock:
@@ -3578,3 +3567,44 @@ class Database:
                         "status": "carry",
                         "carry_amount": total_pool
                     }
+
+    # ======================================================
+    # バッジ付与
+    # ======================================================
+    async def add_user_badge(self, user_id: str, guild_id: str, badge: str):
+        await self._ensure_pool()
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO user_badges (guild_id, user_id, badge)
+                VALUES ($1, $2, $3)
+                ON CONFLICT DO NOTHING
+            """, guild_id, user_id, badge)
+
+    # ======================================================
+    # ユーザーのバッジ一覧取得
+    # ======================================================
+    async def get_user_badges(self, user_id: str, guild_id: str) -> list[str]:
+        await self._ensure_pool()
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT badge
+                FROM user_badges
+                WHERE guild_id = $1
+                  AND user_id = $2
+                ORDER BY created_at ASC
+            """, guild_id, user_id)
+
+        return [r["badge"] for r in rows]
+
+    # ======================================================
+    # バッジ削除
+    # ======================================================
+    async def remove_user_badge(self, user_id: str, guild_id: str, badge: str):
+        await self._ensure_pool()
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                DELETE FROM user_badges
+                WHERE guild_id = $1
+                  AND user_id = $2
+                  AND badge = $3
+            """, guild_id, user_id, badge)
