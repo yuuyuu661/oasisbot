@@ -17,7 +17,7 @@ MAX_UNITS = 100
 MAX_AMOUNT = UNIT_PRICE * MAX_UNITS  # 100,000rrc
 TEST_MODE = True
 
-WEB_SECRET = "9f3a7c4d8b2e1f0a6c8d9e7f1a2b3c4d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4"
+WEB_SECRET = "9f3a7c4d8b2e1f0a6c8d9e7f1a2b3c4d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a5"
 
 print("🔐 WEB_SECRET loaded (WEB)")
 
