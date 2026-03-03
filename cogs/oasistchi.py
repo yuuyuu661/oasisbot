@@ -1107,7 +1107,7 @@ class OasistchiCog(commands.Cog):
                                     FROM race_bets
                                     WHERE schedule_id = $1
                                       AND pet_id = $2
-                                """, race["id"], int(winner_pet_id))
+                                """, race["id"], str(winner_pet_id))
 
 
                                 winner_pool = winner_pool_row["total"] or 0
@@ -1125,7 +1125,7 @@ class OasistchiCog(commands.Cog):
                                         FROM race_bets
                                         WHERE schedule_id = $1
                                           AND pet_id = $2
-                                    """, race["id"], int(winner_pet_id))
+                                    """, race["id"], str(winner_pet_id))
 
                                     for bet in winning_bets:
 
