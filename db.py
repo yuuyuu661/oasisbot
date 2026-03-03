@@ -3789,3 +3789,38 @@ class Database:
                   AND user_id = $2
                   AND badge = $3
             """, guild_id, user_id, badge)
+
+    # ======================================================
+    # 単勝：ユーザー購入口数取得
+    # ======================================================
+    async def get_user_single_units(
+        self,
+        guild_id,
+        race_date,
+        schedule_id,
+        user_id,
+        pet_id
+    ):
+        guild_id = str(guild_id)
+        user_id = str(user_id)
+
+        row = await self._fetchrow("""
+            SELECT COALESCE(SUM(amount),0) AS total
+            FROM race_bets
+            WHERE guild_id=$1
+              AND race_date=$2
+              AND schedule_id=$3
+              AND user_id=$4
+              AND pet_id=$5
+        """,
+            guild_id,
+            race_date,
+            schedule_id,
+            user_id,
+            pet_id
+        )
+
+        total = row["total"] if row else 0
+        units = total // 1000   # 単勝は1口1000rrc
+
+        return units
