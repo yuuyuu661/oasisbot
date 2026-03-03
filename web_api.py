@@ -612,7 +612,7 @@ async def get_trifecta_odds(
 
         total_pool = await conn.fetchval("""
             SELECT COALESCE(SUM(amount),0)
-            FROM trifecta_bets
+            FROM race_trifecta_bets
             WHERE guild_id=$1
               AND race_date=$2
               AND schedule_id=$3
@@ -620,7 +620,7 @@ async def get_trifecta_odds(
 
         combo_pool = await conn.fetchval("""
             SELECT COALESCE(SUM(amount),0)
-            FROM trifecta_bets
+            FROM race_trifecta_bets
             WHERE guild_id=$1
               AND race_date=$2
               AND schedule_id=$3
