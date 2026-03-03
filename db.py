@@ -3565,11 +3565,12 @@ class Database:
                 """, guild_id, race_date, schedule_id)
 
                 if not pool_row:
-                    # 🔥 初回購入 → carry注入
+
                     carry = await conn.fetchval("""
                         SELECT carry_over
                         FROM race_trifecta_carry
                         WHERE guild_id=$1
+                        FOR UPDATE
                     """, guild_id) or 0
 
                     new_total_pool = carry + amount
@@ -3586,7 +3587,6 @@ class Database:
                         carry
                     )
 
-                    # 🔥 carryリセット
                     if carry > 0:
                         await conn.execute("""
                             UPDATE race_trifecta_carry
@@ -3595,7 +3595,6 @@ class Database:
                         """, guild_id)
 
                 else:
-                    # 通常加算
                     await conn.execute("""
                         UPDATE race_trifecta_pools
                         SET total_pool = total_pool + $1
@@ -3755,15 +3754,6 @@ class Database:
                           AND race_date=$2
                           AND schedule_id=$3
                     """, guild_id, race_date, schedule_id)
-
-                    # =========================
-                    # 🔥 サーバーキャリーもリセット
-                    # =========================
-                    await conn.execute("""
-                        UPDATE race_trifecta_carry
-                        SET carry_over = 0
-                        WHERE guild_id=$1
-                    """, guild_id)
 
                     return {
                         "status": "hit",
