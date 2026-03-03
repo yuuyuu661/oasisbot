@@ -3390,6 +3390,49 @@ class Database:
         return round(odds, 2)
 
     # ======================================================
+    # 3連単：ユーザー購入口数取得
+    # ======================================================
+    async def get_user_trifecta_units(
+        self,
+        guild_id,
+        race_date,
+        schedule_id,
+        user_id,
+        first_pet_id,
+        second_pet_id,
+        third_pet_id
+    ):
+        guild_id = str(guild_id)
+        user_id = str(user_id)
+
+        row = await self._fetchrow("""
+            SELECT COALESCE(SUM(amount),0) AS total
+            FROM race_trifecta_bets
+            WHERE guild_id=$1
+              AND race_date=$2
+              AND schedule_id=$3
+              AND user_id=$4
+              AND first_pet_id=$5
+              AND second_pet_id=$6
+              AND third_pet_id=$7
+        """,
+            guild_id,
+            race_date,
+            schedule_id,
+            user_id,
+            first_pet_id,
+            second_pet_id,
+            third_pet_id
+        )
+
+        total_amount = row["total"] if row else 0
+
+        # 1口10,000rrc
+        units = total_amount // 10000
+
+        return units
+
+    # ======================================================
     # 3連単：購入処理3.1
     # ======================================================
     async def place_trifecta_bet(
