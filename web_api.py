@@ -600,6 +600,7 @@ async def get_trifecta_odds(
     third: int
 ):
     async with app.state.pool.acquire() as conn:
+
         race = await conn.fetchrow("""
             SELECT race_date
             FROM race_schedules
@@ -609,22 +610,42 @@ async def get_trifecta_odds(
         if not race:
             raise HTTPException(status_code=404, detail="Race not found")
 
-    odds = await app.state.db.get_trifecta_odds(
-        guild,
-        race["race_date"],
-        schedule_id,
-        first,
-        second,
-        third
-    )
+        total_pool = await conn.fetchval("""
+            SELECT COALESCE(SUM(amount),0)
+            FROM trifecta_bets
+            WHERE guild_id=$1
+              AND race_date=$2
+              AND schedule_id=$3
+        """, guild, race["race_date"], schedule_id)
 
-    if odds is None:
-        return {"status": "no_bets"}
+        combo_pool = await conn.fetchval("""
+            SELECT COALESCE(SUM(amount),0)
+            FROM trifecta_bets
+            WHERE guild_id=$1
+              AND race_date=$2
+              AND schedule_id=$3
+              AND first_pet_id=$4
+              AND second_pet_id=$5
+              AND third_pet_id=$6
+        """,
+            guild,
+            race["race_date"],
+            schedule_id,
+            first,
+            second,
+            third
+        )
 
-    return {
-        "status": "ok",
-        "odds": odds
-    }
+        if total_pool == 0 or combo_pool == 0:
+            return {"status": "no_bets"}
+
+        payout_pool = total_pool * (1 - HOUSE_TAKE)
+        odds = round(payout_pool / combo_pool, 2)
+
+        return {
+            "status": "ok",
+            "odds": odds
+        }
 
 # =========================
 # 単勝購入口数
@@ -828,35 +849,56 @@ class TrifectaRequest(BaseModel):
 @app.post("/api/trifecta/buy")
 async def buy_trifecta(data: TrifectaRequest):
 
-    # ① トークン検証
     if not verify_token(data.user, data.guild, str(data.race), data.token):
         raise HTTPException(status_code=403, detail="Invalid token")
 
-    # ② レース日付取得（db.pyがrace_date必要なので）
     async with app.state.pool.acquire() as conn:
-        race = await conn.fetchrow("""
-            SELECT race_date
-            FROM race_schedules
-            WHERE id=$1 AND guild_id=$2
-        """, data.race, data.guild)
+        async with conn.transaction():
 
-        if not race:
-            raise HTTPException(status_code=404, detail="Race not found")
+            race = await conn.fetchrow("""
+                SELECT race_date
+                FROM race_schedules
+                WHERE id=$1 AND guild_id=$2
+            """, data.race, data.guild)
 
-    # ③ db.pyの既存ロジックを呼ぶ
-    try:
-        result = await app.state.db.place_trifecta_bet(
-            guild_id=data.guild,
-            race_date=race["race_date"],
-            schedule_id=data.race,
-            user_id=data.user,
-            first_pet_id=data.first,
-            second_pet_id=data.second,
-            third_pet_id=data.third,
-            amount=data.amount
-        )
+            if not race:
+                raise HTTPException(status_code=404, detail="Race not found")
 
-        return result
+            # 残高確認
+            balance = await conn.fetchval("""
+                SELECT balance
+                FROM users
+                WHERE user_id=$1 AND guild_id=$2
+            """, data.user, data.guild)
 
-    except RuntimeError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+            if balance is None or balance < data.amount:
+                raise HTTPException(status_code=400, detail="残高不足")
+
+            # 残高減算
+            await conn.execute("""
+                UPDATE users
+                SET balance = balance - $1
+                WHERE user_id=$2 AND guild_id=$3
+            """, data.amount, data.user, data.guild)
+
+            # 三連単ベット登録
+            await conn.execute("""
+                INSERT INTO trifecta_bets
+                (guild_id, race_date, schedule_id,
+                 user_id, first_pet_id, second_pet_id, third_pet_id, amount)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+            """,
+                data.guild,
+                race["race_date"],
+                data.race,
+                data.user,
+                data.first,
+                data.second,
+                data.third,
+                data.amount
+            )
+
+            return {
+                "status": "ok",
+                "remaining_balance": balance - data.amount
+            }
