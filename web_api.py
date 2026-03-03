@@ -688,7 +688,35 @@ async def get_single_units(
     )
 
     return {"units": units}
+# =========================
+# 現在プール
+# =========================
 
+@app.get("/api/trifecta/pool")
+async def get_trifecta_pool(
+    guild: str,
+    schedule_id: int
+):
+    async with app.state.pool.acquire() as conn:
+
+        race = await conn.fetchrow("""
+            SELECT race_date
+            FROM race_schedules
+            WHERE id=$1 AND guild_id=$2
+        """, schedule_id, guild)
+
+        if not race:
+            return {"pool": 0}
+
+        total_pool = await conn.fetchval("""
+            SELECT COALESCE(SUM(amount),0)
+            FROM race_trifecta_bets
+            WHERE guild_id=$1
+              AND race_date=$2
+              AND schedule_id=$3
+        """, guild, race["race_date"], schedule_id)
+
+        return {"pool": total_pool}
 # =========================
 # 🎫 馬券購入API
 # =========================
