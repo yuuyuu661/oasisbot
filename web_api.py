@@ -175,7 +175,11 @@ async def shutdown():
     await app.state.pool.close()
 
 @app.get("/api/race/by-id/{guild_id}/{schedule_id}")
-async def get_race_by_id(guild_id: str, schedule_id: int):
+async def get_race_by_id(
+    guild_id: str,
+    schedule_id: int,
+    user: str | None = None
+):
 
     async with app.state.pool.acquire() as conn:
 
@@ -274,6 +278,25 @@ async def get_race_by_id(guild_id: str, schedule_id: int):
             "locked": race["lottery_done"],
             "pets": pets
         }
+
+        # =========================
+        # 🔥 ユーザー別購入額取得
+        # =========================
+        user_pet_bets = {}
+
+        if user:
+            rows = await conn.fetch("""
+                SELECT pet_id, COALESCE(SUM(amount),0) AS total
+                FROM race_bets
+                WHERE guild_id = $1
+                  AND schedule_id = $2
+                  AND user_id = $3
+                GROUP BY pet_id
+            """, guild_id, race["id"], user)
+
+            user_pet_bets = {
+                r["pet_id"]: r["total"] for r in rows
+            }
 
 # =========================
 # 🔐 トークン検証API
@@ -423,7 +446,8 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
                 "condition_label": "—",
                 "condition_class": "normal",
                 "condition_ratio": 1.0,
-                "odds": odds
+                "odds": odds,
+                "my_amount": my_amount   # ★追加
             })
 
         return {
