@@ -626,6 +626,32 @@ async def get_trifecta_odds(
     }
 
 # =========================
+# 単勝購入口数
+# =========================
+
+@app.get("/api/single/user-units")
+async def get_single_units(
+    guild: str,
+    schedule_id: int,
+    user: str,
+    pet_id: int
+):
+    race = await app.state.db.get_latest_open_race(guild)
+
+    if not race:
+        return {"units": 0}
+
+    units = await app.state.db.get_user_single_units(
+        guild,
+        race["race_date"],
+        schedule_id,
+        user,
+        pet_id
+    )
+
+    return {"units": units}
+
+# =========================
 # 🎫 馬券購入API
 # =========================
 
