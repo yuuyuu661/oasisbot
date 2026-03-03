@@ -9,7 +9,6 @@ import hmac
 import hashlib
 from pydantic import BaseModel
 from datetime import timedelta, timezone
-from fastapi.middleware.cors import CORSMiddleware
 from db import Database
 
 JST = timezone(timedelta(hours=9))
