@@ -914,7 +914,29 @@ async def buy_trifecta(data: TrifectaRequest):
                 data.amount
             )
 
+            # 👇 ここを追加する 👇
+            total_units = await conn.fetchval("""
+                SELECT COALESCE(SUM(amount),0)
+                FROM race_trifecta_bets
+                WHERE guild_id=$1
+                  AND race_date=$2
+                  AND schedule_id=$3
+                  AND user_id=$4
+                  AND first_pet_id=$5
+                  AND second_pet_id=$6
+                  AND third_pet_id=$7
+            """,
+                data.guild,
+                race["race_date"],
+                data.race,
+                data.user,
+                data.first,
+                data.second,
+                data.third
+            )
+
             return {
                 "status": "ok",
-                "remaining_balance": balance - data.amount
+                "remaining_balance": balance - data.amount,
+                "total_units": total_units // 1000   # ← ここ重要
             }
