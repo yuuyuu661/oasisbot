@@ -748,6 +748,15 @@ class Database:
             PRIMARY KEY (guild_id, race_date, schedule_id, pet_id)
         );
         """)
+        # =========================
+        # 3連単：サーバー単位キャリー
+        # =========================
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS race_trifecta_carry (
+            guild_id TEXT PRIMARY KEY,
+            carry_over BIGINT NOT NULL DEFAULT 0
+        );
+        """)
 
 
         # =========================
@@ -3700,15 +3709,26 @@ class Database:
                             "payout": share
                         })
 
-                    # プールリセット
+                    # =========================
+                    # 🔥 レースプールリセット
+                    # =========================
                     await conn.execute("""
                         UPDATE race_trifecta_pools
                         SET total_pool = 0,
-                           carry_in = 0
+                            carry_in = 0
                         WHERE guild_id=$1
                           AND race_date=$2
                           AND schedule_id=$3
                     """, guild_id, race_date, schedule_id)
+
+                    # =========================
+                    # 🔥 サーバーキャリーもリセット
+                    # =========================
+                    await conn.execute("""
+                        UPDATE race_trifecta_carry
+                        SET carry_over = 0
+                        WHERE guild_id=$1
+                    """, guild_id)
 
                     return {
                         "status": "hit",
@@ -3721,27 +3741,20 @@ class Database:
                 # =========================
                 else:
 
-                    if next_schedule_id:
-                        # 次レースにキャリー追加
-                        await conn.execute("""
-                            INSERT INTO race_trifecta_pools
-                            (guild_id, race_date, schedule_id, total_pool, carry_in)
-                            VALUES ($1,$2,$3,$4,$4)
-                            ON CONFLICT (guild_id, race_date, schedule_id)
-                            DO UPDATE SET
-                                total_pool = race_trifecta_pools.total_pool + $4,
-                                carry_in = race_trifecta_pools.carry_in + $4
-                        """,
-                            guild_id,
-                            race_date,
-                            next_schedule_id,
-                            total_pool
-                        )
+                    # 🔥 サーバーキャリーへ加算
+                    await conn.execute("""
+                        INSERT INTO race_trifecta_carry (guild_id, carry_over)
+                        VALUES ($1, $2)
+                        ON CONFLICT (guild_id)
+                        DO UPDATE SET carry_over =
+                            race_trifecta_carry.carry_over + $2
+                    """, guild_id, total_pool)
 
-                    # 今レースはリセット
+                    # 今レースプールはリセット
                     await conn.execute("""
                         UPDATE race_trifecta_pools
-                        SET total_pool = 0
+                        SET total_pool = 0,
+                            carry_in = 0
                         WHERE guild_id=$1
                           AND race_date=$2
                           AND schedule_id=$3
@@ -3751,6 +3764,42 @@ class Database:
                         "status": "carry",
                         "carry_amount": total_pool
                     }
+    # ======================================================
+    # キャリー関係
+    # ======================================================
+    async def get_trifecta_carry(self, guild_id: str) -> int:
+        await self._ensure_pool()
+
+        async with self.pool.acquire() as conn:
+            value = await conn.fetchval("""
+                SELECT carry_over
+                FROM race_trifecta_carry
+                WHERE guild_id=$1
+            """, guild_id)
+
+            return value or 0
+
+    async def add_trifecta_carry(self, guild_id: str, amount: int):
+        await self._ensure_pool()
+
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO race_trifecta_carry (guild_id, carry_over)
+                VALUES ($1, $2)
+                ON CONFLICT (guild_id)
+                DO UPDATE SET carry_over =
+                    race_trifecta_carry.carry_over + $2
+            """, guild_id, amount)
+
+    async def reset_trifecta_carry(self, guild_id: str):
+        await self._ensure_pool()
+
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                UPDATE race_trifecta_carry
+                SET carry_over = 0
+                WHERE guild_id=$1
+            """, guild_id)
 
     # ======================================================
     # バッジ付与
