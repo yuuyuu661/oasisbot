@@ -3591,7 +3591,7 @@ class Database:
                             UPDATE users
                             SET balance = balance + $1
                             WHERE user_id=$2 AND guild_id=$3
-                        """, share, w["user_id"], guild_id)
+                        """, share, str(w["user_id"]), guild_id)
 
                         payouts.append({
                             "user_id": w["user_id"],
