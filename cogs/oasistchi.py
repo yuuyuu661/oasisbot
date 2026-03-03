@@ -1154,7 +1154,6 @@ class OasistchiCog(commands.Cog):
                                                 f"🎉 **的中！**\n"
                                                 f"🏁 第{race['race_no']}レース\n\n"
                                                 f"🎫 購入額：{bet['amount']:,} rrc\n"
-                                                f"📈 最終オッズ：{final_odds}倍\n"
                                                 f"💰 払戻：{payout:,} rrc"
                                             )
 
