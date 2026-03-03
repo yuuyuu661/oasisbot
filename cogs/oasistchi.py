@@ -1140,8 +1140,8 @@ class OasistchiCog(commands.Cog):
 
 
                                         await self.bot.db.add_balance(
-                                            int(bet["user_id"]),
-                                            int(race["guild_id"]),
+                                            str(bet["user_id"]),
+                                            str(race["guild_id"]),
                                             payout
                                         )
 
