@@ -10,6 +10,7 @@ import hashlib
 from pydantic import BaseModel
 from datetime import timedelta, timezone
 from fastapi.middleware.cors import CORSMiddleware
+from db import Database
 
 JST = timezone(timedelta(hours=9))
 UNIT_PRICE = 1000
@@ -148,6 +149,7 @@ async def ensure_schema():
         min_size=1,
         max_size=10
     )
+    app.state.db = Database(app.state.pool)
 
     async with app.state.pool.acquire() as conn:
         async def ensure_column(table, column, definition):
@@ -756,51 +758,36 @@ class TrifectaRequest(BaseModel):
 @app.post("/api/trifecta/buy")
 async def buy_trifecta(data: TrifectaRequest):
 
+    # ① トークン検証
     if not verify_token(data.user, data.guild, str(data.race), data.token):
         raise HTTPException(status_code=403, detail="Invalid token")
 
-    if len({data.first, data.second, data.third}) != 3:
-        raise HTTPException(status_code=400, detail="同じ馬は選べません")
-
+    # ② レース日付取得（db.pyがrace_date必要なので）
     async with app.state.pool.acquire() as conn:
-        async with conn.transaction():
+        race = await conn.fetchrow("""
+            SELECT race_date
+            FROM race_schedules
+            WHERE id=$1 AND guild_id=$2
+        """, data.race, data.guild)
 
-            race = await conn.fetchrow("""
-                SELECT *
-                FROM race_schedules
-                WHERE id = $1 AND guild_id = $2
-            """, data.race, data.guild)
+        if not race:
+            raise HTTPException(status_code=404, detail="Race not found")
 
-            if not race:
-                raise HTTPException(status_code=404, detail="Race not found")
+    # ③ db.pyの既存ロジックを呼ぶ
+    try:
+        result = await app.state.db.place_trifecta_bet(
+            guild_id=data.guild,
+            race_date=race["race_date"],
+            schedule_id=data.race,
+            user_id=data.user,
+            first_pet_id=data.first,
+            second_pet_id=data.second,
+            third_pet_id=data.third,
+            amount=data.amount
+        )
 
-            balance = await conn.fetchval("""
-                SELECT balance FROM users
-                WHERE user_id=$1 AND guild_id=$2
-            """, data.user, data.guild)
+        return result
 
-            if balance is None or balance < data.amount:
-                raise HTTPException(status_code=400, detail="残高不足")
-
-            await conn.execute("""
-                UPDATE users
-                SET balance = balance - $1
-                WHERE user_id = $2 AND guild_id = $3
-            """, data.amount, data.user, data.guild)
-
-            await conn.execute("""
-                INSERT INTO race_trifecta_bets
-                (guild_id, race_date, schedule_id, user_id, first, second, third, amount)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-            """,
-                data.guild,
-                race["race_date"],
-                race["id"],
-                data.user,
-                data.first,
-                data.second,
-                data.third,
-                data.amount
-            )
-
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
             return {"status": "ok"}
