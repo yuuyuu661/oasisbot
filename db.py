@@ -3315,13 +3315,14 @@ class Database:
 
     async def get_trifecta_pool(self, guild_id, race_date, schedule_id):
         guild_id = str(guild_id)
+        race_date = str(race_date)
+        schedule_id = int(schedule_id)
+
         row = await self._fetchrow("""
             SELECT total_pool, carry_in
             FROM race_trifecta_pools
             WHERE guild_id=$1 AND race_date=$2 AND schedule_id=$3
         """, guild_id, race_date, schedule_id)
-        
-        race_date = str(race_date)
 
         if not row:
             return {
@@ -3809,6 +3810,8 @@ class Database:
     ):
         guild_id = str(guild_id)
         user_id = str(user_id)
+        race_date = str(race_date)
+        schedule_id = int(schedule_id)
 
         row = await self._fetchrow("""
             SELECT COALESCE(SUM(amount),0) AS total
