@@ -865,8 +865,23 @@ class TrifectaRequest(BaseModel):
 @app.post("/api/trifecta/buy")
 async def buy_trifecta(data: TrifectaRequest):
 
+    TRI_UNIT = 10000
+    TRI_MAX_UNITS = 10
+    TRI_MAX_AMOUNT = TRI_UNIT * TRI_MAX_UNITS  # 100000
+    TOTAL_MAX_AMOUNT = 200000  # 単勝＋3連単 合算上限
+
+    # 🔐 トークン検証
     if not verify_token(data.user, data.guild, str(data.race), data.token):
         raise HTTPException(status_code=403, detail="Invalid token")
+
+    # 🔒 単位チェック
+    if data.amount <= 0 or data.amount % TRI_UNIT != 0:
+        raise HTTPException(status_code=400, detail="1口10000rrc単位です")
+
+    units = data.amount // TRI_UNIT
+
+    if units > TRI_MAX_UNITS:
+        raise HTTPException(status_code=400, detail="3連単は最大10口までです")
 
     async with app.state.pool.acquire() as conn:
         async with conn.transaction():
@@ -880,7 +895,57 @@ async def buy_trifecta(data: TrifectaRequest):
             if not race:
                 raise HTTPException(status_code=404, detail="Race not found")
 
-            # 残高確認
+            # =========================
+            # ① 既に購入済み3連単合計
+            # =========================
+            trifecta_total = await conn.fetchval("""
+                SELECT COALESCE(SUM(amount),0)
+                FROM race_trifecta_bets
+                WHERE guild_id=$1
+                  AND race_date=$2
+                  AND schedule_id=$3
+                  AND user_id=$4
+            """,
+                data.guild,
+                race["race_date"],
+                data.race,
+                data.user
+            )
+
+            new_trifecta_total = trifecta_total + data.amount
+
+            if new_trifecta_total > TRI_MAX_AMOUNT:
+                raise HTTPException(
+                    status_code=400,
+                    detail="このレースでの3連単は最大10口までです"
+                )
+
+            # =========================
+            # ② 単勝合計取得
+            # =========================
+            single_total = await conn.fetchval("""
+                SELECT COALESCE(SUM(amount),0)
+                FROM race_bets
+                WHERE guild_id=$1
+                  AND schedule_id=$2
+                  AND user_id=$3
+            """,
+                data.guild,
+                data.race,
+                data.user
+            )
+
+            combined_total = single_total + new_trifecta_total
+
+            if combined_total > TOTAL_MAX_AMOUNT:
+                raise HTTPException(
+                    status_code=400,
+                    detail="このレースでの合計上限200000rrcを超えています"
+                )
+
+            # =========================
+            # ③ 残高確認
+            # =========================
             balance = await conn.fetchval("""
                 SELECT balance
                 FROM users
@@ -890,14 +955,18 @@ async def buy_trifecta(data: TrifectaRequest):
             if balance is None or balance < data.amount:
                 raise HTTPException(status_code=400, detail="残高不足")
 
-            # 残高減算
+            # =========================
+            # ④ 残高減算
+            # =========================
             await conn.execute("""
                 UPDATE users
                 SET balance = balance - $1
                 WHERE user_id=$2 AND guild_id=$3
             """, data.amount, data.user, data.guild)
 
-            # 三連単ベット登録
+            # =========================
+            # ⑤ 3連単登録
+            # =========================
             await conn.execute("""
                 INSERT INTO race_trifecta_bets
                 (guild_id, race_date, schedule_id,
@@ -914,29 +983,8 @@ async def buy_trifecta(data: TrifectaRequest):
                 data.amount
             )
 
-            # 👇 ここを追加する 👇
-            total_units = await conn.fetchval("""
-                SELECT COALESCE(SUM(amount),0)
-                FROM race_trifecta_bets
-                WHERE guild_id=$1
-                  AND race_date=$2
-                  AND schedule_id=$3
-                  AND user_id=$4
-                  AND first_pet_id=$5
-                  AND second_pet_id=$6
-                  AND third_pet_id=$7
-            """,
-                data.guild,
-                race["race_date"],
-                data.race,
-                data.user,
-                data.first,
-                data.second,
-                data.third
-            )
-
             return {
                 "status": "ok",
                 "remaining_balance": balance - data.amount,
-                "total_units": total_units // 1000   # ← ここ重要
+                "total_units": new_trifecta_total // TRI_UNIT
             }
