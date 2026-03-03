@@ -244,12 +244,36 @@ async def get_race_by_id(
 
         pet_pools = {r["pet_id"]: r["total_amount"] for r in pet_pool_rows}
 
+        # =========================
+        # 🔥 ユーザー別購入額取得（←ここ追加）
+        # =========================
+        my_amounts = {}
+
+        if user:
+            rows = await conn.fetch("""
+                SELECT pet_id, COALESCE(SUM(amount),0) AS total
+                FROM race_bets
+                WHERE guild_id = $1
+                  AND schedule_id = $2
+                  AND user_id = $3
+                GROUP BY pet_id
+            """, guild_id, race["id"], user)
+
+            my_amounts = {
+                r["pet_id"]: r["total"] for r in rows
+            }
+
         pets = []
 
         for e in entries:
 
+            pet_id = e["pet_id"]
+
             # ペットのプール額
-            pet_pool = pet_pools.get(e["pet_id"], 0)
+            pet_pool = pet_pools.get(pet_id, 0)
+
+            # 自分の購入額（←ここ追加）
+            my_amount = my_amounts.get(pet_id, 0)
 
             # オッズ計算
             odds = calculate_odds(total_pool, pet_pool, take_rate=0.10)
@@ -258,7 +282,7 @@ async def get_race_by_id(
             label, cls = get_condition_label(e["happiness"])
 
             pets.append({
-                "pet_id": e["pet_id"],
+                "pet_id": pet_id,
                 "name": e["name"],
                 "adult_key": e["adult_key"],
                 "speed": e["speed"],
@@ -267,7 +291,8 @@ async def get_race_by_id(
                 "condition_label": label,
                 "condition_class": cls,
                 "passive_skill": e["passive_skill"],
-                "odds": odds
+                "odds": odds,
+                "my_amount": my_amount   # ← ここで使える
             })
 
         return {
@@ -280,25 +305,6 @@ async def get_race_by_id(
             "locked": race["lottery_done"],
             "pets": pets
         }
-
-        # =========================
-        # 🔥 ユーザー別購入額取得
-        # =========================
-        user_pet_bets = {}
-
-        if user:
-            rows = await conn.fetch("""
-                SELECT pet_id, COALESCE(SUM(amount),0) AS total
-                FROM race_bets
-                WHERE guild_id = $1
-                  AND schedule_id = $2
-                  AND user_id = $3
-                GROUP BY pet_id
-            """, guild_id, race["id"], user)
-
-            user_pet_bets = {
-                r["pet_id"]: r["total"] for r in rows
-            }
 
 # =========================
 # 🔐 トークン検証API
@@ -448,8 +454,7 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
                 "condition_label": "—",
                 "condition_class": "normal",
                 "condition_ratio": 1.0,
-                "odds": odds,
-                "my_amount": my_amount   # ★追加
+                "odds": odds
             })
 
         return {
@@ -457,7 +462,7 @@ async def get_race_entries(guild_id: str, race_date: str, race_no: int):
             "race_date": race_date,
             "race_time": race["race_time"],
             "locked": locked,
-            "phase": phase,      # ← ★ ここ追加
+            "phase": phase,
             "pets": pets,
             "distance": race["distance"],
             "surface": race["surface"]
