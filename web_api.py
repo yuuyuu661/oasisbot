@@ -883,7 +883,7 @@ async def buy_trifecta(data: TrifectaRequest):
 
             # 三連単ベット登録
             await conn.execute("""
-                INSERT INTO trifecta_bets
+                INSERT INTO race_trifecta_bets
                 (guild_id, race_date, schedule_id,
                  user_id, first_pet_id, second_pet_id, third_pet_id, amount)
                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
