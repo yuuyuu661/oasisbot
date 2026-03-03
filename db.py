@@ -3555,19 +3555,54 @@ class Database:
                 # =========================
                 # ④ 総プール更新
                 # =========================
-                await conn.execute("""
-                    INSERT INTO race_trifecta_pools
-                    (guild_id, race_date, schedule_id, total_pool)
-                    VALUES ($1,$2,$3,$4)
-                    ON CONFLICT (guild_id, race_date, schedule_id)
-                    DO UPDATE SET total_pool =
-                        race_trifecta_pools.total_pool + $4
-                """,
-                    guild_id,
-                    race_date,
-                    schedule_id,
-                    amount
-                )
+                pool_row = await conn.fetchrow("""
+                    SELECT total_pool
+                    FROM race_trifecta_pools
+                    WHERE guild_id=$1
+                      AND race_date=$2
+                      AND schedule_id=$3
+                    FOR UPDATE
+                """, guild_id, race_date, schedule_id)
+
+                if not pool_row:
+                    # 🔥 初回購入 → carry注入
+                    carry = await conn.fetchval("""
+                        SELECT carry_over
+                        FROM race_trifecta_carry
+                        WHERE guild_id=$1
+                    """, guild_id) or 0
+
+                    new_total_pool = carry + amount
+
+                    await conn.execute("""
+                        INSERT INTO race_trifecta_pools
+                        (guild_id, race_date, schedule_id, total_pool, carry_in)
+                        VALUES ($1,$2,$3,$4,$5)
+                    """,
+                        guild_id,
+                        race_date,
+                        schedule_id,
+                        new_total_pool,
+                        carry
+                    )
+
+                    # 🔥 carryリセット
+                    if carry > 0:
+                        await conn.execute("""
+                            UPDATE race_trifecta_carry
+                            SET carry_over = 0
+                            WHERE guild_id=$1
+                        """, guild_id)
+
+                else:
+                    # 通常加算
+                    await conn.execute("""
+                        UPDATE race_trifecta_pools
+                        SET total_pool = total_pool + $1
+                        WHERE guild_id=$2
+                          AND race_date=$3
+                          AND schedule_id=$4
+                    """, amount, guild_id, race_date, schedule_id)
 
                 # =========================
                 # ⑤ 組み合わせ別プール更新
