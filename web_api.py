@@ -319,22 +319,38 @@ async def get_user_units(
     second: int,
     third: int
 ):
-    race = await app.state.db.get_latest_open_race(guild)
+    async with app.state.pool.acquire() as conn:
 
-    if not race:
-        return {"units": 0}
+        race = await conn.fetchrow("""
+            SELECT race_date
+            FROM race_schedules
+            WHERE id=$1 AND guild_id=$2
+        """, schedule_id, guild)
 
-    units = await app.state.db.get_user_trifecta_units(
-        guild,
-        race["race_date"],
-        schedule_id,
-        user,
-        first,
-        second,
-        third
-    )
+        if not race:
+            return {"units": 0}
 
-    return {"units": units}
+        units = await conn.fetchval("""
+            SELECT COALESCE(SUM(amount),0)
+            FROM race_trifecta_bets
+            WHERE guild_id=$1
+              AND race_date=$2
+              AND schedule_id=$3
+              AND user_id=$4
+              AND first_pet_id=$5
+              AND second_pet_id=$6
+              AND third_pet_id=$7
+        """,
+            guild,
+            race["race_date"],
+            schedule_id,
+            user,
+            first,
+            second,
+            third
+        )
+
+        return {"units": units}
 # =========================
 # 🔐 トークン検証API
 # =========================
