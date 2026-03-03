@@ -3338,6 +3338,58 @@ class Database:
         }
 
     # ======================================================
+    # 3連単オッズ取得（Web表示用）
+    # ======================================================
+    async def get_trifecta_odds(
+        self,
+        guild_id,
+        race_date,
+        schedule_id,
+        first_pet_id,
+        second_pet_id,
+        third_pet_id
+    ):
+        guild_id = str(guild_id)
+
+        # 総プール取得
+        pool_row = await self._fetchrow("""
+            SELECT total_pool
+            FROM race_trifecta_pools
+            WHERE guild_id=$1
+              AND race_date=$2
+              AND schedule_id=$3
+        """, guild_id, race_date, schedule_id)
+
+        total_pool = pool_row["total_pool"] if pool_row else 0
+
+        # 該当組み合わせプール取得
+        combo_row = await self._fetchrow("""
+            SELECT total_amount
+            FROM race_trifecta_combo_pools
+            WHERE guild_id=$1
+              AND race_date=$2
+              AND schedule_id=$3
+              AND first_pet_id=$4
+              AND second_pet_id=$5
+              AND third_pet_id=$6
+        """,
+            guild_id,
+            race_date,
+            schedule_id,
+            first_pet_id,
+            second_pet_id,
+            third_pet_id
+        )
+
+        combo_amount = combo_row["total_amount"] if combo_row else 0
+
+        if combo_amount == 0 or total_pool == 0:
+            return 0
+
+        odds = total_pool / combo_amount
+        return round(odds, 2)
+
+    # ======================================================
     # 3連単：購入処理3.1
     # ======================================================
     async def place_trifecta_bet(
