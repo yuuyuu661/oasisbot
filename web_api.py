@@ -558,7 +558,6 @@ async def get_race_result(guild_id: str, race_date: str, schedule_id: int):
 @app.get("/api/trifecta/odds")
 async def get_trifecta_odds(
     guild: str,
-    race_date: str,
     schedule_id: int,
     first: int,
     second: int,
@@ -738,3 +737,70 @@ async def place_bet(data: BetRequest):
                 "remaining_units": (MAX_AMOUNT - new_total) // UNIT_PRICE,
                 "remaining_balance": balance - data.amount
             }
+
+# =========================
+# 3連単購入API
+# =========================
+
+class TrifectaRequest(BaseModel):
+    user: str
+    guild: str
+    race: int
+    first: int
+    second: int
+    third: int
+    amount: int
+    token: str
+
+
+@app.post("/api/trifecta/buy")
+async def buy_trifecta(data: TrifectaRequest):
+
+    if not verify_token(data.user, data.guild, str(data.race), data.token):
+        raise HTTPException(status_code=403, detail="Invalid token")
+
+    if len({data.first, data.second, data.third}) != 3:
+        raise HTTPException(status_code=400, detail="同じ馬は選べません")
+
+    async with app.state.pool.acquire() as conn:
+        async with conn.transaction():
+
+            race = await conn.fetchrow("""
+                SELECT *
+                FROM race_schedules
+                WHERE id = $1 AND guild_id = $2
+            """, data.race, data.guild)
+
+            if not race:
+                raise HTTPException(status_code=404, detail="Race not found")
+
+            balance = await conn.fetchval("""
+                SELECT balance FROM users
+                WHERE user_id=$1 AND guild_id=$2
+            """, data.user, data.guild)
+
+            if balance is None or balance < data.amount:
+                raise HTTPException(status_code=400, detail="残高不足")
+
+            await conn.execute("""
+                UPDATE users
+                SET balance = balance - $1
+                WHERE user_id = $2 AND guild_id = $3
+            """, data.amount, data.user, data.guild)
+
+            await conn.execute("""
+                INSERT INTO race_trifecta_bets
+                (guild_id, race_date, schedule_id, user_id, first, second, third, amount)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+            """,
+                data.guild,
+                race["race_date"],
+                race["id"],
+                data.user,
+                data.first,
+                data.second,
+                data.third,
+                data.amount
+            )
+
+            return {"status": "ok"}
