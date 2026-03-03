@@ -1189,7 +1189,7 @@ class OasistchiCog(commands.Cog):
                                         FROM race_bets
                                         WHERE schedule_id = $1
                                           AND pet_id = $2
-                                    """, race["id"], r["pet_id"])
+                                    """, race["id"], str(r["pet_id"]))
 
                                     pet_pool = pet_pool_row["total"] or 0
 
