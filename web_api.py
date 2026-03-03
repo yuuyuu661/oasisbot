@@ -148,7 +148,7 @@ async def ensure_schema():
         min_size=1,
         max_size=10
     )
-    app.state.db = Database(app.state.pool)
+    app.state.db = Database()
 
     async with app.state.pool.acquire() as conn:
         async def ensure_column(table, column, definition):
