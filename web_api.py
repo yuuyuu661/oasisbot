@@ -565,9 +565,19 @@ async def get_trifecta_odds(
     second: int,
     third: int
 ):
-    odds = await db.get_trifecta_odds(
+    async with app.state.pool.acquire() as conn:
+        race = await conn.fetchrow("""
+            SELECT race_date
+            FROM race_schedules
+            WHERE id=$1 AND guild_id=$2
+        """, schedule_id, guild)
+
+        if not race:
+            raise HTTPException(status_code=404, detail="Race not found")
+
+    odds = await app.state.db.get_trifecta_odds(
         guild,
-        race_date,
+        race["race_date"],
         schedule_id,
         first,
         second,
@@ -790,4 +800,3 @@ async def buy_trifecta(data: TrifectaRequest):
 
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e))
-            return {"status": "ok"}
