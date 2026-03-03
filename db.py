@@ -3320,6 +3320,8 @@ class Database:
             FROM race_trifecta_pools
             WHERE guild_id=$1 AND race_date=$2 AND schedule_id=$3
         """, guild_id, race_date, schedule_id)
+        
+        race_date = str(race_date)
 
         if not row:
             return {
@@ -3350,6 +3352,7 @@ class Database:
         third_pet_id
     ):
         guild_id = str(guild_id)
+        race_date = str(race_date)
 
         # 総プール取得
         pool_row = await self._fetchrow("""
@@ -3404,6 +3407,7 @@ class Database:
     ):
         guild_id = str(guild_id)
         user_id = str(user_id)
+        race_date = str(race_date)
 
         row = await self._fetchrow("""
             SELECT COALESCE(SUM(amount),0) AS total
@@ -3454,6 +3458,7 @@ class Database:
         user_id = str(user_id)
         schedule_id = int(schedule_id)
         amount = int(amount)
+        race_date = str(race_date)
 
         # =========================
         # 0) 入力チェック（口数制限）
@@ -3604,6 +3609,7 @@ class Database:
         next_schedule_id=None  # キャリー先（同日次レース）
     ):
         guild_id = str(guild_id)
+        race_date = str(race_date)
         schedule_id = int(schedule_id)
 
         await self._ensure_pool()
