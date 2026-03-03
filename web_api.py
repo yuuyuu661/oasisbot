@@ -306,6 +306,35 @@ async def get_race_by_id(
         }
 
 # =========================
+# 3連単口数
+# =========================
+
+@app.get("/api/trifecta/user-units")
+async def get_user_units(
+    guild: str,
+    schedule_id: int,
+    user: str,
+    first: int,
+    second: int,
+    third: int
+):
+    race = await app.state.db.get_latest_open_race(guild)
+
+    if not race:
+        return {"units": 0}
+
+    units = await app.state.db.get_user_trifecta_units(
+        guild,
+        race["race_date"],
+        schedule_id,
+        user,
+        first,
+        second,
+        third
+    )
+
+    return {"units": units}
+# =========================
 # 🔐 トークン検証API
 # =========================
 @app.get("/api/verify")
