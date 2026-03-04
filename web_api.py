@@ -719,7 +719,7 @@ async def get_trifecta_pool(
         return {"pool": total_pool}
 
 # =========================
-# 🏆 入賞ランキングAPI（1着のみ）
+# 🏆 入賞ランキングAPI
 # =========================
 @app.get("/api/ranking/{guild_id}/{distance}")
 async def get_ranking(guild_id: str, distance: str):
@@ -744,7 +744,7 @@ async def get_ranking(guild_id: str, distance: str):
               ON p.id = re.pet_id
             JOIN users u
               ON u.user_id = p.user_id
-             AND u.guild_id = p.guild_id
+             AND u.guild_id = re.guild_id   -- ← ここを修正
             WHERE re.guild_id = $1
               AND rs.distance = $2
               AND re.rank = 1
