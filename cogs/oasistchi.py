@@ -1164,6 +1164,76 @@ class OasistchiCog(commands.Cog):
                                     print(f"[NO WINNERS] race_id={race['id']} winner_pool=0")
 
                                 # =========================
+                                # 🎯 3連単 払い戻し
+                                # =========================
+
+                                if len(results) >= 3:
+
+                                    first_id  = results[0]["pet_id"]
+                                    second_id = results[1]["pet_id"]
+                                    third_id  = results[2]["pet_id"]
+
+                                    total_tri_pool = await self.bot.db._fetchval("""
+                                        SELECT COALESCE(SUM(amount),0)
+                                        FROM race_trifecta_bets
+                                        WHERE schedule_id = $1
+                                    """, race["id"])
+
+                                    combo_pool = await self.bot.db._fetchval("""
+                                        SELECT COALESCE(SUM(amount),0)
+                                        FROM race_trifecta_bets
+                                        WHERE schedule_id = $1
+                                          AND first_pet_id = $2
+                                          AND second_pet_id = $3
+                                          AND third_pet_id = $4
+                                    """, race["id"], first_id, second_id, third_id)
+
+                                    print(f"[TRI POOL] total={total_tri_pool} combo={combo_pool}")
+
+                                    if total_tri_pool > 0 and combo_pool > 0:
+
+                                        payout_pool = total_tri_pool
+
+                                        winning_bets = await self.bot.db._fetch("""
+                                            SELECT user_id, amount
+                                            FROM race_trifecta_bets
+                                            WHERE schedule_id = $1
+                                              AND first_pet_id = $2
+                                              AND second_pet_id = $3
+                                              AND third_pet_id = $4
+                                        """, race["id"], first_id, second_id, third_id)
+
+                                        for bet in winning_bets:
+
+                                            payout = int(payout_pool * (bet["amount"] / combo_pool))
+
+                                            print(
+                                                f"[TRIFECTA PAYOUT] race={race['id']} "
+                                                f"user={bet['user_id']} "
+                                                f"bet={bet['amount']} "
+                                               f"payout={payout}"
+                                            )
+
+                                            await self.bot.db.add_balance(
+                                                str(bet["user_id"]),
+                                                str(race["guild_id"]),
+                                                payout
+                                            )
+
+                                            try:
+                                                user_obj = await self.bot.fetch_user(int(bet["user_id"]))
+                                                await user_obj.send(
+                                                    f"🎯 **3連単的中！**\n"
+                                                    f"🏁 第{race['race_no']}レース\n\n"
+                                                    f"💰 払戻：{payout:,} rrc"
+                                                )
+                                            except Exception as e:
+                                                print(f"[TRIFECTA DM ERROR] {e!r}")
+
+                                    else:
+                                        print(f"[TRIFECTA NO WINNER] race_id={race['id']}")
+
+                                # =========================
                                 # 結果整形（最終オッズ＋パッシブ付き）
                                 # =========================
 
