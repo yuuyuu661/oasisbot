@@ -717,6 +717,52 @@ async def get_trifecta_pool(
         """, guild, race["race_date"], schedule_id)
 
         return {"pool": total_pool}
+
+# =========================
+# 🏆 入賞ランキングAPI（1着のみ）
+# =========================
+@app.get("/api/ranking/{guild_id}/{distance}")
+async def get_ranking(guild_id: str, distance: str):
+
+    async with app.state.pool.acquire() as conn:
+
+        rows = await conn.fetch("""
+            SELECT
+                p.id AS pet_id,
+                p.name,
+                p.adult_key,
+                (p.base_speed + p.train_speed) AS speed,
+                (p.base_power + p.train_power) AS power,
+                (p.base_stamina + p.train_stamina) AS stamina,
+                p.passive_skill,
+                u.username,
+                COUNT(*) AS win_count
+            FROM race_entries re
+            JOIN race_schedules rs
+              ON rs.id = re.schedule_id
+            JOIN oasistchi_pets p
+              ON p.id = re.pet_id
+            JOIN users u
+              ON u.user_id = p.user_id
+             AND u.guild_id = p.guild_id
+            WHERE re.guild_id = $1
+              AND rs.distance = $2
+              AND re.rank = 1
+              AND re.status = 'selected'
+            GROUP BY
+                p.id, p.name, p.adult_key,
+                p.base_speed, p.train_speed,
+                p.base_power, p.train_power,
+                p.base_stamina, p.train_stamina,
+                p.passive_skill,
+                u.username
+            ORDER BY win_count DESC
+            LIMIT 50
+        """, guild_id, distance)
+
+        return {
+            "results": [dict(r) for r in rows]
+        }
 # =========================
 # 🎫 馬券購入API
 # =========================
