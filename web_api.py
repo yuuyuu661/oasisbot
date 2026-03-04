@@ -26,7 +26,7 @@ print("🔐 WEB_SECRET loaded (WEB)")
 # ===== レース用計算ロジック =====
 
 K_VALUE = 2.5
-HOUSE_TAKE = 0.20  # 控除率20%
+HOUSE_TAKE = 0.0
 
 def apply_condition_multiplier(speed, power, stamina, happiness):
     """
