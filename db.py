@@ -2964,8 +2964,32 @@ class Database:
                 if len(entries) < 2:
                     return {"selected": [], "cancelled": []}
 
-                max_entries = min(8, len(entries))
-                selected = random.sample(entries, max_entries)
+                # =========================
+                # 同ユーザー1頭制限
+                # =========================
+
+                user_map = {}
+
+                for e in entries:
+                    uid = e["user_id"]
+
+                    if uid not in user_map:
+                        user_map[uid] = []
+
+                    user_map[uid].append(e)
+
+                filtered = []
+
+                for uid, pets in user_map.items():
+                    filtered.append(random.choice(pets))  # ユーザー内ランダム
+
+                # =========================
+                # 抽選
+                # =========================
+
+                max_entries = min(8, len(filtered))
+                selected = random.sample(filtered, max_entries)
+
                 selected_ids = {e["id"] for e in selected}
                 cancelled = []
 
