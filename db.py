@@ -3931,3 +3931,41 @@ class Database:
         units = total // 1000   # 単勝は1口1000rrc
 
         return units
+
+    # ======================================================
+    # エントリー獲得3.9
+    # ======================================================
+    async def get_user_entries(self, user_id):
+
+        rows = await self._fetch("""
+            SELECT
+                e.pet_id,
+                p.name as pet_name,
+                e.status,
+                s.race_time,
+                s.distance,
+                s.id as schedule_id
+            FROM race_entries e
+            JOIN race_schedules s
+              ON e.schedule_id = s.id
+            JOIN oasistchi_pets p
+              ON e.pet_id = p.pet_id
+            WHERE p.user_id = $1
+            AND s.race_date >= CURRENT_DATE
+            ORDER BY s.race_time
+        """, str(user_id))
+
+        return rows
+
+    # ======================================================
+    # エントリーキャンセル3.9
+    # ======================================================
+
+    async def cancel_entry(self, pet_id, schedule_id):
+
+        await self._execute("""
+            DELETE FROM race_entries
+            WHERE pet_id=$1
+            AND schedule_id=$2
+            AND status='pending'
+        """, pet_id, schedule_id)
