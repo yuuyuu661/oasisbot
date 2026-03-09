@@ -62,6 +62,7 @@ class MyBot(commands.Bot):
             "cogs.janken_card",
             "cogs.oasistchi",
             "cogs.race_debug",
+            "cogs.stamp_system",
         ]
 
         for ext in extensions:
@@ -97,6 +98,7 @@ if __name__ == "__main__":
     loop.create_task(start_api())
     loop.create_task(start_bot())
     loop.run_forever()
+
 
 
 
