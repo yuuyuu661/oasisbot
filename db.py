@@ -3964,7 +3964,8 @@ class Database:
     async def cancel_entry(self, pet_id, schedule_id):
 
         await self._execute("""
-            DELETE FROM race_entries
+            UPDATE race_entries
+            SET status='cancelled'
             WHERE pet_id=$1
             AND schedule_id=$2
             AND status='pending'
