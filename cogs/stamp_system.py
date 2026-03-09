@@ -387,14 +387,17 @@ class SendStampButton(discord.ui.Button):
 
         file = discord.File(selected["path"], filename=selected["filename"])
 
-        # 先にephemeral更新
-        await interaction.response.edit_message(
+        # 先にdefer（3秒制限回避）
+        await interaction.response.defer()
+
+        # メニュー更新
+        await interaction.edit_original_response(
             embed=view.build_embed(),
             view=view,
             attachments=view.build_preview_attachments()
         )
 
-        # チャットに送信
+        # チャットにスタンプ送信
         await interaction.followup.send(file=file)
 
 
@@ -558,6 +561,7 @@ class StampSystem(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(StampSystem(bot))
+
 
 
 
