@@ -10,7 +10,7 @@ from typing import Optional
 # 設定
 # =========================
 GUILD_ID = 1420918259187712093
-STAMP_ROOT = Path("stamps")
+STAMP_ROOT = Path("cogs/assets/stamps")
 DATA_DIR = Path("data")
 DATA_FILE = DATA_DIR / "stamp_data.json"
 
@@ -565,3 +565,4 @@ class StampSystem(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(StampSystem(bot))
+
