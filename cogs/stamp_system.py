@@ -5,12 +5,14 @@ import os
 import json
 from pathlib import Path
 from typing import Optional
+from pathlib import Path
 
 # =========================
 # 設定
 # =========================
 GUILD_ID = 1420918259187712093
-STAMP_ROOT = Path("cogs/assets/stamps")
+BASE_DIR = Path(__file__).parent
+STAMP_ROOT = BASE_DIR / "assets" / "stamps"
 DATA_DIR = Path("data")
 DATA_FILE = DATA_DIR / "stamp_data.json"
 
@@ -83,42 +85,25 @@ def normalize_stamp_key(category: str, filename: str) -> str:
 
 
 def scan_stamps() -> list[dict]:
-    """
-    戻り値例:
-    [
-      {
-        "key": "reaction/hello.png",
-        "category": "reaction",
-        "filename": "hello.png",
-        "name": "hello",
-        "path": "stamps/reaction/hello.png"
-      }
-    ]
-    """
     results = []
 
     if not STAMP_ROOT.exists():
         return results
 
-    for category_dir in sorted(STAMP_ROOT.iterdir()):
-        if not category_dir.is_dir():
+    for f in sorted(STAMP_ROOT.iterdir()):
+        if not f.is_file():
             continue
 
-        category = category_dir.name
+        if f.suffix.lower() not in IMAGE_EXTS:
+            continue
 
-        for f in sorted(category_dir.iterdir()):
-            if not f.is_file():
-                continue
-            if f.suffix.lower() not in IMAGE_EXTS:
-                continue
-
-            results.append({
-                "key": normalize_stamp_key(category, f.name),
-                "category": category,
-                "filename": f.name,
-                "name": f.stem,
-                "path": str(f)
-            })
+        results.append({
+            "key": f.name,
+            "category": "stamps",
+            "filename": f.name,
+            "name": f.stem,
+            "path": str(f)
+        })
 
     return results
 
@@ -565,4 +550,5 @@ class StampSystem(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(StampSystem(bot))
+
 
