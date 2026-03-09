@@ -501,8 +501,16 @@ class StampBrowserView(discord.ui.View):
         return [discord.File(selected["path"], filename=selected["filename"])]
 
     async def refresh(self, interaction: discord.Interaction):
+
         self.rebuild()
-        await interaction.response.edit_message(
+
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.defer()
+        except:
+            pass
+
+        await interaction.edit_original_response(
             embed=self.build_embed(),
             view=self,
             attachments=self.build_preview_attachments()
@@ -550,5 +558,6 @@ class StampSystem(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(StampSystem(bot))
+
 
 
