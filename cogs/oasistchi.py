@@ -2750,6 +2750,62 @@ class CareView(discord.ui.View):
             view=view,
             ephemeral=True
         )
+# =========================
+# エントリー状況3.9
+# =========================
+
+    @discord.ui.button(label="📋 エントリー状況", style=discord.ButtonStyle.secondary)
+    async def entry_status(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+        await interaction.response.defer(ephemeral=True)
+
+        if not self.is_owner(interaction):
+            return await interaction.followup.send(
+                "❌ このおあしすっちはあなたのものではありません。",
+                ephemeral=True
+            )
+
+        db = interaction.client.db
+        uid = str(interaction.user.id)
+
+        entries = await db.get_user_entries(uid)
+
+        if not entries:
+            return await interaction.followup.send(
+                "現在エントリーしているレースはありません。",
+                ephemeral=True
+            )
+
+        embed = discord.Embed(
+            title="🏁 エントリー状況",
+            color=discord.Color.blue()
+        )
+
+        for e in entries:
+
+            status = e["status"]
+
+            if status == "pending":
+                status_text = "🕒 抽選待ち"
+            elif status == "selected":
+                status_text = "🏇 出走確定"
+            else:
+                status_text = status
+
+            embed.add_field(
+                name=e["pet_name"],
+                value=(
+                    f"⏰ {e['race_time']}\n"
+                    f"📏 {e['distance']}\n"
+                    f"{status_text}"
+                ),
+                inline=False
+            )
+
+        await interaction.followup.send(
+            embed=embed,
+            ephemeral=True
+        )
 
 # =========================
 # お別れビュー
