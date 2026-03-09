@@ -5,7 +5,7 @@ import os
 import json
 from pathlib import Path
 from typing import Optional
-from pathlib import Path
+
 
 # =========================
 # 設定
@@ -558,6 +558,7 @@ class StampSystem(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(StampSystem(bot))
+
 
 
 
