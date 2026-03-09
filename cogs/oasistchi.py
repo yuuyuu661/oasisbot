@@ -2759,12 +2759,6 @@ class CareView(discord.ui.View):
 
         await interaction.response.defer(ephemeral=True)
 
-        if not self.is_owner(interaction):
-            return await interaction.followup.send(
-                "❌ このおあしすっちはあなたのものではありません。",
-                ephemeral=True
-            )
-
         db = interaction.client.db
         uid = str(interaction.user.id)
 
@@ -2779,7 +2773,9 @@ class CareView(discord.ui.View):
         embed = discord.Embed(
             title="🏁 エントリー状況",
             color=discord.Color.blue()
-        )
+       )
+
+        view = EntryCancelView(entries)
 
         for e in entries:
 
@@ -2794,16 +2790,13 @@ class CareView(discord.ui.View):
 
             embed.add_field(
                 name=e["pet_name"],
-                value=(
-                    f"⏰ {e['race_time']}\n"
-                    f"📏 {e['distance']}\n"
-                    f"{status_text}"
-                ),
+                value=f"⏰ {e['race_time']}\n📏 {e['distance']}\n{status_text}",
                 inline=False
             )
 
         await interaction.followup.send(
             embed=embed,
+            view=view,
             ephemeral=True
         )
 
@@ -2854,6 +2847,49 @@ class TrainingSelectView(discord.ui.View):
         super().__init__(timeout=60)
         self.pet_id = pet_id
         self.add_item(TrainingSelect(pet_id))
+
+# =========================
+# キャンセル3.9
+# =========================
+
+class EntryCancelView(discord.ui.View):
+
+    def __init__(self, entries):
+        super().__init__(timeout=120)
+
+        for e in entries:
+
+            if e["status"] == "pending":
+
+                self.add_item(
+                    EntryCancelButton(e)
+                )
+# =========================
+# キャンセル3.9
+# =========================
+class EntryCancelButton(discord.ui.Button):
+
+    def __init__(self, entry):
+        super().__init__(
+            label=f"{entry['pet_name']} をキャンセル",
+            style=discord.ButtonStyle.danger
+        )
+
+        self.entry = entry
+
+    async def callback(self, interaction: discord.Interaction):
+
+        db = interaction.client.db
+
+        await db.cancel_entry(
+            self.entry["pet_id"],
+            self.entry["schedule_id"]
+        )
+
+        await interaction.response.send_message(
+            f"❌ {self.entry['pet_name']} のエントリーをキャンセルしました。",
+            ephemeral=True
+        )
 
 class TrainingSelect(discord.ui.Select):
     def __init__(self, pet_id: int):
