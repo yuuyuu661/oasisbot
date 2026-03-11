@@ -825,6 +825,44 @@ class Database:
             PRIMARY KEY (guild_id, user_id, badge)
         );
         """)
+        # =========================
+        # チンチロゲーム3.12
+        # =========================
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS chinchiro_games(
+            thread_id TEXT PRIMARY KEY,
+            guild_id TEXT,
+            host_id TEXT,
+            parent_id TEXT,
+            phase TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+        """)
+
+        # =========================
+        # チンチロ参加者3.12
+        # =========================
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS chinchiro_players(
+            thread_id TEXT,
+            user_id TEXT,
+            bet BIGINT DEFAULT 0,
+            is_parent BOOLEAN DEFAULT FALSE,
+            turn_order INTEGER,
+            PRIMARY KEY(thread_id,user_id)
+        )
+        """)
+
+        # =========================
+        # チンチロラウンド3.12
+        # =========================
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS chinchiro_round(
+            thread_id TEXT PRIMARY KEY,
+            parent_hand_rank INT,
+            parent_hand_value INT
+        )
+        """)
 
         # -----------------------------------------
         # race_entries に status カラムがなければ追加
