@@ -3951,7 +3951,6 @@ class Database:
             JOIN oasistchi_pets p
               ON e.pet_id = p.pet_id
             WHERE p.user_id = $1
-            AND s.race_date >= CURRENT_DATE
             ORDER BY s.race_time
         """, str(user_id))
 
