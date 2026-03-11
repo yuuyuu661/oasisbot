@@ -63,6 +63,7 @@ class MyBot(commands.Bot):
             "cogs.oasistchi",
             "cogs.race_debug",
             "cogs.stamp_system",
+            "cogs.chinchiro",           
         ]
 
         for ext in extensions:
@@ -98,6 +99,7 @@ if __name__ == "__main__":
     loop.create_task(start_api())
     loop.create_task(start_bot())
     loop.run_forever()
+
 
 
 
