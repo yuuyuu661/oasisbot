@@ -2753,7 +2753,6 @@ class CareView(discord.ui.View):
 # =========================
 # エントリー状況3.9
 # =========================
-
     @discord.ui.button(label="📋 エントリー状況", style=discord.ButtonStyle.secondary)
     async def entry_status(self, interaction: discord.Interaction, button: discord.ui.Button):
 
@@ -2773,7 +2772,7 @@ class CareView(discord.ui.View):
         embed = discord.Embed(
             title="🏁 エントリー状況",
             color=discord.Color.blue()
-       )
+        )
 
         view = EntryCancelView(entries)
 
@@ -2799,6 +2798,7 @@ class CareView(discord.ui.View):
             view=view,
             ephemeral=True
         )
+
 
 # =========================
 # お別れビュー
