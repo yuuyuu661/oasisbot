@@ -2755,6 +2755,7 @@ class CareView(discord.ui.View):
 # =========================
     @discord.ui.button(label="📋 エントリー状況", style=discord.ButtonStyle.secondary)
     async def entry_status(self, interaction: discord.Interaction, button: discord.ui.Button):
+        print("ENTRY BUTTON PRESSED")
 
         await interaction.response.defer(ephemeral=True)
 
