@@ -2755,42 +2755,64 @@ class CareView(discord.ui.View):
 # =========================
     @discord.ui.button(label="📋 エントリー状況", style=discord.ButtonStyle.secondary)
     async def entry_status(self, interaction: discord.Interaction, button: discord.ui.Button):
-        print("ENTRY BUTTON PRESSED")
 
         await interaction.response.defer(ephemeral=True)
 
         db = interaction.client.db
         uid = str(interaction.user.id)
+        guild_id = str(interaction.guild.id)
 
+        today = today_jst_date()
+
+        # 今日のレース
+        schedules = await db.get_today_race_schedules(today, guild_id)
+
+        # 自分のエントリー
         entries = await db.get_user_entries(uid)
 
-        if not entries:
-            return await interaction.followup.send(
-                "現在エントリーしているレースはありません。",
-                ephemeral=True
-            )
+        # schedule_id -> entry
+        entry_map = {e["schedule_id"]: e for e in entries}
 
         embed = discord.Embed(
-            title="🏁 エントリー状況",
+            title="🧪 本日のレースエントリー状況",
+            description=f"📅 {today}",
             color=discord.Color.blue()
         )
 
         view = EntryCancelView(entries)
 
-        for e in entries:
+        for i, race in enumerate(schedules, start=1):
 
-            status = e["status"]
+            schedule_id = race["id"]
 
-            if status == "pending":
-                status_text = "🕒 抽選待ち"
-            elif status == "selected":
-                status_text = "🏇 出走確定"
+            race_time = race["race_time"]
+            distance = race["distance"]
+            surface = race["surface"]
+
+            if schedule_id in entry_map:
+
+                e = entry_map[schedule_id]
+
+                if e["status"] == "pending":
+                    status_text = "🕒 抽選待ち"
+                elif e["status"] == "selected":
+                    status_text = "🏇 出走確定"
+                else:
+                    status_text = e["status"]
+
+                value = (
+                    f"{e['pet_name']}\n"
+                    f"{distance}\n"
+                    f"{surface}\n"
+                    f"{status_text}"
+                )
+
             else:
-                status_text = status
+                value = "エントリー無し"
 
             embed.add_field(
-                name=e["pet_name"],
-                value=f"⏰ {e['race_time']}\n📏 {e['distance']}\n{status_text}",
+                name=f"第{i}レース｜🕘 {race_time}",
+                value=value,
                 inline=False
             )
 
