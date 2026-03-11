@@ -3941,7 +3941,7 @@ class Database:
             JOIN race_schedules s
               ON e.schedule_id = s.id
             JOIN oasistchi_pets p
-              ON e.pet_id = p.pet_id
+              ON e.pet_id = p.id
             WHERE p.user_id = $1
             ORDER BY s.race_time
         """, str(user_id))
