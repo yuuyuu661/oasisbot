@@ -9,6 +9,33 @@ class ChinchiroCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    def roll_dice(self):
+        return [random.randint(1,6) for _ in range(3)]
+
+    def judge_hand(self, dice):
+        d = sorted(dice)
+        a,b,c = d
+
+        if d == [4,5,6]:
+            return ("シゴロ", 500)
+
+        if a == b == c:
+            return ("ゾロ", 400 + a)
+
+        if a == b:
+            return ("出目", 100 + c)
+
+        if b == c:
+            return ("出目", 100 + a)
+
+        if d == [1,2,3]:
+            return ("ヒフミ", -100)
+
+        return ("目なし", 0)
+
+    def __init__(self, bot):
+        self.bot = bot
+
     # =========================
     # 卓開始
     # =========================
@@ -96,4 +123,5 @@ class ChinchiroCog(commands.Cog):
         await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
+
     await bot.add_cog(ChinchiroCog(bot))
