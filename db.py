@@ -2972,16 +2972,12 @@ class Database:
 
                 for e in entries:
                     uid = e["user_id"]
-
-                    if uid not in user_map:
-                        user_map[uid] = []
-
-                    user_map[uid].append(e)
+                   user_map.setdefault(uid, []).append(e)
 
                 filtered = []
 
                 for uid, pets in user_map.items():
-                    filtered.append(random.choice(pets))  # ユーザー内ランダム
+                    filtered.append(random.choice(pets))
 
                 # =========================
                 # 抽選
@@ -2990,35 +2986,31 @@ class Database:
                 max_entries = min(8, len(filtered))
                 selected = random.sample(filtered, max_entries)
 
-                selected_ids = {e["id"] for e in selected}
+                selected_users = {e["user_id"] for e in selected}
+                selected_entry_ids = {e["id"] for e in selected}
+
                 cancelled = []
 
                 for e in entries:
-                    if e["id"] in selected_ids:
-                        await conn.execute("""
-                            UPDATE race_entries
-                            SET status = 'selected'
-                            WHERE id = $1
-                        """, e["id"])
+
+                    if e["id"] in selected_entry_ids:
+                        status = "selected"
+
+                    elif e["user_id"] in selected_users:
+                        # 同ユーザー他ペット
+                        status = "cancelled"
+
                     else:
-                        await conn.execute("""
-                            UPDATE race_entries
-                            SET status = 'cancelled'
-                            WHERE id = $1
-                        """, e["id"])
+                        status = "cancelled"
+
+                    await conn.execute("""
+                        UPDATE race_entries
+                        SET status = $1
+                        WHERE id = $2
+                    """, status, e["id"])
+
+                    if status == "cancelled":
                         cancelled.append(e)
-
-                await conn.execute("""
-                    UPDATE race_schedules
-                    SET lottery_done = TRUE,
-                        locked = TRUE
-                    WHERE id = $1
-                """, schedule_id)
-
-                return {
-                    "selected": selected,
-                    "cancelled": cancelled
-                }
 
     # =========================
     # レース設定取得
