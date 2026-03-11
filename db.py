@@ -828,7 +828,7 @@ class Database:
         # =========================
         # チンチロゲーム3.12
         # =========================
-        await conn.execute("""
+        await self._execute("""
         CREATE TABLE IF NOT EXISTS chinchiro_games(
             thread_id TEXT PRIMARY KEY,
             guild_id TEXT,
@@ -842,7 +842,7 @@ class Database:
         # =========================
         # チンチロ参加者3.12
         # =========================
-        await conn.execute("""
+        await self._execute("""
         CREATE TABLE IF NOT EXISTS chinchiro_players(
             thread_id TEXT,
             user_id TEXT,
@@ -856,7 +856,7 @@ class Database:
         # =========================
         # チンチロラウンド3.12
         # =========================
-        await conn.execute("""
+        await self._execute("""
         CREATE TABLE IF NOT EXISTS chinchiro_round(
             thread_id TEXT PRIMARY KEY,
             parent_hand_rank INT,
@@ -4000,3 +4000,60 @@ class Database:
             AND schedule_id=$2
             AND status='pending'
         """, pet_id, schedule_id)
+
+
+    # ======================================================
+    # チンチロ3.12
+    # ======================================================
+
+    async def create_chinchiro_game(self, thread_id, guild_id, host_id, players):
+        await self._execute("""
+            INSERT INTO chinchiro_games(thread_id, guild_id, host_id, phase)
+            VALUES ($1,$2,$3,'parent_decision')
+            ON CONFLICT DO NOTHING
+        """, thread_id, guild_id, host_id)
+
+        for i, uid in enumerate(players):
+            await self._execute("""
+                INSERT INTO chinchiro_players(thread_id,user_id,turn_order)
+                VALUES ($1,$2,$3)
+                ON CONFLICT DO NOTHING
+            """, thread_id, uid, i)
+
+
+    async def decide_first_parent(self, thread_id):
+        players = await self._fetch("""
+            SELECT user_id
+            FROM chinchiro_players
+            WHERE thread_id=$1
+            ORDER BY turn_order
+        """, thread_id)
+
+        best = None
+        best_score = -9999
+
+        while True:
+            tie = False
+
+            for p in players:
+                dice = roll_dice()
+                name, score = judge_hand(dice)
+
+                if score > best_score:
+                    best = p["user_id"]
+                    best_score = score
+                    tie = False
+                elif score == best_score:
+                    tie = True
+
+            if not tie:
+                break
+
+        await self._execute("""
+            UPDATE chinchiro_games
+            SET parent_id=$1,
+                phase='betting'
+            WHERE thread_id=$2
+        """, best, thread_id)
+
+        return best
