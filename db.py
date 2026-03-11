@@ -2972,7 +2972,7 @@ class Database:
 
                 for e in entries:
                     uid = e["user_id"]
-                   user_map.setdefault(uid, []).append(e)
+                    user_map.setdefault(uid, []).append(e)
 
                 filtered = []
 
