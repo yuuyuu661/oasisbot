@@ -205,7 +205,7 @@ class BalanceCog(commands.Cog):
             if not intro_link:
                 return
 
-            send_channel = after.channel
+            send_channel = after.channel.text_channel
 
             if not send_channel:
                 return
