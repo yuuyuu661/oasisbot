@@ -197,7 +197,7 @@ class BalanceCog(commands.Cog):
                 async for msg in ch.history(oldest_first=True):
                     if msg.author.id == member.id:
                        intro_link = msg.jump_url
-                        break
+                       break
 
                 if intro_link:
                     break
