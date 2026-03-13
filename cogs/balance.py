@@ -194,7 +194,7 @@ class BalanceCog(commands.Cog):
                 if not ch:
                     continue
 
-                async for msg in ch.history(oldest_first=True):
+                async for msg in ch.history(limit=None):
                     if msg.author.id == member.id:
                        intro_link = msg.jump_url
                        break
@@ -205,7 +205,7 @@ class BalanceCog(commands.Cog):
             if not intro_link:
                 return
 
-            send_channel = guild.get_channel(int(watch_channels[0]))
+            send_channel = after.channel
 
             if not send_channel:
                 return
