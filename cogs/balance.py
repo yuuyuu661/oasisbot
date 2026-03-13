@@ -366,6 +366,11 @@ class BalanceCog(commands.Cog):
         # ------------------------
         # バッジ画像生成
         # ------------------------
+        print("===== PAY DEBUG =====")
+        print("SENDER:", sender.id)
+        print("TARGET:", member.id)
+        print("====================")
+
         print("STEP1: get badges start")
         user_badges = await db.get_user_badges(
             str(member.id),
