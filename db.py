@@ -877,7 +877,7 @@ class Database:
         # =========================
         # 自己紹介URL
         # =========================
-        await conn.execute("""
+        await self._execute("""
         CREATE TABLE IF NOT EXISTS intro_urls(
             guild_id TEXT,
             user_id TEXT,
