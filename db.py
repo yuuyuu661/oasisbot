@@ -867,7 +867,7 @@ class Database:
         # =========================
         # 自動自己紹介設定3.14
         # =========================
-        await conn.execute("""
+        await self._execute("""
         CREATE TABLE IF NOT EXISTS intro_auto_settings(
             guild_id TEXT PRIMARY KEY,
             category_ids TEXT,
