@@ -453,7 +453,7 @@ class BalanceCog(commands.Cog):
 
         print("STEP1: get badges start")
         user_badges = await db.get_user_badges(
-            str(member.id),
+            str(sender.id),
             str(guild.id)
         )
         print("STEP2: user_badges =", user_badges)
