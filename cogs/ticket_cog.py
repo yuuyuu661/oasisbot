@@ -116,14 +116,14 @@ class TicketCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    SUPPORT_ROLE_IDS = [
+        1445403608035364874,
+    ]
+
     async def cog_load(self):
 
-        settings = await self.bot.db.get_settings_global()
-
-        support_role = int(settings["ticket_support_role"])
-
         for lb in load_labels():
-            self.bot.add_view(TicketView(lb, support_role))
+            self.bot.add_view(TicketView(lb))
 
     @app_commands.command(name="ticket")
     async def ticket_panel(self, interaction: discord.Interaction, label: Optional[str] = "問い合わせ"):
@@ -145,3 +145,4 @@ class TicketCog(commands.Cog):
 async def setup(bot):
 
     await bot.add_cog(TicketCog(bot))
+
