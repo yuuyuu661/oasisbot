@@ -312,7 +312,10 @@ class BalanceCog(commands.Cog):
         # バッジ画像生成
         # ------------------------
         print("STEP1: get badges start")
-        user_badges = await db.get_user_badges(str(member.id))
+        user_badges = await db.get_user_badges(
+            str(member.id),
+            str(guild.id)
+        )
         print("STEP2: user_badges =", user_badges)
         badge_buf = build_badge_image(user_badges)
         print("STEP3: badge_buf =", badge_buf)
