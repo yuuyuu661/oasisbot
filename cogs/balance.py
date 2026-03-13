@@ -169,6 +169,66 @@ class BalanceCog(commands.Cog):
             ephemeral=True
         )
 
+    # ================================
+    # VC入室時 自動自己紹介リンク送信
+    # ================================
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member, before, after):
+
+        # 入室のみ検知
+        if before.channel == after.channel:
+            return
+
+        if not after.channel:
+            return
+
+        guild = member.guild
+        guild_id = str(guild.id)
+
+        settings = await self.bot.db.get_intro_auto_settings(guild_id)
+        if not settings:
+            return
+
+        category_ids = settings["categories"]
+        watch_channels = settings["channels"]
+
+        vc = after.channel
+
+        if not vc.category:
+            return
+
+        if str(vc.category.id) not in category_ids:
+            return
+
+        intro_link = None
+
+        for ch_id in watch_channels:
+            ch = guild.get_channel(int(ch_id))
+            if not ch:
+                continue
+
+            async for msg in ch.history(limit=50):
+                if msg.author.id == member.id:
+                    intro_link = msg.jump_url
+                    break
+
+            if intro_link:
+            break
+
+        if not intro_link:
+            return
+
+        # VCテキスト取得（通常VC）
+        vc_text = guild.get_channel(vc.id)
+
+        if vc_text:
+            try:
+                await vc_text.send(
+                    f"📢 {member.mention} の自己紹介はこちら\n{intro_link}"
+                )
+            except:
+                pass
+
 
     @app_commands.command(
         name="badge_add",
