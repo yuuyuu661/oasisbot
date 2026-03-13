@@ -207,7 +207,7 @@ class BalanceCog(commands.Cog):
             if not ch:
                 continue
 
-            async for msg in ch.history(limit=50):
+            async for msg in ch.history(oldest_first=True):
                 if msg.author.id == member.id:
                     intro_link = msg.jump_url
                     break
@@ -218,16 +218,21 @@ class BalanceCog(commands.Cog):
         if not intro_link:
             return
 
-        # VCテキスト取得（通常VC）
-        vc_text = guild.get_channel(vc.id)
+        send_channel = None
+        for ch in vc.category.channels:
+            if isinstance(ch, discord.TextChannel):
+                send_channel = ch
+                break
 
-        if vc_text:
-            try:
-                await vc_text.send(
-                    f"📢 {member.mention} の自己紹介はこちら\n{intro_link}"
-                )
-            except:
-                pass
+        if not send_channel:
+            return
+
+        try:
+            await send_channel.send(
+                f"📢 {member.mention} の自己紹介はこちら\n{intro_link}"
+            )
+        except:
+            pass
 
 
     @app_commands.command(
