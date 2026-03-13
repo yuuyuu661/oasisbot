@@ -146,7 +146,12 @@ class TicketCog(commands.Cog):
         )
 
 async def setup(bot):
+    cog = TicketCog(bot)
+    await bot.add_cog(cog)
 
-    await bot.add_cog(TicketCog(bot))
+    for cmd in cog.get_app_commands():
+        for gid in bot.GUILD_IDS:
+            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
 
 
