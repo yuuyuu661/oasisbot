@@ -864,6 +864,17 @@ class Database:
         )
         """)
 
+        # =========================
+        # 自動自己紹介設定3.14
+        # =========================
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS intro_auto_settings(
+            guild_id TEXT PRIMARY KEY,
+            category_ids TEXT,
+            watch_channels TEXT
+        )
+        """)        
+
         # -----------------------------------------
         # race_entries に status カラムがなければ追加
         # -----------------------------------------
@@ -4059,3 +4070,31 @@ class Database:
         """, best, thread_id)
 
         return best
+
+    # ======================================================
+    # 自己紹介3.13
+    # ======================================================
+    async def save_intro_auto_settings(self, guild_id, category_ids, watch_channels):
+        await self._execute("""
+            INSERT INTO intro_auto_settings(guild_id, category_ids, watch_channels)
+            VALUES($1,$2,$3)
+            ON CONFLICT(guild_id)
+            DO UPDATE SET
+                category_ids = EXCLUDED.category_ids,
+                watch_channels = EXCLUDED.watch_channels
+        """, guild_id, json.dumps(category_ids), json.dumps(watch_channels))
+
+    async def get_intro_auto_settings(self, guild_id):
+        row = await self._fetchrow("""
+            SELECT * FROM intro_auto_settings
+            WHERE guild_id=$1
+        """, guild_id)
+
+        if not row:
+            return None
+
+        return {
+            "categories": json.loads(row["category_ids"]),
+            "channels": json.loads(row["watch_channels"])
+        }
+
