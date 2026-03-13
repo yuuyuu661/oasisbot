@@ -85,7 +85,11 @@ class BalanceCog(commands.Cog):
             return
 
         # ⭐ URL保存対象チャンネル設定を見る
-        watch_channels = await self.bot.db.get_intro_watch_channels(str(guild.id))
+        settings = await self.bot.db.get_intro_auto_settings(str(guild.id))
+        if not settings:
+            return
+
+        watch_channels = settings["channels"]
 
         if not watch_channels:
             return
