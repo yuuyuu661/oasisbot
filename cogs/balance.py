@@ -175,64 +175,44 @@ class BalanceCog(commands.Cog):
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
 
-        # 入室のみ検知
-        if before.channel == after.channel:
-            return
+        # 入室のみ
+        if not before.channel and after.channel:
 
-        if not after.channel:
-            return
+            guild = member.guild
+            guild_id = str(guild.id)
 
-        guild = member.guild
-        guild_id = str(guild.id)
+            settings = await self.bot.db.get_intro_auto_settings(guild_id)
+            if not settings:
+                return
 
-        settings = await self.bot.db.get_intro_auto_settings(guild_id)
-        if not settings:
-            return
+            watch_channels = settings["channels"]
 
-        category_ids = settings["categories"]
-        watch_channels = settings["channels"]
+            intro_link = None
 
-        vc = after.channel
+            for ch_id in watch_channels:
+                ch = guild.get_channel(int(ch_id))
+                if not ch:
+                    continue
 
-        if not vc.category:
-            return
+                async for msg in ch.history(oldest_first=True):
+                    if msg.author.id == member.id:
+                       intro_link = msg.jump_url
+                        break
 
-        if str(vc.category.id) not in category_ids:
-            return
-
-        intro_link = None
-
-        for ch_id in watch_channels:
-            ch = guild.get_channel(int(ch_id))
-            if not ch:
-                continue
-
-            async for msg in ch.history(oldest_first=True):
-                if msg.author.id == member.id:
-                    intro_link = msg.jump_url
+                if intro_link:
                     break
 
-            if intro_link:
-                break
+            if not intro_link:
+                return
 
-        if not intro_link:
-            return
+            send_channel = guild.get_channel(int(watch_channels[0]))
 
-        send_channel = None
-        for ch in vc.category.channels:
-            if isinstance(ch, discord.TextChannel):
-                send_channel = ch
-                break
+            if not send_channel:
+                return
 
-        if not send_channel:
-            return
-
-        try:
             await send_channel.send(
                 f"📢 {member.mention} の自己紹介はこちら\n{intro_link}"
             )
-        except:
-            pass
 
 
     @app_commands.command(
