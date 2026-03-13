@@ -213,7 +213,7 @@ class BalanceCog(commands.Cog):
                     break
 
             if intro_link:
-            break
+                break
 
         if not intro_link:
             return
