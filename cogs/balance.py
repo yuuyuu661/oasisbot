@@ -63,6 +63,12 @@ def load_badge_files():
     return files
 
 BADGE_FILES = load_badge_files()
+
+def get_badge_choices():
+    return [
+        app_commands.Choice(name=badge_name, value=badge_name)
+        for badge_name in sorted(BADGE_FILES.keys())
+    ]
     
 class BalanceCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -172,15 +178,26 @@ class BalanceCog(commands.Cog):
         role="対象ロール",
         badge="付与するバッジ"
     )
+    @app_commands.command(
+        name="badge_add",
+        description="ユーザーまたはロールにバッジ付与（管理者）"
+    )
+    @app_commands.describe(
+        member="対象ユーザー",
+        role="対象ロール",
+        badge="付与するバッジ"
+    )
+    @app_commands.choices(badge=get_badge_choices())
     async def badge_add(
         self,
         interaction: discord.Interaction,
-        badge: str,
+        badge: app_commands.Choice[str],
         member: discord.Member | None = None,
         role: discord.Role | None = None,
     ):
         guild = interaction.guild
         user = interaction.user
+        badge_value = badge.value
 
         # 管理者チェック
         settings = await self.bot.db.get_settings()
@@ -189,13 +206,6 @@ class BalanceCog(commands.Cog):
         if not any(str(r.id) in admin_roles for r in user.roles):
             return await interaction.response.send_message(
                 "❌ 管理者のみ実行できます。",
-                ephemeral=True
-            )
-
-        # バッジ存在チェック（自動取得）
-        if badge not in BADGE_FILES:
-            return await interaction.response.send_message(
-                f"❌ バッジが存在しません\n利用可能: {', '.join(BADGE_FILES.keys())}",
                 ephemeral=True
             )
 
@@ -218,11 +228,11 @@ class BalanceCog(commands.Cog):
             await self.bot.db.add_user_badge(
                 str(member.id),
                 str(guild.id),
-                badge
+                badge_value
             )
 
             return await interaction.response.send_message(
-                f"🏅 {member.mention} に **{badge}** を付与しました。",
+                f"🏅 {member.mention} に **{badge_value}** を付与しました。",
                 ephemeral=True
             )
 
@@ -244,12 +254,12 @@ class BalanceCog(commands.Cog):
             await self.bot.db.add_user_badge(
                 str(m.id),
                 str(guild.id),
-                badge
+                badge_value
             )
             count += 1
 
         await interaction.followup.send(
-            f"🏅 {role.name} の {count}人に **{badge}** を付与しました。",
+            f"🏅 {role.name} の {count}人に **{badge_value}** を付与しました。",
             ephemeral=True
         )
 
@@ -263,15 +273,17 @@ class BalanceCog(commands.Cog):
         role="対象ロール",
         badge="削除するバッジ"
     )
+    @app_commands.choices(badge=get_badge_choices())
     async def badge_remove(
         self,
         interaction: discord.Interaction,
-        badge: str,
+        badge: app_commands.Choice[str],
         member: discord.Member | None = None,
         role: discord.Role | None = None,
     ):
         guild = interaction.guild
         user = interaction.user
+        badge_value = badge.value
 
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
@@ -279,12 +291,6 @@ class BalanceCog(commands.Cog):
         if not any(str(r.id) in admin_roles for r in user.roles):
             return await interaction.response.send_message(
                 "❌ 管理者のみ実行できます。",
-                ephemeral=True
-            )
-
-        if badge not in BADGE_FILES:
-            return await interaction.response.send_message(
-                f"❌ バッジが存在しません\n利用可能: {', '.join(BADGE_FILES.keys())}",
                 ephemeral=True
             )
 
@@ -305,16 +311,22 @@ class BalanceCog(commands.Cog):
             await self.bot.db.remove_user_badge(
                 str(member.id),
                 str(guild.id),
-                badge
+                badge_value
             )
 
             return await interaction.response.send_message(
-                f"🗑️ {member.mention} から **{badge}** を削除しました。",
+                f"🗑️ {member.mention} から **{badge_value}** を削除しました。",
                 ephemeral=True
             )
 
         # ロール削除
         members = role.members
+
+        if not members:
+            return await interaction.response.send_message(
+                "このロールにはメンバーがいません。",
+                ephemeral=True
+            )
 
         await interaction.response.defer(ephemeral=True)
 
@@ -323,12 +335,12 @@ class BalanceCog(commands.Cog):
             await self.bot.db.remove_user_badge(
                 str(m.id),
                 str(guild.id),
-                badge
+                badge_value
             )
             count += 1
 
         await interaction.followup.send(
-            f"🗑️ {role.name} の {count}人から **{badge}** を削除しました。",
+            f"🗑️ {role.name} の {count}人から **{badge_value}** を削除しました。",
             ephemeral=True
         )
 
