@@ -128,8 +128,7 @@ class TicketCog(commands.Cog):
     @app_commands.command(name="ticket")
     async def ticket_panel(self, interaction: discord.Interaction, label: Optional[str] = "問い合わせ"):
 
-        settings = await self.bot.db.get_settings_global()
-        support_role = int(settings["ticket_support_role"])
+        SUPPORT_ROLE_ID = 1445403608035364874
 
         labels = load_labels()
         if label not in labels:
@@ -144,4 +143,5 @@ class TicketCog(commands.Cog):
         )
 
 async def setup(bot):
+
     await bot.add_cog(TicketCog(bot))
