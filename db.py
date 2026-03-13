@@ -3900,14 +3900,16 @@ class Database:
     # ======================================================
     # ユーザーのバッジ一覧取得
     # ======================================================
-    async def get_user_badges(self, user_id: str) -> list[str]:
+    async def get_user_badges(self, user_id: str, guild_id: str) -> list[str]:
         await self._ensure_pool()
         async with self.pool.acquire() as conn:
             rows = await conn.fetch("""
-                SELECT DISTINCT badge
+                SELECT badge
                 FROM user_badges
                 WHERE user_id = $1
-            """, user_id)
+                  AND guild_id = $2
+                ORDER BY created_at
+            """, user_id, guild_id)
 
         print("ROWS:", rows)
         return [r["badge"] for r in rows]
