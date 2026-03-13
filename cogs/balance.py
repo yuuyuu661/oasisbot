@@ -53,6 +53,16 @@ def build_badge_image(badges: list[str]) -> io.BytesIO | None:
     canvas.save(buf, format="PNG")
     buf.seek(0)
     return buf
+
+def load_badge_files():
+    files = {}
+    for f in os.listdir(BADGE_DIR):
+        if f.endswith(".png"):
+            name = os.path.splitext(f)[0]
+            files[name] = f
+    return files
+
+BADGE_FILES = load_badge_files()
     
 class BalanceCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -153,28 +163,26 @@ class BalanceCog(commands.Cog):
             ephemeral=True
         )
 
-    # ================================
-    # /badge_add バッチ付与
-    # ================================
-
     @app_commands.command(
         name="badge_add",
-        description="ユーザーにバッジを付与します（管理者用）"
+        description="ユーザーまたはロールにバッジ付与（管理者）"
     )
     @app_commands.describe(
-        member="付与するユーザー",
-        badge="付与するバッジ（gold / silver / bronze）"
+        member="対象ユーザー",
+        role="対象ロール",
+        badge="付与するバッジ"
     )
     async def badge_add(
         self,
         interaction: discord.Interaction,
-        member: discord.Member,
-        badge: str
+        badge: str,
+        member: discord.Member | None = None,
+        role: discord.Role | None = None,
     ):
         guild = interaction.guild
         user = interaction.user
 
-        # 管理者チェック（既存ロジック流用）
+        # 管理者チェック
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
 
@@ -184,20 +192,67 @@ class BalanceCog(commands.Cog):
                 ephemeral=True
             )
 
-        if badge not in ("gold", "silver", "bronze"):
+        # バッジ存在チェック
+        if badge not in BADGE_FILES:
             return await interaction.response.send_message(
-                "❌ バッジは gold / silver / bronze のみです。",
+                f"❌ バッジが存在しません\n利用可能: {', '.join(BADGE_FILES.keys())}",
                 ephemeral=True
             )
 
-        await self.bot.db.add_user_badge(
-            str(member.id),
-            str(guild.id),
-            badge
+        # 両方未指定
+        if not member and not role:
+            return await interaction.response.send_message(
+                "❌ ユーザーまたはロールを指定してください。",
+                ephemeral=True
+            )
+
+        # 両方指定
+        if member and role:
+            return await interaction.response.send_message(
+                "❌ ユーザーとロールを同時に指定できません。",
+                ephemeral=True
+            )
+
+        # =========================
+        # 個別付与
+        # =========================
+        if member:
+            await self.bot.db.add_user_badge(
+                str(member.id),
+                str(guild.id),
+                badge
+            )
+
+        return await interaction.response.send_message(
+            f"🏅 {member.mention} に **{badge}** を付与しました。",
+            ephemeral=True
         )
 
-        await interaction.response.send_message(
-            f"🏅 {member.mention} に **{badge}** バッジを付与しました。",
+        # =========================
+        # ロール付与
+        # =========================
+        members = role.members
+
+        if not members:
+            return await interaction.response.send_message(
+                "このロールにはメンバーがいません。",
+                ephemeral=True
+            )
+
+        await interaction.response.defer(ephemeral=True)
+
+        count = 0
+
+        for m in members:
+            await self.bot.db.add_user_badge(
+                str(m.id),
+                str(guild.id),
+                badge
+            )
+            count += 1
+
+        await interaction.followup.send(
+            f"🏅 {role.name} の {count}人に **{badge}** を付与しました。",
             ephemeral=True
         )
 
