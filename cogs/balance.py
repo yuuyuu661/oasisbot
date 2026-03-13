@@ -191,28 +191,18 @@ class BalanceCog(commands.Cog):
 
         vc = after.channel
 
-        # ⭐ 指定カテゴリーのみ対象
+        # カテゴリー対象チェック
         if not vc.category:
             return
 
         if vc.category.id not in settings["categories"]:
             return
 
-        intro_link = None
-
-        # ⭐ 指定テキストチャンネルのみ検索
-        for ch_id in settings["channels"]:
-            ch = guild.get_channel(int(ch_id))
-            if not ch:
-                continue
-
-            async for msg in ch.history(limit=50):
-                if msg.author.id == member.id:
-                    intro_link = msg.jump_url
-                    break
-
-            if intro_link:
-                break
+        # ⭐ DBから取得する（ここ重要）
+        intro_link = await self.bot.db.get_intro_url(
+            guild_id,
+            str(member.id)
+        )
 
         if not intro_link:
             return
