@@ -55,13 +55,16 @@ class CloseTicketView(View):
 # ticket create view
 # =========================
 
+SUPPORT_ROLE_IDS = [
+    1445403608035364874,
+]
+
 class TicketView(View):
 
-    def __init__(self, label, support_role_id):
+    def __init__(self, label):
         super().__init__(timeout=None)
         self.label = label
         self.slug = slugify(label)
-        self.support_role_id = support_role_id
 
         btn = Button(
             label=f"{label}チケット作成",
@@ -84,15 +87,17 @@ class TicketView(View):
             await interaction.response.send_message("カテゴリ内で実行してください", ephemeral=True)
             return
 
-        support_role = guild.get_role(self.support_role_id)
-
         name = f"{self.slug}-{interaction.user.name}"
 
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True),
-            support_role: discord.PermissionOverwrite(view_channel=True)
         }
+
+        for rid in SUPPORT_ROLE_IDS:
+            role = guild.get_role(rid)
+            if role:
+                overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
 
         ch = await guild.create_text_channel(
             name=name,
@@ -128,14 +133,12 @@ class TicketCog(commands.Cog):
     @app_commands.command(name="ticket")
     async def ticket_panel(self, interaction: discord.Interaction, label: Optional[str] = "問い合わせ"):
 
-        SUPPORT_ROLE_ID = 1445403608035364874
-
         labels = load_labels()
         if label not in labels:
             labels.append(label)
             save_labels(labels)
 
-        view = TicketView(label, support_role)
+        view = TicketView(label)
 
         await interaction.response.send_message(
             f"{label}チケットを作成できます",
@@ -145,4 +148,5 @@ class TicketCog(commands.Cog):
 async def setup(bot):
 
     await bot.add_cog(TicketCog(bot))
+
 
