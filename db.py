@@ -873,7 +873,20 @@ class Database:
             category_ids TEXT,
             watch_channels TEXT
         )
-        """)        
+        """) 
+        # =========================
+        # 自己紹介URL
+        # =========================
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS intro_urls(
+            guild_id TEXT,
+            user_id TEXT,
+            message_url TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY(guild_id, user_id)
+        )
+        """)
+        
 
         # -----------------------------------------
         # race_entries に status カラムがなければ追加
@@ -4097,4 +4110,22 @@ class Database:
             "categories": json.loads(row["category_ids"]),
             "channels": json.loads(row["watch_channels"])
         }
+        
+    async def save_intro_url(self, guild_id, user_id, url):
+        await self._execute("""
+            INSERT INTO intro_urls(guild_id, user_id, message_url)
+            VALUES($1,$2,$3)
+            ON CONFLICT(guild_id,user_id)
+            DO UPDATE SET
+                message_url = EXCLUDED.message_url,
+                updated_at = CURRENT_TIMESTAMP
+        """, guild_id, user_id, url)
 
+    async def get_intro_url(self, guild_id, user_id):
+        row = await self._fetchrow("""
+            SELECT message_url
+            FROM intro_urls
+            WHERE guild_id=$1 AND user_id=$2
+        """, guild_id, user_id)
+
+        return row["message_url"] if row else None
