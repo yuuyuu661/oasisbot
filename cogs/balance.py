@@ -506,6 +506,48 @@ class BalanceCog(commands.Cog):
         except Exception as e:
             print("log_pay error:", repr(e))
 
+    @app_commands.command(name="自動自己紹介送信設定", description="VC入室時に自己紹介リンクを送信する設定")
+    @app_commands.describe(
+        category1="対象カテゴリー",
+        category2="対象カテゴリー",
+        category3="対象カテゴリー",
+        category4="対象カテゴリー",
+        category5="対象カテゴリー",
+        ch1="監視テキストチャンネル",
+        ch2="監視テキストチャンネル",
+        ch3="監視テキストチャンネル",
+        ch4="監視テキストチャンネル",
+        ch5="監視テキストチャンネル",
+    )
+    async def intro_auto_setting(
+        self,
+        interaction: discord.Interaction,
+        category1: discord.CategoryChannel,
+        ch1: discord.TextChannel,
+        category2: discord.CategoryChannel | None = None,
+        category3: discord.CategoryChannel | None = None,
+        category4: discord.CategoryChannel | None = None,
+        category5: discord.CategoryChannel | None = None,
+        ch2: discord.TextChannel | None = None,
+        ch3: discord.TextChannel | None = None,
+        ch4: discord.TextChannel | None = None,
+        ch5: discord.TextChannel | None = None,
+    ):
+        categories = [c.id for c in [category1, category2, category3, category4, category5] if c]
+        channels = [c.id for c in [ch1, ch2, ch3, ch4, ch5] if c]
+
+        await self.bot.db.save_intro_auto_settings(
+            str(interaction.guild.id),
+            categories,
+            channels
+        )
+
+        await interaction.response.send_message(
+            f"✅ 自動自己紹介設定完了\n"
+            f"カテゴリー数: {len(categories)}\n"
+            f"監視チャンネル数: {len(channels)}",
+            ephemeral=True
+        )
 
 
 # --------------------------
