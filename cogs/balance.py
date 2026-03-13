@@ -175,44 +175,51 @@ class BalanceCog(commands.Cog):
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
 
+        if member.bot:
+            return
+
         # 入室のみ
-        if not before.channel and after.channel:
+        if before.channel or not after.channel:
+            return
 
-            guild = member.guild
-            guild_id = str(guild.id)
+        guild = member.guild
+        guild_id = str(guild.id)
 
-            settings = await self.bot.db.get_intro_auto_settings(guild_id)
-            if not settings:
-                return
+        settings = await self.bot.db.get_intro_auto_settings(guild_id)
+        if not settings:
+            return
 
-            watch_channels = settings["channels"]
+        vc = after.channel
 
-            intro_link = None
+        # ⭐ 指定カテゴリーのみ対象
+        if not vc.category:
+            return
 
-            for ch_id in watch_channels:
-                ch = guild.get_channel(int(ch_id))
-                if not ch:
-                    continue
+        if vc.category.id not in settings["categories"]:
+            return
 
-                async for msg in ch.history(limit=None):
-                    if msg.author.id == member.id:
-                       intro_link = msg.jump_url
-                       break
+        intro_link = None
 
-                if intro_link:
+        # ⭐ 指定テキストチャンネルのみ検索
+        for ch_id in settings["channels"]:
+            ch = guild.get_channel(int(ch_id))
+            if not ch:
+                continue
+
+            async for msg in ch.history(limit=50):
+                if msg.author.id == member.id:
+                    intro_link = msg.jump_url
                     break
 
-            if not intro_link:
-                return
+            if intro_link:
+                break
 
-            send_channel = after.channel
+        if not intro_link:
+            return
 
-            if not send_channel:
-                return
-
-            await send_channel.send(
-                f"📢 {member.mention} の自己紹介はこちら\n{intro_link}"
-            )
+        await vc.send(
+            f"📢 {member.mention} の自己紹介はこちら\n{intro_link}"
+        )
 
 
     @app_commands.command(
