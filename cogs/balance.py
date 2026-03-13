@@ -270,6 +270,29 @@ class BalanceCog(commands.Cog):
                 ephemeral=True
             )
 
+        @commands.Cog.listener()
+        async def on_message(self, message):
+
+            if message.author.bot:
+                return
+
+            guild = message.guild
+            if not guild:
+                return
+
+            settings = await self.bot.db.get_intro_auto_settings(str(guild.id))
+            if not settings:
+                return
+
+            if message.channel.id not in settings["channels"]:
+                return
+
+            await self.bot.db.save_intro_url(
+                str(guild.id),
+                str(message.author.id),
+                message.jump_url
+            )
+
         # =========================
         # ロール付与
         # =========================
@@ -590,6 +613,55 @@ class BalanceCog(commands.Cog):
             f"監視チャンネル数: {len(channels)}",
             ephemeral=True
         )
+
+    @app_commands.command(
+        name="自己紹介url保存",
+        description="指定テキストチャンネルの自己紹介URLを全保存します"
+    )
+    @app_commands.describe(
+        ch1="対象テキストチャンネル",
+        ch2="対象テキストチャンネル",
+        ch3="対象テキストチャンネル",
+        ch4="対象テキストチャンネル",
+        ch5="対象テキストチャンネル",
+    )
+    async def save_intro_urls(
+        self,
+        interaction: discord.Interaction,
+        ch1: discord.TextChannel,
+        ch2: discord.TextChannel | None = None,
+        ch3: discord.TextChannel | None = None,
+        ch4: discord.TextChannel | None = None,
+        ch5: discord.TextChannel | None = None,
+    ):
+
+        await interaction.response.defer(ephemeral=True)
+
+        channels = [c for c in [ch1, ch2, ch3, ch4, ch5] if c]
+
+        total_saved = 0
+
+        for ch in channels:
+
+            async for msg in ch.history(limit=None, oldest_first=True):
+
+                if msg.author.bot:
+                    continue
+
+                await self.bot.db.save_intro_url(
+                    str(interaction.guild.id),
+                    str(msg.author.id),
+                    msg.jump_url
+                )
+
+                total_saved += 1
+
+    await interaction.followup.send(
+        f"✅ 自己紹介URL保存完了\n"
+        f"対象チャンネル: {len(channels)}\n"
+        f"保存件数: {total_saved}",
+        ephemeral=True
+    )
 
 
 # --------------------------
