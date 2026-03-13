@@ -22,7 +22,7 @@ def build_badge_image(badges: list[str]) -> io.BytesIO | None:
     if not badges:
         return None
 
-    size = 64          # バッジ1枚の表示サイズ（小さめ）
+    size = 40          # バッジ1枚の表示サイズ（小さめ）
     gap = 6            # 間隔
 
     imgs = []
