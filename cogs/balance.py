@@ -169,15 +169,7 @@ class BalanceCog(commands.Cog):
             ephemeral=True
         )
 
-    @app_commands.command(
-        name="badge_add",
-        description="ユーザーまたはロールにバッジ付与（管理者）"
-    )
-    @app_commands.describe(
-        member="対象ユーザー",
-        role="対象ロール",
-        badge="付与するバッジ"
-    )
+
     @app_commands.command(
         name="badge_add",
         description="ユーザーまたはロールにバッジ付与（管理者）"
