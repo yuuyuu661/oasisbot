@@ -2,6 +2,13 @@ import discord
 from discord.ext import commands
 import time
 
+# ⭐ 監視VCカテゴリー
+WATCH_CATEGORIES = {
+    1420918260328566866,
+    1420918260328566867,
+}
+
+# ⭐ 自己紹介チャンネル対応
 INTRO_CHANNEL_MAP = {
     ("仮", "男"): 1482197753537888296,
     ("仮", "女"): 1482197779496566936,
@@ -9,6 +16,7 @@ INTRO_CHANNEL_MAP = {
     ("本", "女"): 1482197840896987166,
 }
 
+# ⭐ 判定ロール
 ROLE_MAP = {
     "仮": 1482197926754127963,
     "本": 1482197992470614026,
@@ -16,20 +24,16 @@ ROLE_MAP = {
     "女": 1482198021071573043,
 }
 
-CACHE_TTL = 3600  # 1時間
+CACHE_TTL = 3600  # キャッシュ1時間
 
 class IntroCog(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.cache = {}  # user_id -> (url, timestamp)
-        self.vc_cooldown = {}  # user_id -> last_sent_time
+        self.cache = {}
+        self.vc_cooldown = {}
 
-    # ===============================
-    # ロールから対象チャンネル決定
-    # ===============================
-    def resolve_intro_channel(self, member: discord.Member):
-
+    def resolve_intro_channel(self, member):
         roles = {r.id for r in member.roles}
 
         status = None
@@ -50,14 +54,9 @@ class IntroCog(commands.Cog):
 
         return INTRO_CHANNEL_MAP.get((status, gender))
 
-    # ===============================
-    # 自己紹介URL検索（キャッシュ付き）
-    # ===============================
     async def find_intro_url(self, guild, member, channel_id):
-
         now = time.time()
 
-        # キャッシュ確認
         if member.id in self.cache:
             url, ts = self.cache[member.id]
             if now - ts < CACHE_TTL:
@@ -75,9 +74,6 @@ class IntroCog(commands.Cog):
 
         return None
 
-    # ===============================
-    # VC入室時処理
-    # ===============================
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
 
@@ -91,9 +87,15 @@ class IntroCog(commands.Cog):
         if after.channel is None:
             return
 
+        vc = after.channel
+
+        # ⭐ 監視カテゴリー判定
+        if not vc.category or vc.category.id not in WATCH_CATEGORIES:
+            return
+
         now = time.time()
 
-        # 連投防止（30秒）
+        # ⭐ 連投防止
         if member.id in self.vc_cooldown:
             if now - self.vc_cooldown[member.id] < 30:
                 return
@@ -107,7 +109,7 @@ class IntroCog(commands.Cog):
             return
 
         try:
-            await after.channel.send(
+            await vc.send(
                 f"📢 {member.mention} の自己紹介はこちら\n{url}"
             )
             self.vc_cooldown[member.id] = now
