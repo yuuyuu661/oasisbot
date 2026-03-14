@@ -57,8 +57,11 @@ class IntroCog(commands.Cog):
     async def find_intro_url(self, guild, member, channel_id):
         now = time.time()
 
-        if member.id in self.cache:
-            url, ts = self.cache[member.id]
+        key = (guild.id, member.id)
+
+        # ⭐ キャッシュ確認
+        if key in self.cache:
+            url, ts = self.cache[key]
             if now - ts < CACHE_TTL:
                 return url
 
@@ -69,7 +72,7 @@ class IntroCog(commands.Cog):
         async for msg in channel.history(limit=40):
             if msg.author.id == member.id:
                 url = msg.jump_url
-                self.cache[member.id] = (url, now)
+                self.cache[key] = (url, now)
                 return url
 
         return None
