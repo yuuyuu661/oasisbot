@@ -198,47 +198,7 @@ class BalanceCog(commands.Cog):
             ephemeral=True
         )
 
-    # ================================
-    # VC入室時 自動自己紹介リンク送信
-    # ================================
-    @commands.Cog.listener()
-    async def on_voice_state_update(self, member, before, after):
 
-        if member.bot:
-            return
-
-        # 入室のみ
-        if before.channel or not after.channel:
-            return
-
-        guild = member.guild
-        guild_id = str(guild.id)
-
-        settings = await self.bot.db.get_intro_auto_settings(guild_id)
-        if not settings:
-            return
-
-        vc = after.channel
-
-        # カテゴリー対象チェック
-        if not vc.category:
-            return
-
-        if vc.category.id not in settings["categories"]:
-            return
-
-        # ⭐ DBから取得する（ここ重要）
-        intro_link = await self.bot.db.get_intro_url(
-            guild_id,
-            str(member.id)
-        )
-
-        if not intro_link:
-            return
-
-        await vc.send(
-            f"📢 {member.mention} の自己紹介はこちら\n{intro_link}"
-        )
 
 
     @app_commands.command(
@@ -579,97 +539,7 @@ class BalanceCog(commands.Cog):
         except Exception as e:
             print("log_pay error:", repr(e))
 
-    @app_commands.command(name="自動自己紹介送信設定", description="VC入室時に自己紹介リンクを送信する設定")
-    @app_commands.describe(
-        category1="対象カテゴリー",
-        category2="対象カテゴリー",
-        category3="対象カテゴリー",
-        category4="対象カテゴリー",
-        category5="対象カテゴリー",
-        ch1="監視テキストチャンネル",
-        ch2="監視テキストチャンネル",
-        ch3="監視テキストチャンネル",
-        ch4="監視テキストチャンネル",
-        ch5="監視テキストチャンネル",
-    )
-    async def intro_auto_setting(
-        self,
-        interaction: discord.Interaction,
-        category1: discord.CategoryChannel,
-        ch1: discord.TextChannel,
-        category2: discord.CategoryChannel | None = None,
-        category3: discord.CategoryChannel | None = None,
-        category4: discord.CategoryChannel | None = None,
-        category5: discord.CategoryChannel | None = None,
-        ch2: discord.TextChannel | None = None,
-        ch3: discord.TextChannel | None = None,
-        ch4: discord.TextChannel | None = None,
-        ch5: discord.TextChannel | None = None,
-    ):
-        categories = [c.id for c in [category1, category2, category3, category4, category5] if c]
-        channels = [c.id for c in [ch1, ch2, ch3, ch4, ch5] if c]
 
-        await self.bot.db.save_intro_auto_settings(
-            str(interaction.guild.id),
-            categories,
-            channels
-        )
-
-        await interaction.response.send_message(
-            f"✅ 自動自己紹介設定完了\n"
-            f"カテゴリー数: {len(categories)}\n"
-            f"監視チャンネル数: {len(channels)}",
-            ephemeral=True
-        )
-
-    @app_commands.command(
-        name="自己紹介url保存",
-        description="指定テキストチャンネルの自己紹介URLを全保存します"
-    )
-    @app_commands.describe(
-        ch1="対象テキストチャンネル",
-        ch2="対象テキストチャンネル",
-        ch3="対象テキストチャンネル",
-        ch4="対象テキストチャンネル",
-        ch5="対象テキストチャンネル",
-    )
-    async def save_intro_urls(
-        self,
-        interaction: discord.Interaction,
-        ch1: discord.TextChannel,
-        ch2: discord.TextChannel | None = None,
-        ch3: discord.TextChannel | None = None,
-        ch4: discord.TextChannel | None = None,
-        ch5: discord.TextChannel | None = None,
-    ):
-
-        await interaction.response.defer(ephemeral=True)
-
-        channels = [c for c in [ch1, ch2, ch3, ch4, ch5] if c]
-
-        total_saved = 0
-
-        for ch in channels:
-
-            async for msg in ch.history(limit=5000, oldest_first=True):
-
-                if msg.author.bot:
-                    continue
-
-                await self.bot.db.save_intro_url(
-                    str(interaction.guild.id),
-                    str(msg.author.id),
-                    msg.jump_url
-                )
-
-                total_saved += 1
-
-        await interaction.followup.send(
-            f"✅ 自己紹介URL保存完了\n"
-            f"対象チャンネル: {len(channels)}\n"
-            f"保存件数: {total_saved}",
-            ephemeral=True
-        )
 
 
 # --------------------------
