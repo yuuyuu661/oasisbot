@@ -65,6 +65,8 @@ class MyBot(commands.Bot):
             "cogs.stamp_system",
             "cogs.chinchiro",    
             "cogs.ticket_cog",
+            "cogs.intro",
+            
         ]
 
         for ext in extensions:
