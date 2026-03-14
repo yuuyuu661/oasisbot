@@ -74,34 +74,8 @@ class BalanceCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.Cog.listener()
-    async def on_message(self, message):
 
-        if message.author.bot:
-            return
 
-        guild = message.guild
-        if not guild:
-            return
-
-        # ⭐ URL保存対象チャンネル設定を見る
-        settings = await self.bot.db.get_intro_auto_settings(str(guild.id))
-        if not settings:
-            return
-
-        watch_channels = settings["channels"]
-
-        if not watch_channels:
-            return
-
-        if message.channel.id not in watch_channels:
-            return
-
-        await self.bot.db.save_intro_url(
-            str(guild.id),
-            str(message.author.id),
-            message.jump_url
-        )
 
     # ================================
     # 内部ヘルパー: 管理者判定
