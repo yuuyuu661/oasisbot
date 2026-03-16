@@ -67,6 +67,8 @@ class MyBot(commands.Bot):
             "cogs.ticket_cog",
             "cogs.intro",
             "cogs.forum",            
+            "cogs.stamp",
+            
             
         ]
 
