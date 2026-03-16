@@ -105,11 +105,18 @@ class StampContextCog(commands.Cog):
         self.bot = bot
         self.bot.stamp_target = {}
 
+    async def cog_load(self):
+
         self.ctx_menu = app_commands.ContextMenu(
             name="スタンプ",
             callback=self.stamp_menu
         )
-        bot.tree.add_command(self.ctx_menu)
+
+        for gid in self.bot.GUILD_IDS:
+            self.bot.tree.add_command(
+                self.ctx_menu,
+                guild=discord.Object(id=gid)
+            )
 
     async def stamp_menu(self, interaction: discord.Interaction, message: discord.Message):
 
