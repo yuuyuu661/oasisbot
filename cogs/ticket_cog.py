@@ -110,6 +110,17 @@ class TicketCog(commands.Cog):
         guild = interaction.guild
         user = interaction.user
 
+        # ======================
+        # 同時チケット制限
+        # ======================
+        for th in channel.threads:
+            if th.name.endswith(safe_name(user.display_name)):
+                await interaction.response.send_message(
+                    "既に問い合わせチケットがあります",
+                    ephemeral=True
+                )
+                return
+
         thread = await channel.create_thread(
             name=f"{safe_name(title)}-{safe_name(user.display_name)}",
             type=discord.ChannelType.private_thread
