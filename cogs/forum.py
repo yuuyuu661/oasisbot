@@ -7,7 +7,7 @@ LOG_CHANNEL_ID = 1445402811352219852
 PASS_EMOJI = "a_12"
 FAIL_EMOJI = "a_13"
 
-THRESHOLD = 4
+THRESHOLD = 2
 
 
 class ForumJudgeCog(commands.Cog):
