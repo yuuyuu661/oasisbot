@@ -5,8 +5,12 @@ from discord import app_commands
 STAMP_PER_PAGE = 20
 
 
+# =========================
+# Select
+# =========================
 class StampSelect(discord.ui.Select):
-    def __init__(self, emojis, page):
+    def __init__(self, emojis, page, mode):
+        self.mode = mode
 
         options = [
             discord.SelectOption(
@@ -29,34 +33,43 @@ class StampSelect(discord.ui.Select):
         emoji_id = int(self.values[0])
         emoji = interaction.client.get_emoji(emoji_id)
 
-        target = interaction.client.stamp_target.get(interaction.user.id)
+        # =========================
+        # リアクションモード
+        # =========================
+        if self.mode == "react":
+            target = interaction.client.stamp_target.get(interaction.user.id)
 
-        if not target:
-            return await interaction.response.send_message(
-                "対象メッセージが見つかりません",
-                ephemeral=True
-            )
+            if not target:
+                return await interaction.response.send_message(
+                    "対象メッセージが見つかりません",
+                    ephemeral=True
+                )
 
-        try:
             await target.add_reaction(emoji)
-            await interaction.response.send_message(
-                f"{emoji} スタンプ付与",
-                ephemeral=True
-            )
-        except Exception as e:
-            await interaction.response.send_message(
-                f"失敗: {e}",
+            return await interaction.response.send_message(
+                f"{emoji} リアクション付与",
                 ephemeral=True
             )
 
+        # =========================
+        # 送信モード
+        # =========================
+        elif self.mode == "send":
+            await interaction.channel.send(str(emoji))
+            return await interaction.response.defer()
 
+
+# =========================
+# View
+# =========================
 class StampView(discord.ui.View):
-    def __init__(self, bot, emojis, page=0):
+    def __init__(self, bot, emojis, mode, page=0):
         super().__init__(timeout=60)
 
         self.bot = bot
         self.emojis = emojis
         self.page = page
+        self.mode = mode
 
         self.update_ui()
 
@@ -68,7 +81,7 @@ class StampView(discord.ui.View):
 
         current = self.emojis[start:end]
 
-        self.add_item(StampSelect(current, self.page))
+        self.add_item(StampSelect(current, self.page, self.mode))
 
         if self.page > 0:
             self.add_item(PrevButton())
@@ -99,11 +112,15 @@ class NextButton(discord.ui.Button):
         await interaction.response.edit_message(view=view)
 
 
+# =========================
+# Cog
+# =========================
 class StampContextCog(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.bot.stamp_target = {}
+        if not hasattr(self.bot, "stamp_target"):
+            self.bot.stamp_target = {}
 
     async def cog_load(self):
 
@@ -118,19 +135,16 @@ class StampContextCog(commands.Cog):
                 guild=discord.Object(id=gid)
             )
 
+    # =========================
+    # ContextMenu（リアクション）
+    # =========================
     async def stamp_menu(self, interaction: discord.Interaction, message: discord.Message):
 
         emojis = sorted(self.bot.emojis, key=lambda e: e.name)
 
-        if not emojis:
-            return await interaction.response.send_message(
-                "絵文字がありません",
-                ephemeral=True
-            )
-
         self.bot.stamp_target[interaction.user.id] = message
 
-        view = StampView(self.bot, emojis)
+        view = StampView(self.bot, emojis, mode="react")
 
         await interaction.response.send_message(
             "スタンプを選択",
@@ -138,6 +152,27 @@ class StampContextCog(commands.Cog):
             ephemeral=True
         )
 
+    # =========================
+    # Slash（送信）
+    # =========================
+    @app_commands.command(name="スタンプ送信", description="スタンプを送信します")
+    async def stamp_send(self, interaction: discord.Interaction):
+
+        emojis = sorted(self.bot.emojis, key=lambda e: e.name)
+
+        view = StampView(self.bot, emojis, mode="send")
+
+        await interaction.response.send_message(
+            "送信するスタンプを選択",
+            view=view,
+            ephemeral=True
+        )
+
 
 async def setup(bot):
-    await bot.add_cog(StampContextCog(bot))
+    cog = StampContextCog(bot)
+    await bot.add_cog(cog)
+
+    for cmd in cog.get_app_commands():
+        for gid in bot.GUILD_IDS:
+            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
