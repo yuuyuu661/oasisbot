@@ -85,6 +85,8 @@ class TicketCog(commands.Cog):
     # =========================
     # Button Handler
     # =========================
+    def safe_name(text):
+        return "".join(c for c in text if c.isalnum() or c in "-_")[:80]
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
@@ -107,7 +109,7 @@ class TicketCog(commands.Cog):
         user = interaction.user
 
         thread = await channel.create_thread(
-            name=f"{title}-{user.name}",
+            name=f"{safe_name(title)}-{safe_name(user.name)}",
             type=discord.ChannelType.private_thread
         )
 
