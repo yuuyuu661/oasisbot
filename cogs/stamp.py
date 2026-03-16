@@ -55,7 +55,17 @@ class StampSelect(discord.ui.Select):
         # 送信モード
         # =========================
         elif self.mode == "send":
-            await interaction.channel.send(str(emoji))
+
+            webhook = await interaction.channel.create_webhook(name="stamp")
+
+            await webhook.send(
+                content=str(emoji),
+                username=interaction.user.display_name,
+                avatar_url=interaction.user.display_avatar.url
+            )
+
+            await webhook.delete()
+
             return await interaction.response.defer()
 
 
