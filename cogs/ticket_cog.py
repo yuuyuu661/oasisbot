@@ -122,7 +122,7 @@ class TicketCog(commands.Cog):
                 return
 
         thread = await channel.create_thread(
-            name=f"{safe_name(title)}-{safe_name(user.display_name)}",
+            name=f"{safe_name(title)}-{safe_name(user.display_name)}様",
             type=discord.ChannelType.private_thread
         )
 
