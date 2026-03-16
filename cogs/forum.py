@@ -41,7 +41,7 @@ class ForumJudgeCog(commands.Cog):
 
         channel = self.bot.get_channel(payload.channel_id)
         if not channel:
-            return
+            channel = await self.bot.fetch_channel(payload.channel_id)
 
         if not isinstance(channel, discord.Thread):
             return
@@ -63,16 +63,14 @@ class ForumJudgeCog(commands.Cog):
 
         for reaction in msg.reactions:
 
-            emoji_name = None
+            emoji_name = str(reaction.emoji)
 
-            if isinstance(reaction.emoji, discord.Emoji):
-                emoji_name = reaction.emoji.name
-
-            if emoji_name == PASS_EMOJI:
+            if PASS_EMOJI in emoji_name:
                 pass_count = reaction.count
 
-            if emoji_name == FAIL_EMOJI:
+            if FAIL_EMOJI in emoji_name:
                 fail_count = reaction.count
+
 
         guild = self.bot.get_guild(payload.guild_id)
 
