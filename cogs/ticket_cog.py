@@ -111,7 +111,7 @@ class TicketCog(commands.Cog):
         user = interaction.user
 
         thread = await channel.create_thread(
-            name=f"{safe_name(title)}-{safe_name(user.name)}",
+            name=f"{safe_name(title)}-{safe_name(user.display_name)}",
             type=discord.ChannelType.private_thread
         )
 
