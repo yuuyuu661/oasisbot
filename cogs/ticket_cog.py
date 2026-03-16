@@ -2,6 +2,14 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from discord.ui import View, Button
+import asyncio
+
+# =========================
+# util
+# =========================
+
+def safe_name(text):
+    return "".join(c for c in text if c.isalnum() or c in "-_")[:80]
 
 # =========================
 # Close
@@ -17,9 +25,13 @@ class CloseTicketView(View):
         thread = interaction.channel
 
         await interaction.response.send_message("5秒後に削除します", ephemeral=True)
-        await discord.utils.sleep_until(discord.utils.utcnow() + discord.timedelta(seconds=5))
 
-        await thread.delete()
+        await asyncio.sleep(5)
+
+        try:
+            await thread.delete()
+        except:
+            pass
 
 # =========================
 # Create Ticket Button
@@ -50,10 +62,6 @@ class TicketCog(commands.Cog):
     async def cog_load(self):
         self.bot.add_view(CloseTicketView())
 
-    # =========================
-    # Create Panel
-    # =========================
-
     @app_commands.command(name="チケット")
     async def ticket_panel(
         self,
@@ -81,12 +89,6 @@ class TicketCog(commands.Cog):
             embed=embed,
             view=view
         )
-
-    # =========================
-    # Button Handler
-    # =========================
-    def safe_name(text):
-        return "".join(c for c in text if c.isalnum() or c in "-_")[:80]
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
