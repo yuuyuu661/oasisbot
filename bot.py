@@ -66,6 +66,7 @@ class MyBot(commands.Bot):
             "cogs.chinchiro",    
             "cogs.ticket_cog",
             "cogs.intro",
+            "cogs.forum",            
             
         ]
 
