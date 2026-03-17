@@ -45,7 +45,7 @@ class VCCradleCog(commands.Cog):
         # ⭐ すでにゆりかごにいるチェック
         if user.voice.channel.id == TARGET_VC_ID:
             await interaction.response.send_message(
-                f"もう {user.display_name} はゆりかごにいます"
+                f"{user.display_name} はもうすやすやしています"
             )
             return
 
@@ -61,7 +61,7 @@ class VCCradleCog(commands.Cog):
         try:
             await user.move_to(target_vc)
             await interaction.response.send_message(
-                f"{user.display_name} をゆりかごへ移動しました"
+                f"{user.display_name} はゆりかごに収容されました"
             )
 
         except Exception as e:
