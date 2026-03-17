@@ -26,6 +26,7 @@ class VCCradleCog(commands.Cog):
         interaction: discord.Interaction,
         user: discord.Member
     ):
+        # 権限チェック
         if not self.has_permission(interaction.user):
             await interaction.response.send_message(
                 "このコマンドを使用する権限がありません",
@@ -33,10 +34,18 @@ class VCCradleCog(commands.Cog):
             )
             return
 
+        # VCチェック
         if not user.voice or not user.voice.channel:
             await interaction.response.send_message(
                 "そのユーザーはVCにいません",
                 ephemeral=True
+            )
+            return
+
+        # ⭐ すでにゆりかごにいるチェック
+        if user.voice.channel.id == TARGET_VC_ID:
+            await interaction.response.send_message(
+                f"もう {user.display_name} はゆりかごにいます"
             )
             return
 
@@ -54,6 +63,7 @@ class VCCradleCog(commands.Cog):
             await interaction.response.send_message(
                 f"{user.display_name} をゆりかごへ移動しました"
             )
+
         except Exception as e:
             await interaction.response.send_message(
                 f"移動失敗: {e}",
