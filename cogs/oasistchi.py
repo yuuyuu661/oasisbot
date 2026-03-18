@@ -2329,6 +2329,24 @@ class CareView(discord.ui.View):
             last_interaction=now,
             last_unhappy_tick=now,
         )
+        # =========================
+        # 💰 なでなで通貨ドロップ
+        # =========================
+        drop = random.randint(1, 1000)
+
+        await db.add_balance(
+            str(interaction.user.id),
+            str(interaction.guild.id),
+            drop
+        )
+
+        unit = (await db.get_settings())["currency_unit"]
+
+        await interaction.followup.send(
+            f"🤚 なでなでしたら **{drop:,}{unit}** 落ちた！やったね！",
+            ephemeral=True
+        )
+
         pet = await db.get_oasistchi_pet(self.pet_id)
 
         # ⑥ いったん pet.gif を表示（元メッセージ編集）
