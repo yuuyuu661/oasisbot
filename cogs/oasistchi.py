@@ -2304,6 +2304,10 @@ class CareView(discord.ui.View):
             if pet["stage"] == "adult" and label == "🐣 孵化":
                 self.remove_item(child)
 
+        # ⭐ ここに追加（forの外）
+        if pet["stage"] == "adult":
+            self.add_item(ExploreButton(self.pet_id))
+
     def is_owner(self, interaction: discord.Interaction) -> bool:
         return str(interaction.user.id) == self.uid
 
@@ -2682,6 +2686,9 @@ class CareView(discord.ui.View):
             view=self
         )
 
+
+
+
     @discord.ui.button(label="📘 図鑑", style=discord.ButtonStyle.secondary)
     async def open_dex(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
@@ -2895,12 +2902,148 @@ class FarewellConfirmView(discord.ui.View):
             view=None
         )
 
+class ExploreButton(discord.ui.Button):
+    def __init__(self, pet_id: int):
+        super().__init__(
+            label="🌲 探索",
+            style=discord.ButtonStyle.success
+        )
+        self.pet_id = pet_id
+
+    async def callback(self, interaction: discord.Interaction):
+        db = interaction.client.db
+        uid = str(interaction.user.id)
+        gid = str(interaction.guild.id)
+
+        now = now_ts()
+
+        # =========================
+        # クールタイム確認
+        # =========================
+        last = await db.get_explore_time(uid)
+
+        if last and now - last < 10800:
+            remain = 10800 - (now - last)
+            m = remain // 60
+            return await interaction.response.send_message(
+                f"🌲 まだ探索できません…あと {m}分",
+                ephemeral=True
+            )
+
+        pet = await db.get_oasistchi_pet(self.pet_id)
+
+        # =========================
+        # 抽選
+        # =========================
+        r = random.random()
+        total = 0
+
+        reward = 0
+        item = None
+
+        for p, money, name in EXPLORE_TABLE:
+            total += p
+            if r < total:
+                reward = money
+                item = name
+                break
+
+        # =========================
+        # ハズレ
+        # =========================
+        if item is None:
+            await db.set_explore_time(uid, now)
+            return await interaction.response.send_message(
+                f"{pet['adult_key']} は何も見つけられなかった…",
+                ephemeral=False
+            )
+
+        # =========================
+        # 当たり
+        # =========================
+        await db.add_balance(uid, gid, reward)
+        await db.set_explore_time(uid, now)
+
+        unit = (await db.get_settings())["currency_unit"]
+
+        await interaction.response.send_message(
+            f"{pet['adult_key']} が {item} を拾ってきた！\n(+{reward:,}{unit})"
+        )
+
 class TrainingSelectView(discord.ui.View):
     def __init__(self, pet_id: int):
         super().__init__(timeout=60)
         self.pet_id = pet_id
         self.add_item(TrainingSelect(pet_id))
 
+
+class ExploreButton(discord.ui.Button):
+    def __init__(self, pet_id: int):
+        super().__init__(
+            label="🌲 探索",
+            style=discord.ButtonStyle.success
+        )
+        self.pet_id = pet_id
+
+    async def callback(self, interaction: discord.Interaction):
+        db = interaction.client.db
+        uid = str(interaction.user.id)
+        gid = str(interaction.guild.id)
+
+        now = now_ts()
+
+        # =========================
+        # クールタイム確認
+        # =========================
+        last = await db.get_explore_time(uid)
+
+        if last and now - last < 10800:
+            remain = 10800 - (now - last)
+            m = remain // 60
+            return await interaction.response.send_message(
+                f"🌲 まだ探索できません…あと {m}分",
+                ephemeral=True
+            )
+
+        pet = await db.get_oasistchi_pet(self.pet_id)
+
+        # =========================
+        # 抽選
+        # =========================
+        r = random.random()
+        total = 0
+
+        reward = 0
+        item = None
+
+        for p, money, name in EXPLORE_TABLE:
+            total += p
+            if r < total:
+                reward = money
+                item = name
+                break
+
+        # =========================
+        # ハズレ
+        # =========================
+        if item is None:
+            await db.set_explore_time(uid, now)
+            return await interaction.response.send_message(
+                f"{pet['adult_key']} は何も見つけられなかった…",
+                ephemeral=False
+            )
+
+        # =========================
+        # 当たり
+        # =========================
+        await db.add_balance(uid, gid, reward)
+        await db.set_explore_time(uid, now)
+
+        unit = (await db.get_settings())["currency_unit"]
+
+        await interaction.response.send_message(
+            f"{pet['adult_key']} が {item} を拾ってきた！\n(+{reward:,}{unit})"
+        )
 # =========================
 # キャンセル3.9
 # =========================
