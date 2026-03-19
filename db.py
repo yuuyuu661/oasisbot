@@ -886,6 +886,16 @@ class Database:
             PRIMARY KEY(guild_id, user_id)
         )
         """)
+
+        # =========================
+        # 探索クールタイム3.19
+        # =========================
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS oasistchi_explore (
+            user_id TEXT PRIMARY KEY,
+            last_explore BIGINT
+        )
+        """)
         
 
         # -----------------------------------------
@@ -4129,3 +4139,23 @@ class Database:
         """, guild_id, user_id)
 
         return row["message_url"] if row else None
+
+    # ======================================================
+    # 探索関係3.19
+    # ======================================================
+
+    async def get_explore_time(self, uid):
+        async with self.pool.acquire() as conn:
+            return await conn.fetchval(
+                "SELECT last_explore FROM oasistchi_explore WHERE user_id=$1",
+                uid
+            )
+
+    async def set_explore_time(self, uid, t):
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO oasistchi_explore (user_id, last_explore)
+                VALUES ($1,$2)
+                ON CONFLICT (user_id)
+                DO UPDATE SET last_explore=$2
+            """, uid, t)
