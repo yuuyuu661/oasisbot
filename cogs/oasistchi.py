@@ -17,17 +17,7 @@ JST = timezone(timedelta(hours=9))
 
 WEB_SECRET = "9f3a7c4d8b2e1f0a6c8d9e7f1a2b3c4d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a5"
 
-# ⭐ 探索テーブル3.19
-EXPLORE_TABLE = [
-    (0.0005, 100000),
-    (0.0020, 30000),
-    (0.0100, 10000),
-    (0.0300, 5000),
-    (0.1000, 2000),
-    (0.1500, 1000),
-    (0.2000, 300),
-    (0.1075, 200),
-]
+
 
 def today_jst_date():
     return datetime.now(JST).date()
@@ -2902,6 +2892,18 @@ class FarewellConfirmView(discord.ui.View):
             view=None
         )
 
+# ⭐ 探索テーブル3.19
+EXPLORE_TABLE = [
+    (0.0005, 100000),
+    (0.0020, 30000),
+    (0.0100, 10000),
+    (0.0300, 5000),
+    (0.1000, 2000),
+    (0.1500, 1000),
+    (0.2000, 300),
+    (0.1075, 200),
+]
+
 EXPLORE_FLAVOR = {
     100000: [
         "{name}は奥地で巨大な宝石鉱脈を発見して持ち帰ってきた！(+100,000rrc)",
@@ -2935,6 +2937,7 @@ class ExploreButton(discord.ui.Button):
         self.pet_id = pet_id
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
         db = interaction.client.db
         uid = str(interaction.user.id)
         gid = str(interaction.guild.id)
@@ -2975,7 +2978,7 @@ class ExploreButton(discord.ui.Button):
         # =========================
         if reward == 0:
             await db.set_explore_time(uid, now)
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 f"{pet['name']} は何も見つけられなかった…",
                 ephemeral=True
             )
@@ -2992,7 +2995,7 @@ class ExploreButton(discord.ui.Button):
         else:
             text = random.choice(EXPLORE_FLAVOR[reward]).format(name=pet["name"])
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             text,
             ephemeral=True
         )
