@@ -3607,7 +3607,7 @@ class ExploreButton(discord.ui.Button):
         #                color=discord.Color.red()
         #            )
 
-            return await interaction.followup.send(embed=embed, ephemeral=True)
+        #            return await interaction.followup.send(embed=embed, ephemeral=True)
 
         pet = await db.get_oasistchi_pet(self.pet_id)
 
