@@ -890,7 +890,7 @@ class Database:
         # =========================
         # 探索クールタイム3.19
         # =========================
-        await conn.execute("""
+        await self._execute("""
         CREATE TABLE IF NOT EXISTS oasistchi_explore (
             user_id TEXT PRIMARY KEY,
             last_explore BIGINT
