@@ -17,6 +17,18 @@ JST = timezone(timedelta(hours=9))
 
 WEB_SECRET = "9f3a7c4d8b2e1f0a6c8d9e7f1a2b3c4d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a5"
 
+# ⭐ 探索テーブル3.19
+EXPLORE_TABLE = [
+    (0.0005, 100000, "ダイアモンド"),
+    (0.0020, 30000, "エメラルド"),
+    (0.0100, 10000, "プラチナ"),
+    (0.0300, 5000, "金"),
+    (0.1000, 2000, "銀"),
+    (0.1500, 1000, "銅"),
+    (0.2000, 300, "木の枝"),
+    (0.1075, 200, "石ころ"),
+]
+
 def today_jst_date():
     return datetime.now(JST).date()
 def get_today_jst_date():
