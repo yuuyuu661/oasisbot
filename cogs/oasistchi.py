@@ -2336,20 +2336,10 @@ class CareView(discord.ui.View):
             last_unhappy_tick=now,
         )
         # =========================
-        # 💰 なでなで通貨ドロップ
+        # 💰 なでなで
         # =========================
-        drop = random.randint(1, 1000)
-
-        await db.add_balance(
-            str(interaction.user.id),
-            str(interaction.guild.id),
-            drop
-        )
-
-        unit = (await db.get_settings())["currency_unit"]
-
         await interaction.followup.send(
-            f"🤚 なでなでしたら **{drop:,}{unit}** 落ちた！やったね！",
+            "🤚 なでなでしてあげた！",
             ephemeral=True
         )
 
@@ -3597,17 +3587,17 @@ class ExploreButton(discord.ui.Button):
         # =========================
         last = await db.get_explore_time(uid)
 
-        #        if last and now - last < 10800:
-        #            remain = 10800 - (now - last)
-        #            m = remain // 60
+        if last and now - last < 10800:
+            remain = 10800 - (now - last)
+            m = remain // 60
 
-        #            embed = discord.Embed(
-        #                title="🌲 探索できない",
-        #                description=f"あと **{m}分** 待つ必要があります",
-        #                color=discord.Color.red()
-        #            )
+            embed = discord.Embed(
+                title="🌲 探索できない",
+                description=f"あと **{m}分** 待つ必要があります",
+                color=discord.Color.red()
+            )
 
-        #            return await interaction.followup.send(embed=embed, ephemeral=True)
+            return await interaction.followup.send(embed=embed, ephemeral=True)
 
         pet = await db.get_oasistchi_pet(self.pet_id)
 
