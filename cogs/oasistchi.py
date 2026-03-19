@@ -2904,6 +2904,27 @@ EXPLORE_TABLE = [
     (0.1075, 100),
     (0.4000, 0),   # ← これ追加
 ]
+EXPLORE_RANK = {
+    100000: "UR",
+    30000: "SSR",
+    10000: "SR",
+    5000: "R",
+    2000: "UC",
+    1000: "C",
+    500: "N",
+    100: "N",
+    0: "MISS"
+}
+EXPLORE_COLOR = {
+    "UR": 0xff00ff,
+    "SSR": 0xffd700,
+    "SR": 0x9b59b6,
+    "R": 0x3498db,
+    "UC": 0x2ecc71,
+    "C": 0xffffff,
+    "N": 0x95a5a6,
+    "MISS": 0x2c3e50
+}
 
 EXPLORE_FLAVOR = {
     100000: [
@@ -3564,6 +3585,7 @@ class ExploreButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
+
         db = interaction.client.db
         uid = str(interaction.user.id)
         gid = str(interaction.guild.id)
@@ -3571,26 +3593,29 @@ class ExploreButton(discord.ui.Button):
         now = now_ts()
 
         # =========================
-        # クールタイム確認
+        # クールタイム
         # =========================
         #        last = await db.get_explore_time(uid)
 
         #        if last and now - last < 10800:
         #            remain = 10800 - (now - last)
         #            m = remain // 60
-        #            return await interaction.response.send_message(
-        #                f"🌲 まだ探索できません…あと {m}分",
-        #                ephemeral=True
+
+        #            embed = discord.Embed(
+        #                title="🌲 探索できない",
+        #                description=f"あと **{m}分** 待つ必要があります",
+        #                color=discord.Color.red()
         #            )
 
-        pet = await db.get_oasistchi_pet(self.pet_id)
+        #            return await interaction.followup.send(embed=embed, ephemeral=True)
+
+        #        pet = await db.get_oasistchi_pet(self.pet_id)
 
         # =========================
         # 抽選
         # =========================
         r = random.random()
         total = 0
-
         reward = 0
 
         for p, money in EXPLORE_TABLE:
@@ -3600,31 +3625,46 @@ class ExploreButton(discord.ui.Button):
                 break
 
         # =========================
-        # ハズレ
+        # フレーバー
         # =========================
-        if reward == 0:
-            await db.set_explore_time(uid, now)
-            return await interaction.followup.send(
-                f"{pet['name']} は何も見つけられなかった…",
-                ephemeral=True
-            )
+        text = random.choice(EXPLORE_FLAVOR[reward]).format(name=pet["name"])
 
         # =========================
-        # 当たり
+        # 報酬
         # =========================
-        await db.add_balance(uid, gid, reward)
+        if reward > 0:
+            await db.add_balance(uid, gid, reward)
+
         await db.set_explore_time(uid, now)
 
-        # ⭐ フレーバー生成
-        if reward == 0:
-            text = random.choice(EXPLORE_FLAVOR[0]).format(name=pet["name"])
-        else:
-            text = random.choice(EXPLORE_FLAVOR[reward]).format(name=pet["name"])
+        # =========================
+        # パネル
+        # =========================
+        unit = (await db.get_settings())["currency_unit"]
 
-        await interaction.followup.send(
-            text,
-            ephemeral=True
+        rank = EXPLORE_RANK.get(reward, "N")
+        color = EXPLORE_COLOR[rank]
+
+        embed = discord.Embed(
+            title=f"🌲 探索結果 [{rank}]",
+            description=text,
+            color=color
         )
+
+        if reward > 0:
+            embed.add_field(
+                name="獲得",
+                value=f"+{reward:,}{unit}",
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="結果",
+                value="何も見つからなかった…",
+                inline=False
+            )
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 class TrainingSelectView(discord.ui.View):
     def __init__(self, pet_id: int):
