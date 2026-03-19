@@ -2954,8 +2954,8 @@ class ExploreButton(discord.ui.Button):
         if item is None:
             await db.set_explore_time(uid, now)
             return await interaction.response.send_message(
-                f"{pet['adult_key']} は何も見つけられなかった…",
-                ephemeral=False
+                f"{pet['name']} は何も見つけられなかった…",
+                ephemeral=True
             )
 
         # =========================
