@@ -19,14 +19,14 @@ WEB_SECRET = "9f3a7c4d8b2e1f0a6c8d9e7f1a2b3c4d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a5"
 
 # ⭐ 探索テーブル3.19
 EXPLORE_TABLE = [
-    (0.0005, 100000, "ダイアモンド"),
-    (0.0020, 30000, "エメラルド"),
-    (0.0100, 10000, "プラチナ"),
-    (0.0300, 5000, "金"),
-    (0.1000, 2000, "銀"),
-    (0.1500, 1000, "銅"),
-    (0.2000, 300, "木の枝"),
-    (0.1075, 200, "石ころ"),
+    (0.0005, 100000),
+    (0.0020, 30000),
+    (0.0100, 10000),
+    (0.0300, 5000),
+    (0.1000, 2000),
+    (0.1500, 1000),
+    (0.2000, 300),
+    (0.1075, 200),
 ]
 
 def today_jst_date():
@@ -2902,6 +2902,30 @@ class FarewellConfirmView(discord.ui.View):
             view=None
         )
 
+EXPLORE_FLAVOR = {
+    100000: [
+        "{name}は奥地で巨大な宝石鉱脈を発見して持ち帰ってきた！(+100,000rrc)",
+        "{name}は古代遺跡の最深部で財宝を見つけて持ち帰ってきた！(+100,000rrc)",
+        "{name}は誰も辿り着けなかった洞窟で宝の山を見つけてきた！(+100,000rrc)",
+        "{name}は探索中に伝説の財宝を発見して持ち帰ってきた！(+100,000rrc)",
+        "{name}は地中深くで光り輝く秘宝を掘り当ててきた！(+100,000rrc)",
+    ],
+
+    30000: [
+        "{name}はエメラルドの原石を洞窟の奥から持ち帰ってきた。(+30,000rrc)",
+        "{name}はルビーの結晶を岩壁から削り出してきた。(+30,000rrc)",
+        "{name}はサファイアの塊を地下水路で見つけてきた。(+30,000rrc)",
+    ],
+
+    0: [
+        "{name}は洞窟を探索したが何も見つからなかった…",
+        "{name}は遺跡を調べたが空振りだった…",
+        "{name}は探索に失敗して帰ってきた…",
+    ]
+}
+
+
+
 class ExploreButton(discord.ui.Button):
     def __init__(self, pet_id: int):
         super().__init__(
@@ -2920,15 +2944,15 @@ class ExploreButton(discord.ui.Button):
         # =========================
         # クールタイム確認
         # =========================
-        last = await db.get_explore_time(uid)
+        #        last = await db.get_explore_time(uid)
 
-        if last and now - last < 10800:
-            remain = 10800 - (now - last)
-            m = remain // 60
-            return await interaction.response.send_message(
-                f"🌲 まだ探索できません…あと {m}分",
-                ephemeral=True
-            )
+        #        if last and now - last < 10800:
+        #            remain = 10800 - (now - last)
+        #            m = remain // 60
+        #            return await interaction.response.send_message(
+        #                f"🌲 まだ探索できません…あと {m}分",
+        #                ephemeral=True
+        #            )
 
         pet = await db.get_oasistchi_pet(self.pet_id)
 
@@ -2939,19 +2963,17 @@ class ExploreButton(discord.ui.Button):
         total = 0
 
         reward = 0
-        item = None
 
-        for p, money, name in EXPLORE_TABLE:
+        for p, money in EXPLORE_TABLE:
             total += p
             if r < total:
                 reward = money
-                item = name
                 break
 
         # =========================
         # ハズレ
         # =========================
-        if item is None:
+        if reward == 0:
             await db.set_explore_time(uid, now)
             return await interaction.response.send_message(
                 f"{pet['name']} は何も見つけられなかった…",
@@ -2964,10 +2986,14 @@ class ExploreButton(discord.ui.Button):
         await db.add_balance(uid, gid, reward)
         await db.set_explore_time(uid, now)
 
-        unit = (await db.get_settings())["currency_unit"]
+        # ⭐ フレーバー生成
+        if reward == 0:
+            text = random.choice(EXPLORE_FLAVOR[0]).format(name=pet["name"])
+        else:
+            text = random.choice(EXPLORE_FLAVOR[reward]).format(name=pet["name"])
 
         await interaction.response.send_message(
-            f"{pet['name']} が {item} を拾ってきた！\n(+{reward:,}{unit})",
+            text,
             ephemeral=True
         )
 
@@ -2978,73 +3004,7 @@ class TrainingSelectView(discord.ui.View):
         self.add_item(TrainingSelect(pet_id))
 
 
-class ExploreButton(discord.ui.Button):
-    def __init__(self, pet_id: int):
-        super().__init__(
-            label="🌲 探索",
-            style=discord.ButtonStyle.success
-        )
-        self.pet_id = pet_id
 
-    async def callback(self, interaction: discord.Interaction):
-        db = interaction.client.db
-        uid = str(interaction.user.id)
-        gid = str(interaction.guild.id)
-
-        now = now_ts()
-
-        # =========================
-        # クールタイム確認
-        # =========================
-        last = await db.get_explore_time(uid)
-
-        if last and now - last < 10800:
-            remain = 10800 - (now - last)
-            m = remain // 60
-            return await interaction.response.send_message(
-                f"🌲 まだ探索できません…あと {m}分",
-                ephemeral=True
-            )
-
-        pet = await db.get_oasistchi_pet(self.pet_id)
-
-        # =========================
-        # 抽選
-        # =========================
-        r = random.random()
-        total = 0
-
-        reward = 0
-        item = None
-
-        for p, money, name in EXPLORE_TABLE:
-            total += p
-            if r < total:
-                reward = money
-                item = name
-                break
-
-        # =========================
-        # ハズレ
-        # =========================
-        if item is None:
-            await db.set_explore_time(uid, now)
-            return await interaction.response.send_message(
-                f"{pet['adult_key']} は何も見つけられなかった…",
-                ephemeral=False
-            )
-
-        # =========================
-        # 当たり
-        # =========================
-        await db.add_balance(uid, gid, reward)
-        await db.set_explore_time(uid, now)
-
-        unit = (await db.get_settings())["currency_unit"]
-
-        await interaction.response.send_message(
-            f"{pet['adult_key']} が {item} を拾ってきた！\n(+{reward:,}{unit})"
-        )
 # =========================
 # キャンセル3.9
 # =========================
