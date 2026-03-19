@@ -3595,7 +3595,7 @@ class ExploreButton(discord.ui.Button):
         # =========================
         # クールタイム
         # =========================
-        #        last = await db.get_explore_time(uid)
+        last = await db.get_explore_time(uid)
 
         #        if last and now - last < 10800:
         #            remain = 10800 - (now - last)
@@ -3607,9 +3607,9 @@ class ExploreButton(discord.ui.Button):
         #                color=discord.Color.red()
         #            )
 
-        #            return await interaction.followup.send(embed=embed, ephemeral=True)
+            return await interaction.followup.send(embed=embed, ephemeral=True)
 
-        #        pet = await db.get_oasistchi_pet(self.pet_id)
+        pet = await db.get_oasistchi_pet(self.pet_id)
 
         # =========================
         # 抽選
