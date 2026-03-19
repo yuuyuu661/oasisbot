@@ -2967,7 +2967,8 @@ class ExploreButton(discord.ui.Button):
         unit = (await db.get_settings())["currency_unit"]
 
         await interaction.response.send_message(
-            f"{pet['adult_key']} が {item} を拾ってきた！\n(+{reward:,}{unit})"
+            f"{pet['name']} が {item} を拾ってきた！\n(+{reward:,}{unit})",
+            ephemeral=True
         )
 
 class TrainingSelectView(discord.ui.View):
