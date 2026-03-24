@@ -136,7 +136,7 @@ class AnonymousTicketCog(commands.Cog):
         try:
             dm = await interaction.user.create_dm()
             await dm.send(
-                "匿名相談チケットです。\nここに送ると運営に匿名転送されます。",
+                "匿名相談チケットです。\nここに送ると教会スタッフに匿名で転送されます。\nお悩みを教えてください。",
                 view=CloseAnonDMView()
             )
         except:
