@@ -92,12 +92,14 @@ class StampCard(commands.Cog):
     @app_commands.guilds(discord.Object(id=GUILD_ID))
     async def check(self, interaction: discord.Interaction):
 
+        await interaction.response.defer()
+
         row = await self.get_data(interaction.guild_id, interaction.user.id)
         stamps = row["stamps"] if row else 0
 
         img = self.generate_image(stamps)
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             file=discord.File(img, "card.png")
         )
 
