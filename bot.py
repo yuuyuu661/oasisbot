@@ -69,7 +69,8 @@ class MyBot(commands.Bot):
             "cogs.forum",            
             "cogs.stamp",
             "cogs.vc_cradle",            
-
+            "cogs.anonboard",
+            
         ]
 
         for ext in extensions:
