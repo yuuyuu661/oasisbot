@@ -496,11 +496,7 @@ class AnonBoardCog(commands.Cog):
 
 
 async def setup(bot):
-    cog = AnonBoardCog(bot)
-    await bot.add_cog(cog)
-
-    for gid in bot.GUILD_IDS:
-        bot.tree.add_command(
-            cog.anon_board_setup,
-            guild=discord.Object(id=gid)
-        )
+    await bot.add_cog(
+        AnonBoardCog(bot),
+        guilds=[discord.Object(id=g) for g in bot.GUILD_IDS]
+    ))
