@@ -4238,3 +4238,17 @@ class Database:
             "DELETE FROM anon_pending WHERE log_message_id=$1",
             log_msg_id
         )
+    async def list_anon_boards(self):
+        return await self.conn.fetch(
+            "SELECT * FROM anon_boards"
+        )
+
+    async def reset_anon_counter(self, channel_id):
+        await self.conn.execute(
+            """
+            UPDATE anon_boards
+            SET counter = 0
+            WHERE channel_id = $1
+            """,
+            channel_id
+        )
