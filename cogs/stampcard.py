@@ -61,6 +61,10 @@ class StampCard(commands.Cog):
             if row:
                 print("row exists")
 
+                if row["last_stamp_date"] == today:
+                    print("already stamped today")
+                    return "already"
+
 
 
                 stamps = row["stamps"] + 1
@@ -192,7 +196,7 @@ class StampCard(commands.Cog):
 
             if result == "complete":
                 return await interaction.response.send_message(
-                    f"{user.mention}\n今回でスタンプ10個目！協会の人に伝えて特典をもらおう！"
+                    f"{user.mention}\n今回でスタンプ10個目！教会の人に伝えて特典をもらおう！"
                 )
 
             await interaction.response.send_message(
