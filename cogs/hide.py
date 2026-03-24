@@ -147,6 +147,7 @@ class AnonymousTicketCog(commands.Cog):
             type=discord.ChannelType.private_thread,
             invitable=False
         )
+        await thread.add_user(self.bot.user)
 
         await self.bot.db.create_anon_ticket(thread.id, interaction.user.id, interaction.guild.id)
 
