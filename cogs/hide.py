@@ -233,13 +233,14 @@ class AnonymousTicketCog(commands.Cog):
 
 
     async def handle_create(self, interaction: discord.Interaction, view: AnonymousTicketCreateView):
+        await interaction.response.defer(ephemeral=True)
         guild = interaction.guild
         channel = interaction.channel
         user = interaction.user
 
         existing = await find_active_thread_by_owner(self.bot, user.id)
         if existing:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "既にアクティブな匿名相談チケットがあります",
                 ephemeral=True
             )
@@ -254,7 +255,7 @@ class AnonymousTicketCog(commands.Cog):
                 view=CloseAnonDMView()
             )
         except discord.Forbidden:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "DMを送れないため作成できませんでした。BotからのDMを許可してください。",
                 ephemeral=True
             )
@@ -290,7 +291,7 @@ class AnonymousTicketCog(commands.Cog):
             view=CloseAnonThreadView(view.role_ids)
         )
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "匿名相談チケットを作成しました。DMをご確認ください。",
             ephemeral=True
         )
