@@ -172,11 +172,14 @@ class AnonymousTicketCreateView(View):
         self.first_msg = first_msg
         self.role_ids = role_ids
 
-        self.add_item(Button(
-            label="匿名で相談する",
-            style=COLOR_MAP[color],
-            custom_id="anon_ticket_create"
-        ))
+    @discord.ui.button(
+        label="匿名で相談する",
+        style=discord.ButtonStyle.blurple,
+        custom_id="anon_ticket_create"
+    )
+    async def create(self, interaction: discord.Interaction, button: discord.ui.Button):
+        cog = interaction.client.get_cog("AnonymousTicketCog")
+        await cog.handle_create(interaction, self)
 
 
 # =========================
