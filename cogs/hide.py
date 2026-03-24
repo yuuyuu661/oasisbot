@@ -233,7 +233,9 @@ class AnonymousTicketCog(commands.Cog):
 
 
     async def handle_create(self, interaction: discord.Interaction, view: AnonymousTicketCreateView):
+
         await interaction.response.defer(ephemeral=True)
+
         guild = interaction.guild
         channel = interaction.channel
         user = interaction.user
@@ -262,6 +264,7 @@ class AnonymousTicketCog(commands.Cog):
             return
 
         safe_title = safe_name(view.panel_title) or "匿名相談"
+
         thread = await channel.create_thread(
             name=f"{safe_title}:匿名相談",
             type=discord.ChannelType.private_thread,
@@ -270,22 +273,15 @@ class AnonymousTicketCog(commands.Cog):
 
         await thread.edit(topic=build_topic(user.id))
 
-        added = set()
+        # ⭐ ロールは追加しない → メンションのみ
+        role_mentions = []
         for rid in view.role_ids:
             role = guild.get_role(rid)
-            if not role:
-                continue
-
-            for m in role.members:
-                if m.bot or m.id in added:
-                    continue
-                try:
-                    await thread.add_user(m)
-                    added.add(m.id)
-                except:
-                    pass
+            if role:
+                role_mentions.append(role.mention)
 
         await thread.send(
+            f"{' '.join(role_mentions)}\n"
             "🕊 匿名相談チケットが作成されました。\n"
             "このスレッドのメッセージはBot経由で匿名転送されます。",
             view=CloseAnonThreadView(view.role_ids)
