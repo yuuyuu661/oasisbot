@@ -298,4 +298,12 @@ class AnonymousTicketCog(commands.Cog):
 
 
 async def setup(bot):
-    await bot.add_cog(AnonymousTicketCog(bot))
+    cog = AnonymousTicketCog(bot)
+    await bot.add_cog(cog)
+
+    for cmd in cog.get_app_commands():
+        for gid in bot.GUILD_IDS:
+            try:
+                bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+            except Exception:
+                pass
