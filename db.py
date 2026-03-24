@@ -909,6 +909,19 @@ class Database:
             PRIMARY KEY (guild_id, user_id)
         )
         """)
+
+        # =========================
+        # 匿名チケット3.24
+        # =========================
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS anon_tickets (
+            thread_id BIGINT PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            guild_id BIGINT NOT NULL,
+            closed BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)
         
 
         # -----------------------------------------
@@ -4265,3 +4278,58 @@ class Database:
             """,
             channel_id
         )
+
+    # ======================================================
+    # 匿名チケット関係
+    # ======================================================
+
+    async def create_anon_ticket(self, thread_id: int, user_id: int, guild_id: int):
+        await self._execute(
+            """
+            INSERT INTO anon_tickets (thread_id, user_id, guild_id)
+            VALUES ($1, $2, $3)
+            """,
+            thread_id, user_id, guild_id
+        )
+
+
+    async def get_anon_ticket_user(self, thread_id: int):
+        row = await self._fetchrow(
+            """
+            SELECT user_id FROM anon_tickets
+            WHERE thread_id = $1 AND closed = FALSE
+            """,
+            thread_id
+        )
+        return row["user_id"] if row else None
+
+    async def get_active_anon_ticket(self, user_id: int):
+        row = await self._fetchrow(
+            """
+            SELECT thread_id FROM anon_tickets
+            WHERE user_id = $1 AND closed = FALSE
+            """,
+            user_id
+        )
+        return row["thread_id"] if row else None
+
+    async def close_anon_ticket(self, thread_id: int):
+        await self._execute(
+            """
+            UPDATE anon_tickets
+            SET closed = TRUE
+            WHERE thread_id = $1
+            """,
+            thread_id
+        )
+
+    async def is_active_anon_ticket(self, thread_id: int):
+        row = await self._fetchrow(
+            """
+            SELECT 1 FROM anon_tickets
+            WHERE thread_id = $1
+            AND closed = FALSE
+            """,
+            thread_id
+        )
+        return bool(row)
