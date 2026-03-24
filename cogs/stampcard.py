@@ -61,9 +61,6 @@ class StampCard(commands.Cog):
             if row:
                 print("row exists")
 
-                if row["last_stamp_date"] == today:
-                    print("already stamped today")
-                    return "already"
 
 
 
@@ -112,8 +109,8 @@ class StampCard(commands.Cog):
             empty = empty.resize((400, 400))
             stamp = stamp.resize((400, 400))
 
-            start_x = 250
-            start_y = 320
+            start_x = 290
+            start_y = 340
 
             gap_x = 440
             gap_y = 440
@@ -177,7 +174,7 @@ class StampCard(commands.Cog):
     # =========================
     # 押す
     # =========================
-    @app_commands.command(name="スタンプカードを押す")
+    @app_commands.command(name="祝福を捧げる")
     @app_commands.guilds(discord.Object(id=GUILD_ID))
     async def push(self, interaction: discord.Interaction, user: discord.Member):
 
