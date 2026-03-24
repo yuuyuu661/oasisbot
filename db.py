@@ -900,7 +900,7 @@ class Database:
         # =========================
         # スタンプカード
         # =========================
-        await self.pool.execute("""
+        await self._execute("""
         CREATE TABLE IF NOT EXISTS stamp_cards (
             guild_id BIGINT,
            user_id BIGINT,
