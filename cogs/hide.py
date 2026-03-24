@@ -292,7 +292,7 @@ class AnonymousTicketCog(commands.Cog):
             try:
                 print("TRY SEND DM:", content)
                 await user.send(
-                    f"📨 運営:\n{content}" if content else "📨 添付ファイル",
+                    f"📨 神からのお告げ:\n{content}" if content else "📨 添付ファイル",
                     files=files if files else None
                 )
                 print("DM SENT OK")
