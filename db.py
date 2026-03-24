@@ -4159,7 +4159,9 @@ class Database:
                 ON CONFLICT (user_id)
                 DO UPDATE SET last_explore=$2
             """, uid, t)
-
+    # ======================================================
+    # 掲示板
+    # ======================================================
 
     async def get_anon_board(self, channel_id: int):
         return await self.conn.fetchrow(
@@ -4219,6 +4221,7 @@ class Database:
         await self.conn.execute(
             """
             INSERT INTO anon_pending
+            (log_message_id, board_message_id, channel_id, author_id, anon_number, content, image_url)
             VALUES($1,$2,$3,$4,$5,$6,$7)
             """,
             log_msg_id, board_msg_id, channel_id, author_id, anon_no, content, img
