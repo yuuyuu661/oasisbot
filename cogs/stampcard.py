@@ -61,9 +61,7 @@ class StampCard(commands.Cog):
             if row:
                 print("row exists")
 
-                if row["last_stamp_date"] == today:
-                    print("already stamped today")
-                    return "already"
+
 
                 stamps = row["stamps"] + 1
                 print("new stamps:", stamps)
