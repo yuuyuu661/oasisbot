@@ -2,6 +2,7 @@ import re
 import discord
 from discord.ext import commands
 from discord import app_commands
+from config import GUILD_IDS
 
 SETUP_ROLE_ID = 1445403813853925418
 
