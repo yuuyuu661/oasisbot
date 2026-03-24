@@ -499,4 +499,4 @@ async def setup(bot):
     await bot.add_cog(
         AnonBoardCog(bot),
         guilds=[discord.Object(id=g) for g in bot.GUILD_IDS]
-    ))
+    )
