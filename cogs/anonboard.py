@@ -2,7 +2,7 @@ import re
 import discord
 from discord.ext import commands
 from discord import app_commands
-from config import GUILD_IDS
+
 
 SETUP_ROLE_ID = 1445403813853925418
 
@@ -499,5 +499,8 @@ async def setup(bot):
     cog = AnonBoardCog(bot)
     await bot.add_cog(cog)
 
-    guild = discord.Object(id=GUILD_IDS[0])
-    bot.tree.add_command(cog.anon_board_setup, guild=guild)
+    for gid in bot.GUILD_IDS:
+        bot.tree.add_command(
+            cog.anon_board_setup,
+            guild=discord.Object(id=gid)
+        )
