@@ -4159,3 +4159,79 @@ class Database:
                 ON CONFLICT (user_id)
                 DO UPDATE SET last_explore=$2
             """, uid, t)
+
+
+    async def get_anon_board(self, channel_id: int):
+        return await self.conn.fetchrow(
+            "SELECT * FROM anon_boards WHERE channel_id = $1",
+            channel_id
+        )
+
+    async def create_anon_board(self, channel_id, guild_id, log_channel, roles):
+        await self.conn.execute(
+            """
+            INSERT INTO anon_boards(channel_id, guild_id, log_channel_id, admin_roles)
+            VALUES($1,$2,$3,$4)
+            ON CONFLICT(channel_id) DO UPDATE
+            SET log_channel_id=$3, admin_roles=$4
+            """,
+            channel_id, guild_id, log_channel, roles
+        )
+
+    async def increment_anon_counter(self, channel_id):
+        return await self.conn.fetchval(
+            """
+            UPDATE anon_boards
+            SET counter = counter + 1
+            WHERE channel_id=$1
+            RETURNING counter
+            """,
+            channel_id
+        )
+
+    async def get_autodel(self, channel_id):
+        return await self.conn.fetchval(
+           "SELECT autodel_sec FROM anon_boards WHERE channel_id=$1",
+            channel_id
+        )
+
+    async def add_anon_post(self, message_id, channel_id, author_id, anon_no):
+        await self.conn.execute(
+            """
+            INSERT INTO anon_posts(message_id, channel_id, author_id, anon_number)
+            VALUES($1,$2,$3,$4)
+            """,
+            message_id, channel_id, author_id, anon_no
+        )
+
+    async def get_anon_post(self, message_id):
+        return await self.conn.fetchrow(
+            "SELECT * FROM anon_posts WHERE message_id=$1",
+            message_id
+        )
+
+    async def set_post_image(self, message_id, url):
+        await self.conn.execute(
+            "UPDATE anon_posts SET image_url=$1 WHERE message_id=$2",
+            url, message_id
+        )
+    async def add_pending(self, log_msg_id, board_msg_id, channel_id, author_id, anon_no, content, img):
+        await self.conn.execute(
+            """
+            INSERT INTO anon_pending
+            VALUES($1,$2,$3,$4,$5,$6,$7)
+            """,
+            log_msg_id, board_msg_id, channel_id, author_id, anon_no, content, img
+        )
+
+    async def get_pending(self, log_msg_id):
+        return await self.conn.fetchrow(
+            "SELECT * FROM anon_pending WHERE log_message_id=$1",
+            log_msg_id
+        )
+
+    async def delete_pending(self, log_msg_id):
+        await self.conn.execute(
+            "DELETE FROM anon_pending WHERE log_message_id=$1",
+            log_msg_id
+        )
