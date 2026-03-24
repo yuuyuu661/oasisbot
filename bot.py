@@ -71,7 +71,7 @@ class MyBot(commands.Bot):
             "cogs.vc_cradle",            
             "cogs.anonboard",
             "cogs.stampcard",
-
+            "cogs.hide",
             
         ]
 
