@@ -106,17 +106,23 @@ class StampCard(commands.Cog):
             empty = Image.open(EMPTY_PATH).convert("RGBA")
             stamp = Image.open(STAMP_PATH).convert("RGBA")
 
+            # ⭐ サイズ統一（ここ超重要）
+            empty = empty.resize((160, 160))
+            stamp = stamp.resize((160, 160))
+
             start_x = 120
             start_y = 200
-            gap_x = 200
+
+            gap_x = 180
+            gap_y = 180
 
             index = 0
 
-            for row in range(2):
-                for col in range(5):
+            for r in range(2):
+                for c in range(5):
 
-                    x = start_x + col * gap_x
-                    y = start_y + row * 180
+                    x = start_x + c * gap_x
+                    y = start_y + r * gap_y
 
                     if index < stamps:
                         bg.paste(stamp, (x, y), stamp)
