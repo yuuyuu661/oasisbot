@@ -7,7 +7,7 @@ import io
 
 JST = timezone(timedelta(hours=9))
 
-ROLE_ID = 716667546241335328
+ROLE_ID = 1445403813853925418
 GUILD_ID = 1420918259187712093
 
 BG_PATH = "cogs/assets/stamp/bg.png"
