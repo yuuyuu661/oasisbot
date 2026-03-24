@@ -10,9 +10,9 @@ JST = timezone(timedelta(hours=9))
 ROLE_ID = 716667546241335328
 GUILD_ID = 1420918259187712093
 
-BG_PATH = "assets/stamp/bg.png"
-EMPTY_PATH = "assets/stamp/empty.png"
-STAMP_PATH = "assets/stamp/stamp.png"
+BG_PATH = "cogs/assets/stamp/bg.png"
+EMPTY_PATH = "cogs/assets/stamp/empty.png"
+STAMP_PATH = "cogs/assets/stamp/stamp.png"
 
 
 class StampCard(commands.Cog):
