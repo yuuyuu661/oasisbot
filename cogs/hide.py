@@ -234,20 +234,28 @@ class AnonymousTicketCog(commands.Cog):
 
     async def handle_create(self, interaction: discord.Interaction, view: AnonymousTicketCreateView):
 
+        print("=== anon ticket start ===")
+
         await interaction.response.defer(ephemeral=True, thinking=True)
 
         guild = interaction.guild
         channel = interaction.channel
         user = interaction.user
 
+        print("guild:", guild.id)
+        print("channel:", channel.id)
+        print("user:", user.id)
+
         existing = await find_active_thread_by_owner(self.bot, user.id)
         if existing:
+            print("existing thread found")
             await interaction.followup.send(
                 "既にアクティブな匿名相談チケットがあります",
                 ephemeral=True
             )
             return
 
+        print("creating DM")
         try:
             dm = await user.create_dm()
             await dm.send(
@@ -256,13 +264,11 @@ class AnonymousTicketCog(commands.Cog):
                 "お悩みは何ですか？",
                 view=CloseAnonDMView()
             )
-        except discord.Forbidden:
-            await interaction.followup.send(
-                "DMを送れないため作成できませんでした。BotからのDMを許可してください。",
-                ephemeral=True
-            )
-            return
+        except Exception as e:
+            print("DM ERROR:", e)
+            raise
 
+        print("creating thread")
         safe_title = safe_name(view.panel_title) or "匿名相談"
 
         thread = await channel.create_thread(
@@ -271,21 +277,33 @@ class AnonymousTicketCog(commands.Cog):
             invitable=False
         )
 
+        print("thread created:", thread.id)
+
         await thread.edit(topic=build_topic(user.id))
 
-        # ⭐ ロールは追加しない → メンションのみ
+        print("building role mentions")
+
         role_mentions = []
         for rid in view.role_ids:
             role = guild.get_role(rid)
+            print("role:", rid, role)
             if role:
                 role_mentions.append(role.mention)
 
-        await thread.send(
-            f"{' '.join(role_mentions)}\n"
-            "🕊 匿名相談チケットが作成されました。\n"
-            "このスレッドのメッセージはBot経由で匿名転送されます。",
-            view=CloseAnonThreadView(view.role_ids)
-        )
+        print("sending first message")
+
+        try:
+            await thread.send(
+                f"{' '.join(role_mentions)}\n"
+                "🕊 匿名相談チケットが作成されました。\n"
+                "このスレッドのメッセージはBot経由で匿名転送されます。",
+                view=CloseAnonThreadView(view.role_ids)
+            )
+        except Exception as e:
+            print("THREAD SEND ERROR:", e)
+            raise
+
+        print("done")
 
         await interaction.followup.send(
             "匿名相談チケットを作成しました。DMをご確認ください。",
