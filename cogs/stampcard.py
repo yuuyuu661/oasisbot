@@ -70,13 +70,13 @@ class StampCard(commands.Cog):
 
                 if stamps >= 10:
                     print("stamp complete")
-                    await self.bot.db.execute(
+                    await self.bot.db._execute(
                         "UPDATE stamp_cards SET stamps=0, last_stamp_date=$1 WHERE guild_id=$2 AND user_id=$3",
                         today, guild_id, user_id
                     )
                     return "complete"
 
-                await self.bot.db.execute(
+                await self.bot.db._execute(
                     "UPDATE stamp_cards SET stamps=$1, last_stamp_date=$2 WHERE guild_id=$3 AND user_id=$4",
                     stamps, today, guild_id, user_id
                 )
@@ -84,7 +84,7 @@ class StampCard(commands.Cog):
             else:
                 print("row not exists -> insert")
                 stamps = 1
-                await self.bot.db.execute(
+                await self.bot.db._execute(
                     "INSERT INTO stamp_cards VALUES($1,$2,$3,$4)",
                     guild_id, user_id, stamps, today
                 )
