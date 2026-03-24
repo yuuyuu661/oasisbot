@@ -249,7 +249,6 @@ class AnonymousTicketCog(commands.Cog):
         # =========================
         if isinstance(message.channel, discord.Thread):
 
-            # botメッセージ無視
             if message.author.bot:
                 return
 
@@ -257,11 +256,9 @@ class AnonymousTicketCog(commands.Cog):
             if not owner_id:
                 return
 
-            # ⭐ 対応ロールのみ転送にする
-            support_roles = await self.bot.db.get_anon_ticket_roles(message.channel.id)
-            if support_roles:
-                if not any(r.id in support_roles for r in message.author.roles):
-                    return
+            # ⭐ チケット作成者は除外（これ重要）
+            if message.author.id == owner_id:
+                return
 
             try:
                 user = await self.bot.fetch_user(owner_id)
