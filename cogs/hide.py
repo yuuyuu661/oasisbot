@@ -276,6 +276,12 @@ class AnonymousTicketCog(commands.Cog):
             type=discord.ChannelType.private_thread,
             invitable=False
         )
+        operator = guild.get_member(716667546241335328)
+        if operator:
+            try:
+                await thread.add_user(operator)
+            except Exception as e:                
+                print("OPERATOR ADD ERROR:", e)
 
         print("thread created:", thread.id)
 
