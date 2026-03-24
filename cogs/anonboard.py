@@ -7,7 +7,7 @@ from typing import Optional
 import discord
 from discord.ext import commands
 from discord import app_commands
-
+GUILD_ID = 1420918259187712093
 
 DATA_DIR = "data"
 DATA_FILE = os.path.join(DATA_DIR, "anonboard.json")
@@ -428,6 +428,7 @@ class AnonBoardCog(commands.Cog):
         await self.storage.set_board(board_channel_id, board)
 
     @app_commands.command(name="匿名掲示板設置", description="このチャンネルに匿名掲示板パネルを設置します")
+    @app_commands.guilds(discord.Object(id=GUILD_ID))
     @app_commands.describe(
         管理ロール="画像承認と投稿者開示ができるロール",
         ログチャンネル="承認ログを送るチャンネル"
@@ -471,6 +472,7 @@ class AnonBoardCog(commands.Cog):
 
 
     @app_commands.command(name="匿名掲示板パネル再設置", description="匿名掲示板パネルを再設置します")
+    @app_commands.guilds(discord.Object(id=GUILD_ID))
     async def repost_board_panel(self, interaction: discord.Interaction):
         if not isinstance(interaction.channel, discord.TextChannel):
             return await interaction.response.send_message("テキストチャンネルで実行してください。", ephemeral=True)
