@@ -896,6 +896,19 @@ class Database:
             last_explore BIGINT
         )
         """)
+
+        # =========================
+        # スタンプカード
+        # =========================
+        await self.pool.execute("""
+        CREATE TABLE IF NOT EXISTS stamp_cards (
+            guild_id BIGINT,
+           user_id BIGINT,
+            stamps INT DEFAULT 0,
+            last_stamp_date DATE,
+            PRIMARY KEY (guild_id, user_id)
+        )
+        """)
         
 
         # -----------------------------------------
