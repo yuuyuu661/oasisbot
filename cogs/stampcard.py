@@ -36,10 +36,19 @@ class StampCard(commands.Cog):
 
             stamps = row["stamps"] + 1
 
+            # ⭐ 10達成
+            if stamps >= 10:
+                await self.bot.db.execute(
+                    "UPDATE stamp_cards SET stamps=0, last_stamp_date=$1 WHERE guild_id=$2 AND user_id=$3",
+                    today, guild_id, user_id
+                )
+                return "complete"
+
             await self.bot.db.execute(
                 "UPDATE stamp_cards SET stamps=$1, last_stamp_date=$2 WHERE guild_id=$3 AND user_id=$4",
                 stamps, today, guild_id, user_id
             )
+
         else:
             stamps = 1
             await self.bot.db.execute(
@@ -104,14 +113,14 @@ class StampCard(commands.Cog):
         if result == "already":
             return await interaction.response.send_message("今日はもう押しています")
 
-        if result >= 10:
-            await interaction.response.send_message(
+        if result == "complete":
+            return await interaction.response.send_message(
                 f"{user.mention}\n今回でスタンプ10個目！協会の人に伝えて特典をもらおう！"
             )
-        else:
-            await interaction.response.send_message(
-                f"{user.mention} にスタンプを押しました！（{result}/10）"
-            )
+
+        await interaction.response.send_message(
+            f"{user.mention} にスタンプを押しました！（{result}/10）"
+        )
 
 
 async def setup(bot):
