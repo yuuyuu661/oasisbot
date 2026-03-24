@@ -234,7 +234,7 @@ class AnonymousTicketCog(commands.Cog):
 
     async def handle_create(self, interaction: discord.Interaction, view: AnonymousTicketCreateView):
 
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer(ephemeral=True, thinking=True)
 
         guild = interaction.guild
         channel = interaction.channel
