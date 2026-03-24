@@ -231,6 +231,70 @@ class AnonymousTicketCog(commands.Cog):
     async def cog_load(self):
         self.bot.add_view(CloseAnonDMView())
 
+
+    async def handle_create(self, interaction: discord.Interaction, view: AnonymousTicketCreateView):
+        guild = interaction.guild
+        channel = interaction.channel
+        user = interaction.user
+
+        existing = await find_active_thread_by_owner(self.bot, user.id)
+        if existing:
+            await interaction.response.send_message(
+                "既にアクティブな匿名相談チケットがあります",
+                ephemeral=True
+            )
+            return
+
+        try:
+            dm = await user.create_dm()
+            await dm.send(
+                "匿名相談用チケットのご利用ありがとうございます。\n"
+                "このDMで送った内容が匿名で運営へ転送されます。\n"
+                "お悩みは何ですか？",
+                view=CloseAnonDMView()
+            )
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                "DMを送れないため作成できませんでした。BotからのDMを許可してください。",
+                ephemeral=True
+            )
+            return
+
+        safe_title = safe_name(view.panel_title) or "匿名相談"
+        thread = await channel.create_thread(
+            name=f"{safe_title}:匿名相談",
+            type=discord.ChannelType.private_thread,
+            invitable=False
+        )
+
+        await thread.edit(topic=build_topic(user.id))
+
+        added = set()
+        for rid in view.role_ids:
+            role = guild.get_role(rid)
+            if not role:
+                continue
+
+            for m in role.members:
+                if m.bot or m.id in added:
+                    continue
+                try:
+                    await thread.add_user(m)
+                    added.add(m.id)
+                except:
+                    pass
+
+        await thread.send(
+            "🕊 匿名相談チケットが作成されました。\n"
+            "このスレッドのメッセージはBot経由で匿名転送されます。",
+            view=CloseAnonThreadView(view.role_ids)
+        )
+
+        await interaction.response.send_message(
+            "匿名相談チケットを作成しました。DMをご確認ください。",
+            ephemeral=True
+        )
+
     # =========================
     # slash command
     # =========================
@@ -392,73 +456,7 @@ class AnonymousTicketCog(commands.Cog):
                 except Exception:
                     pass
 
-async def handle_create(self, interaction: discord.Interaction, view: AnonymousTicketCreateView):
 
-    guild = interaction.guild
-    channel = interaction.channel
-    user = interaction.user
-
-    # 同時チケットチェック
-    existing = await find_active_thread_by_owner(self.bot, user.id)
-    if existing:
-        await interaction.response.send_message(
-            "既にアクティブな匿名相談チケットがあります",
-            ephemeral=True
-        )
-        return
-
-    # DM確認
-    try:
-        dm = await user.create_dm()
-        await dm.send(
-            "匿名相談用チケットのご利用ありがとうございます。\n"
-            "このDMで送った内容が匿名で運営へ転送されます。\n"
-            "お悩みは何ですか？",
-            view=CloseAnonDMView()
-        )
-    except discord.Forbidden:
-        await interaction.response.send_message(
-            "DMを送れないため作成できませんでした。BotからのDMを許可してください。",
-            ephemeral=True
-        )
-        return
-
-    # スレッド作成
-    safe_title = safe_name(view.panel_title) or "匿名相談"
-    thread = await channel.create_thread(
-        name=f"{safe_title}:匿名相談",
-        type=discord.ChannelType.private_thread,
-        invitable=False
-    )
-
-    await thread.edit(topic=build_topic(user.id))
-
-    # 対応ロール追加
-    added = set()
-    for rid in view.role_ids:
-        role = guild.get_role(rid)
-        if not role:
-            continue
-
-        for m in role.members:
-            if m.bot or m.id in added:
-                continue
-            try:
-                await thread.add_user(m)
-                added.add(m.id)
-            except:
-                pass
-
-    await thread.send(
-        "🕊 匿名相談チケットが作成されました。\n"
-        "このスレッドのメッセージはBot経由で匿名転送されます。",
-        view=CloseAnonThreadView(view.role_ids)
-    )
-
-    await interaction.response.send_message(
-        "匿名相談チケットを作成しました。DMをご確認ください。",
-        ephemeral=True
-    )
 
 
 
