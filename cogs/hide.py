@@ -285,128 +285,7 @@ class AnonymousTicketCog(commands.Cog):
         await interaction.channel.send(embed=embed, view=view)
         await interaction.followup.send("匿名相談用チケットパネルを設置しました", ephemeral=True)
 
-    # =========================
-    # button interactions
-    # =========================
-    @commands.Cog.listener()
-    async def on_interaction(self, interaction: discord.Interaction):
-        if not interaction.data:
-            return
 
-        cid = interaction.data.get("custom_id")
-        if cid != "anon_ticket_create":
-            return
-
-        if not interaction.guild or not interaction.channel:
-            return
-
-        await interaction.response.defer(ephemeral=True)
-
-        message = interaction.message
-        if not message or not getattr(message, "_view", None):
-            await interaction.followup.send("パネル情報を取得できませんでした", ephemeral=True)
-            return
-
-        view = message._view
-        if not isinstance(view, AnonymousTicketCreateView):
-            await interaction.followup.send("パネル情報を取得できませんでした", ephemeral=True)
-            return
-
-        guild = interaction.guild
-        channel = interaction.channel
-        user = interaction.user
-
-        # 既存アクティブ確認
-        existing = await find_active_thread_by_owner(self.bot, user.id)
-        if existing:
-            await interaction.followup.send("既にアクティブな匿名相談チケットがあります", ephemeral=True)
-            return
-
-        # DM送信可能か先に確認
-        try:
-            dm = await user.create_dm()
-            await dm.send(
-                "匿名相談用チケットのご利用ありがとうございます。\n"
-                "このDMで送った内容が匿名で運営へ転送されます。\n"
-                "お悩みは何ですか？",
-                view=CloseAnonDMView()
-            )
-        except discord.Forbidden:
-            await interaction.followup.send(
-                "DMを送れないため作成できませんでした。BotからのDMを許可してください。",
-                ephemeral=True
-            )
-            return
-        except Exception:
-            await interaction.followup.send(
-                "DMの作成に失敗しました。時間を置いて再度お試しください。",
-                ephemeral=True
-            )
-            return
-
-        # private thread 作成
-        safe_title = safe_name(view.panel_title) or "匿名相談"
-        try:
-            thread = await channel.create_thread(
-                name=f"{safe_title}:匿名相談",
-                type=discord.ChannelType.private_thread,
-                invitable=False
-            )
-        except Exception as e:
-            await interaction.followup.send(f"スレッド作成に失敗しました: {e}", ephemeral=True)
-            return
-
-        try:
-            await thread.edit(topic=build_topic(user.id))
-        except Exception:
-            pass
-
-        # 対応ロールのメンバーを追加
-        added_user_ids = set()
-        for rid in view.role_ids:
-            role = guild.get_role(rid)
-            if not role:
-                continue
-
-            for member in role.members:
-                if member.bot:
-                    continue
-                if member.id in added_user_ids:
-                    continue
-                try:
-                    await thread.add_user(member)
-                    added_user_ids.add(member.id)
-                except Exception:
-                    pass
-
-        role_mentions = []
-        for rid in view.role_ids:
-            role = guild.get_role(rid)
-            if role:
-                role_mentions.append(role.mention)
-
-        try:
-            await thread.send(
-                f"{' '.join(role_mentions)}\n"
-                f"🕊 匿名相談チケットが作成されました。\n"
-                f"相談者はスレッドには参加していません。\n"
-                f"このスレッドのメッセージはBot経由で匿名転送されます。"
-            )
-        except Exception:
-            pass
-
-        try:
-            await thread.send(
-                f"📌 初期メッセージ\n{view.first_msg}",
-                view=CloseAnonThreadView(view.role_ids)
-            )
-        except Exception:
-            pass
-
-        await interaction.followup.send(
-            "匿名相談チケットを作成しました。BotのDMをご確認ください。",
-            ephemeral=True
-        )
 
     # =========================
     # message relay
@@ -512,6 +391,76 @@ class AnonymousTicketCog(commands.Cog):
                     await thread.send("⚠ 相談者への転送に失敗しました。")
                 except Exception:
                     pass
+
+async def handle_create(self, interaction: discord.Interaction, view: AnonymousTicketCreateView):
+
+    guild = interaction.guild
+    channel = interaction.channel
+    user = interaction.user
+
+    # 同時チケットチェック
+    existing = await find_active_thread_by_owner(self.bot, user.id)
+    if existing:
+        await interaction.response.send_message(
+            "既にアクティブな匿名相談チケットがあります",
+            ephemeral=True
+        )
+        return
+
+    # DM確認
+    try:
+        dm = await user.create_dm()
+        await dm.send(
+            "匿名相談用チケットのご利用ありがとうございます。\n"
+            "このDMで送った内容が匿名で運営へ転送されます。\n"
+            "お悩みは何ですか？",
+            view=CloseAnonDMView()
+        )
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            "DMを送れないため作成できませんでした。BotからのDMを許可してください。",
+            ephemeral=True
+        )
+        return
+
+    # スレッド作成
+    safe_title = safe_name(view.panel_title) or "匿名相談"
+    thread = await channel.create_thread(
+        name=f"{safe_title}:匿名相談",
+        type=discord.ChannelType.private_thread,
+        invitable=False
+    )
+
+    await thread.edit(topic=build_topic(user.id))
+
+    # 対応ロール追加
+    added = set()
+    for rid in view.role_ids:
+        role = guild.get_role(rid)
+        if not role:
+            continue
+
+        for m in role.members:
+            if m.bot or m.id in added:
+                continue
+            try:
+                await thread.add_user(m)
+                added.add(m.id)
+            except:
+                pass
+
+    await thread.send(
+        "🕊 匿名相談チケットが作成されました。\n"
+        "このスレッドのメッセージはBot経由で匿名転送されます。",
+        view=CloseAnonThreadView(view.role_ids)
+    )
+
+    await interaction.response.send_message(
+        "匿名相談チケットを作成しました。DMをご確認ください。",
+        ephemeral=True
+    )
+
+
 
 
 async def setup(bot):
