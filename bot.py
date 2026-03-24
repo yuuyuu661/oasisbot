@@ -70,6 +70,8 @@ class MyBot(commands.Bot):
             "cogs.stamp",
             "cogs.vc_cradle",            
             "cogs.anonboard",
+            "cogs.stampcard",
+
             
         ]
 
