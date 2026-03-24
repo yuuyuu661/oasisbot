@@ -112,8 +112,8 @@ class StampCard(commands.Cog):
             empty = empty.resize((400, 400))
             stamp = stamp.resize((400, 400))
 
-            start_x = 200
-            start_y = 300
+            start_x = 250
+            start_y = 320
 
             gap_x = 440
             gap_y = 440
