@@ -3,12 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 from discord.ui import View, Button
 
-COLOR_MAP = {
-    "赤": discord.ButtonStyle.red,
-    "緑": discord.ButtonStyle.green,
-    "青": discord.ButtonStyle.blurple,
-    "灰": discord.ButtonStyle.gray,
-}
+
 
 
 # =========================
@@ -100,18 +95,16 @@ class CloseAnonDMView(View):
 # =========================
 
 class AnonymousTicketCreateView(View):
-    def __init__(self, title, body, first_msg, role_ids, color):
+    def __init__(self, title, body, first_msg, role_ids):
         super().__init__(timeout=None)
         self.title = title
         self.body = body
         self.first_msg = first_msg
         self.role_ids = role_ids
 
-        style = COLOR_MAP.get(color, discord.ButtonStyle.blurple)
-
         self.add_item(Button(
             label="匿名で相談する",
-            style=style,
+            style=discord.ButtonStyle.blurple,  # 固定
             custom_id="anon_ticket_create"
         ))
 
@@ -183,15 +176,13 @@ class AnonymousTicketCog(commands.Cog):
         タイトル: str,
         本文: str,
         初期メッセージ: str,
-        ボタン色: str,
         対応ロール1: discord.Role,
     ):
         view = AnonymousTicketCreateView(
             タイトル,
             本文,
             初期メッセージ,
-            [対応ロール1.id],
-            ボタン色
+            [対応ロール1.id]
         )
 
         embed = discord.Embed(title=タイトル, description=本文)
@@ -258,9 +249,19 @@ class AnonymousTicketCog(commands.Cog):
         # =========================
         if isinstance(message.channel, discord.Thread):
 
+            # botメッセージ無視
+            if message.author.bot:
+                return
+
             owner_id = await self.bot.db.get_anon_ticket_user(message.channel.id)
             if not owner_id:
                 return
+
+            # ⭐ 対応ロールのみ転送にする
+            support_roles = await self.bot.db.get_anon_ticket_roles(message.channel.id)
+            if support_roles:
+                if not any(r.id in support_roles for r in message.author.roles):
+                    return
 
             try:
                 user = await self.bot.fetch_user(owner_id)
@@ -286,15 +287,9 @@ class AnonymousTicketCog(commands.Cog):
                     files=files if files else None
                 )
             except discord.Forbidden:
-                try:
-                    await message.channel.send("⚠ 相談者のDMが閉じています")
-                except:
-                    pass
+                await message.channel.send("⚠ 相談者のDMが閉じています")
             except:
-                try:
-                    await message.channel.send("⚠ 転送失敗")
-                except:
-                    pass
+                await message.channel.send("⚠ 転送失敗")
 
 
 async def setup(bot):
