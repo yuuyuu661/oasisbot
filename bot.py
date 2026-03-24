@@ -22,6 +22,7 @@ intents = discord.Intents.default()
 intents.guilds = True
 intents.members = True
 intents.voice_states = True
+intents.message_content = True
 
 class MyBot(commands.Bot):
     def __init__(self):
