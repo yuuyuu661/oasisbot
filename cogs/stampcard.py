@@ -35,7 +35,7 @@ class StampCard(commands.Cog):
     async def get_data(self, guild_id, user_id):
         print(f"DB get_data start {guild_id} {user_id}")
         try:
-            row = await self.bot.db.fetchrow(
+            row = await self.bot.db._fetchrow(
                 "SELECT * FROM stamp_cards WHERE guild_id=$1 AND user_id=$2",
                 guild_id, user_id
             )
