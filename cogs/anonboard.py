@@ -494,5 +494,9 @@ class AnonBoardCog(commands.Cog):
         await interaction.response.send_message(desc, ephemeral=True)
 
 
-async def setup(bot: commands.Bot):
-    await bot.add_cog(AnonBoardCog(bot))
+async def setup(bot):
+    cog = AnonBoardCog(bot)
+    await bot.add_cog(cog)
+
+    guild = discord.Object(id=GUILD_IDS[0])
+    bot.tree.add_command(cog.anon_board_setup, guild=guild)
