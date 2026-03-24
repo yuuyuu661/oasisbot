@@ -109,14 +109,14 @@ class StampCard(commands.Cog):
             stamp = Image.open(STAMP_PATH).convert("RGBA")
 
             # ⭐ サイズ統一（ここ超重要）
-            empty = empty.resize((220, 220))
-            stamp = stamp.resize((220, 220))
+            empty = empty.resize((400, 400))
+            stamp = stamp.resize((400, 400))
 
             start_x = 80
-            start_y = 200
+            start_y = 250
 
-            gap_x = 240
-            gap_y = 240
+            gap_x = 440
+            gap_y = 440
 
             index = 0
 
