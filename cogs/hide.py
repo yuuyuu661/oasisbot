@@ -196,6 +196,8 @@ class AnonymousTicketCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
+        print("MESSAGE EVENT:", message.channel, type(message.channel), message.content)
+    
 
         if message.author.bot:
             return
@@ -250,43 +252,55 @@ class AnonymousTicketCog(commands.Cog):
         # =========================
         if isinstance(message.channel, discord.Thread):
 
+            print("THREAD DETECTED:", message.channel.id)
+
             if message.author.bot:
+                print("IGNORED BOT MESSAGE")
                 return
 
             owner_id = await self.bot.db.get_anon_ticket_user(message.channel.id)
+            print("OWNER ID:", owner_id)
+
             if not owner_id:
+                print("NO OWNER FOUND")
                 return
 
-            # ⭐ チケット作成者は除外（これ重要）
             if message.author.id == owner_id:
+                print("IGNORED OWNER MESSAGE")
                 return
 
             try:
                 user = await self.bot.fetch_user(owner_id)
-            except:
+            except Exception as e:
+                print("FETCH USER ERROR:", e)
                 return
 
             content = message.content.strip()
             attachments = message.attachments
 
             if not content and not attachments:
+                print("EMPTY MESSAGE")
                 return
 
             files = []
             for a in attachments:
                 try:
                     files.append(await a.to_file())
-                except:
-                    pass
+                except Exception as e:
+                    print("FILE ERROR:", e)
 
             try:
+                print("TRY SEND DM:", content)
                 await user.send(
                     f"📨 運営:\n{content}" if content else "📨 添付ファイル",
                     files=files if files else None
                 )
+                print("DM SENT OK")
             except discord.Forbidden:
+                print("DM FORBIDDEN")
                 await message.channel.send("⚠ 相談者のDMが閉じています")
-            except:
+            except Exception as e:
+                print("DM SEND ERROR:", e)
                 await message.channel.send("⚠ 転送失敗")
 
 
