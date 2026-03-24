@@ -110,7 +110,7 @@ class StampCard(commands.Cog):
             stamp = stamp.resize((400, 400))
 
             start_x = 290
-            start_y = 340
+            start_y = 400
 
             gap_x = 440
             gap_y = 440
