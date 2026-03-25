@@ -8,10 +8,23 @@ import traceback
 
 JST = timezone(timedelta(hours=9))
 
-ROLE_ID = 1445403813853925418
+
+
+ROLE_IDS = [1445403813853925418,1445403608035364874]
 GUILD_ID = 1420918259187712093
 
-BG_PATH = "cogs/assets/stamp/bg.png"
+BG_PATHS = [
+    "cogs/assets/stamp/bg1.png",
+    "cogs/assets/stamp/bg2.png",
+    "cogs/assets/stamp/bg3.png",
+    "cogs/assets/stamp/bg4.png",
+    "cogs/assets/stamp/bg5.png",
+    "cogs/assets/stamp/bg6.png",
+    "cogs/assets/stamp/bg7.png",
+    "cogs/assets/stamp/bg8.png",
+    "cogs/assets/stamp/bg9.png",
+    "cogs/assets/stamp/bg10.png",
+]
 EMPTY_PATH = "cogs/assets/stamp/empty.png"
 STAMP_PATH = "cogs/assets/stamp/stamp.png"
 
@@ -50,92 +63,73 @@ class StampCard(commands.Cog):
     # スタンプ追加
     # =========================
     async def add_stamp(self, guild_id, user_id):
-        print("add_stamp start")
 
-        try:
-            today = datetime.now(JST).date()
-            print("today:", today)
+        today = datetime.now(JST).date()
+        row = await self.get_data(guild_id, user_id)
 
-            row = await self.get_data(guild_id, user_id)
+        if row:
+            stamps = row["stamps"] + 1
+            page = row["page"]
 
-            if row:
-                print("row exists")
-
-
-
-
-                stamps = row["stamps"] + 1
-                print("new stamps:", stamps)
-
-                if stamps >= 10:
-                    print("stamp complete")
-                    await self.bot.db._execute(
-                        "UPDATE stamp_cards SET stamps=0, last_stamp_date=$1 WHERE guild_id=$2 AND user_id=$3",
-                        today, guild_id, user_id
-                    )
-                    return "complete"
+            if stamps >= 10:
+                page += 1
+                stamps = 0
 
                 await self.bot.db._execute(
-                    "UPDATE stamp_cards SET stamps=$1, last_stamp_date=$2 WHERE guild_id=$3 AND user_id=$4",
-                    stamps, today, guild_id, user_id
+                    "UPDATE stamp_cards SET stamps=$1, page=$2, last_stamp_date=$3 WHERE guild_id=$4 AND user_id=$5",
+                    stamps, page, today, guild_id, user_id
                 )
+                return "complete"
 
-            else:
-                print("row not exists -> insert")
-                stamps = 1
-                await self.bot.db._execute(
-                    "INSERT INTO stamp_cards VALUES($1,$2,$3,$4)",
-                    guild_id, user_id, stamps, today
-                )
+            await self.bot.db._execute(
+                "UPDATE stamp_cards SET stamps=$1, last_stamp_date=$2 WHERE guild_id=$3 AND user_id=$4",
+                stamps, today, guild_id, user_id
+            )
 
             return stamps
 
-        except Exception as e:
-            print("🔥 add_stamp error")
-            traceback.print_exc()
-            raise
+        else:
+            await self.bot.db._execute(
+                "INSERT INTO stamp_cards VALUES($1,$2,$3,$4,$5)",
+                guild_id, user_id, 1, 1, today
+            )
+            return 1
 
     # =========================
     # 画像生成
     # =========================
-    def generate_image(self, stamps):
-        print("generate_image start", stamps)
-        try:
-            bg = Image.open(BG_PATH).convert("RGBA")
-            empty = Image.open(EMPTY_PATH).convert("RGBA")
-            stamp = Image.open(STAMP_PATH).convert("RGBA")
+    def generate_image(self, stamps, page):
 
-            # ⭐ サイズ統一（ここ超重要）
-            empty = empty.resize((400, 400))
-            stamp = stamp.resize((400, 400))
+        bg_path = BG_PATHS[(page-1) % len(BG_PATHS)]
+        bg = Image.open(bg_path).convert("RGBA")
 
-            start_x = 290
-            start_y = 400
+        empty = Image.open(EMPTY_PATH).convert("RGBA").resize((400, 400))
+        stamp = Image.open(STAMP_PATH).convert("RGBA").resize((400, 400))
 
-            gap_x = 440
-            gap_y = 440
+        start_x = 290
+        start_y = 400
+        gap_x = 440
+        gap_y = 440
 
-            index = 0
+        index = 0
 
-            for r in range(2):
-                for c in range(5):
+        for r in range(2):
+            for c in range(5):
+                x = start_x + c * gap_x
+                y = start_y + r * gap_y
 
-                    x = start_x + c * gap_x
-                    y = start_y + r * gap_y
+                if index < stamps:
+                    bg.paste(stamp, (x, y), stamp)
+                else:
+                    bg.paste(empty, (x, y), empty)
 
-                    if index < stamps:
-                        bg.paste(stamp, (x, y), stamp)
-                    else:
-                        bg.paste(empty, (x, y), empty)
+                index += 1
 
-                    index += 1
+        buf = io.BytesIO()
+        bg.save(buf, format="PNG")
+        buf.seek(0)
 
-            buf = io.BytesIO()
-            bg.save(buf, format="PNG")
-            buf.seek(0)
-
-            print("generate_image success")
-            return buf
+        return buf
 
         except Exception as e:
             print("🔥 generate_image error")
@@ -147,29 +141,28 @@ class StampCard(commands.Cog):
     # =========================
     @app_commands.command(name="スタンプカード確認")
     @app_commands.guilds(discord.Object(id=GUILD_ID))
-    async def check(self, interaction: discord.Interaction):
+    async def check(self, interaction: discord.Interaction, user: discord.Member = None):
 
-        print("check command called")
+        await interaction.response.defer()
 
-        try:
-            await interaction.response.defer()
-            print("defer success")
+        target = user or interaction.user
 
-            row = await self.get_data(interaction.guild_id, interaction.user.id)
-            stamps = row["stamps"] if row else 0
-            print("stamps:", stamps)
+        # ⭐ 他人確認は管理ロール必須
+        if user:
+            if not any(r.id in ROLE_IDS for r in interaction.user.roles):
+                return await interaction.followup.send("権限がありません", ephemeral=True)
 
-            img = self.generate_image(stamps)
+        row = await self.get_data(interaction.guild_id, target.id)
 
-            await interaction.followup.send(
-                file=discord.File(img, "card.png")
-            )
+        stamps = row["stamps"] if row else 0
+        page = row["page"] if row else 1
 
-            print("check success")
+        img = self.generate_image(stamps, page)
 
-        except Exception:
-            print("🔥 check error")
-            traceback.print_exc()
+        await interaction.followup.send(
+            content=f"{target.display_name} のスタンプカード（{page}枚目）",
+            file=discord.File(img, "card.png")
+        )
 
     # =========================
     # 押す
@@ -181,7 +174,7 @@ class StampCard(commands.Cog):
         print("push command called")
 
         try:
-            if ROLE_ID not in [r.id for r in interaction.user.roles]:
+            if not any(r.id in ROLE_IDS for r in interaction.user.roles):
                 print("no permission")
                 return await interaction.response.send_message("権限がありません", ephemeral=True)
 
