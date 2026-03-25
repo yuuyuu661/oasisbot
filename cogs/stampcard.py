@@ -10,7 +10,11 @@ JST = timezone(timedelta(hours=9))
 
 
 
-ROLE_IDS = [1445403813853925418,1445403608035364874]
+STAMP_ADMIN_ROLES = [1445403813853925418,1445403608035364874]
+
+ROLE_PANEL_ADMIN = 1445403813853925418
+
+
 GUILD_ID = 1420918259187712093
 
 BG_PATHS = [
@@ -146,7 +150,7 @@ class StampCard(commands.Cog):
 
         # ⭐ 他人確認は管理ロール必須
         if user:
-            if not any(r.id in ROLE_IDS for r in interaction.user.roles):
+            if not any(r.id in STAMP_ADMIN_ROLES for r in interaction.user.roles):
                 return await interaction.followup.send("権限がありません", ephemeral=True)
 
         row = await self.get_data(interaction.guild_id, target.id)
@@ -171,7 +175,7 @@ class StampCard(commands.Cog):
         print("push command called")
 
         try:
-            if not any(r.id in ROLE_IDS for r in interaction.user.roles):
+            if not any(r.id in STAMP_ADMIN_ROLES for r in interaction.user.roles):
                 print("no permission")
                 return await interaction.response.send_message("権限がありません", ephemeral=True)
 
@@ -233,8 +237,11 @@ class StampCard(commands.Cog):
         role5: discord.Role = None,
     ):
 
-        if not any(r.id in ROLE_IDS for r in interaction.user.roles):
-            return await interaction.response.send_message("権限がありません", ephemeral=True)
+        if ROLE_PANEL_ADMIN not in [r.id for r in interaction.user.roles]:
+            return await interaction.response.send_message(
+                "ロール付与パネル設置権限がありません",
+                ephemeral=True
+            )
 
         pairs = [(emoji1, role1)]
 
