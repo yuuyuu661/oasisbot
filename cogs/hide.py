@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from discord.ui import View, Button
-
+import random
 
 
 
@@ -95,16 +95,19 @@ class CloseAnonDMView(View):
 # =========================
 
 class AnonymousTicketCreateView(View):
-    def __init__(self, title, body, first_msg, role_ids):
+    def __init__(self, title, body, first_msg, role_ids, color, log_channel_id):
         super().__init__(timeout=None)
         self.title = title
         self.body = body
         self.first_msg = first_msg
         self.role_ids = role_ids
+        self.log_channel_id = log_channel_id
+
+        style = COLOR_MAP.get(color, discord.ButtonStyle.blurple)
 
         self.add_item(Button(
             label="匿名で相談する",
-            style=discord.ButtonStyle.blurple,  # 固定
+            style=style,
             custom_id="anon_ticket_create"
         ))
 
@@ -133,6 +136,18 @@ class AnonymousTicketCog(commands.Cog):
         if thread_id:
             return await interaction.followup.send("既に相談があります", ephemeral=True)
 
+        # ★ 管理ログ送信
+        if view.log_channel_id:
+            log_ch = interaction.guild.get_channel(view.log_channel_id)
+            if log_ch:
+                try:
+                    await log_ch.send(
+                        f"📩 匿名相談開始\n"
+                        f"ユーザー: {interaction.user} ({interaction.user.id})"
+                    )
+                except:
+                    pass
+
         try:
             dm = await interaction.user.create_dm()
             await dm.send(
@@ -142,11 +157,15 @@ class AnonymousTicketCog(commands.Cog):
         except:
             return await interaction.followup.send("DM送信できません", ephemeral=True)
 
+        rand = random.randint(1000, 9999)
+
         thread = await interaction.channel.create_thread(
-            name=f"匿名相談-{interaction.user.id}",
+            name=f"匿名相談-{rand}",
             type=discord.ChannelType.private_thread,
             invitable=False
         )
+
+        
         await thread.add_user(self.bot.user)
 
         await self.bot.db.create_anon_ticket(thread.id, interaction.user.id, interaction.guild.id)
@@ -177,16 +196,43 @@ class AnonymousTicketCog(commands.Cog):
         タイトル: str,
         本文: str,
         初期メッセージ: str,
+        log_manage: discord.TextChannel,
         対応ロール1: discord.Role,
+        対応ロール2: discord.Role | None = None,
+        対応ロール3: discord.Role | None = None,
+        対応ロール4: discord.Role | None = None,
+        対応ロール5: discord.Role | None = None,
     ):
+
+        # ★ 管理ロール制限
+        if not any(r.id == 1445403813853925418 for r in interaction.user.roles):
+            return await interaction.response.send_message(
+                "このコマンドは管理者のみ使用可能です",
+                ephemeral=True
+            )
+
+        # ★ role list 作成
+        role_ids = [
+            r.id for r in [
+                対応ロール1,
+                対応ロール2,
+                対応ロール3,
+                対応ロール4,
+                対応ロール5
+            ] if r is not None
+        ]
+
+        # ★ View 作成
         view = AnonymousTicketCreateView(
             タイトル,
             本文,
             初期メッセージ,
-            [対応ロール1.id]
+            role_ids,
+            log_manage.id
         )
 
         embed = discord.Embed(title=タイトル, description=本文)
+
         await interaction.channel.send(embed=embed, view=view)
         await interaction.response.send_message("設置しました", ephemeral=True)
 
