@@ -90,7 +90,7 @@ class StampCard(commands.Cog):
 
         else:
             await self.bot.db._execute(
-                "INSERT INTO stamp_cards VALUES($1,$2,$3,$4,$5)",
+                "INSERT INTO stamp_cards (guild_id, user_id, stamps, page, last_stamp_date) VALUES($1,$2,$3,$4,$5)",
                 guild_id, user_id, 1, 1, today
             )
             return 1
@@ -131,10 +131,7 @@ class StampCard(commands.Cog):
 
         return buf
 
-        except Exception as e:
-            print("🔥 generate_image error")
-            traceback.print_exc()
-            raise
+
 
     # =========================
     # 確認
