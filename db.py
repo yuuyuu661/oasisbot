@@ -903,11 +903,33 @@ class Database:
         await self._execute("""
         CREATE TABLE IF NOT EXISTS stamp_cards (
             guild_id BIGINT,
-           user_id BIGINT,
+            user_id BIGINT,
             stamps INT DEFAULT 0,
             last_stamp_date DATE,
             PRIMARY KEY (guild_id, user_id)
         )
+        """)
+
+        # ⭐ page カラム追加
+        await self._execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_name='stamp_cards'
+                AND column_name='page'
+            ) THEN
+                ALTER TABLE stamp_cards ADD COLUMN page INT DEFAULT 1;
+            END IF;
+        END$$;
+        """)
+
+        # ⭐ 既存修正
+        await self._execute("""
+        UPDATE stamp_cards
+        SET page = 1
+        WHERE page IS NULL;
         """)
 
         # =========================
