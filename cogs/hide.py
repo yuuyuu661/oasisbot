@@ -103,8 +103,6 @@ class AnonymousTicketCreateView(View):
         self.role_ids = role_ids
         self.log_channel_id = log_channel_id
 
-        style = COLOR_MAP.get(color, discord.ButtonStyle.blurple)
-
         self.add_item(Button(
             label="匿名で相談する",
             style=discord.ButtonStyle.blurple,
@@ -196,7 +194,7 @@ class AnonymousTicketCog(commands.Cog):
         タイトル: str,
         本文: str,
         初期メッセージ: str,
-        log_manage: discord.TextChannel,
+        チケット管理ログ: discord.TextChannel,
         対応ロール1: discord.Role,
         対応ロール2: discord.Role | None = None,
         対応ロール3: discord.Role | None = None,
@@ -228,7 +226,7 @@ class AnonymousTicketCog(commands.Cog):
             本文,
             初期メッセージ,
             role_ids,
-            log_manage.id
+            チケット管理ログ.id
         )
 
         embed = discord.Embed(title=タイトル, description=本文)
