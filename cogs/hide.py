@@ -95,7 +95,7 @@ class CloseAnonDMView(View):
 # =========================
 
 class AnonymousTicketCreateView(View):
-    def __init__(self, title, body, first_msg, role_ids, color, log_channel_id):
+    def __init__(self, title, body, first_msg, role_ids, log_channel_id):
         super().__init__(timeout=None)
         self.title = title
         self.body = body
@@ -107,7 +107,7 @@ class AnonymousTicketCreateView(View):
 
         self.add_item(Button(
             label="匿名で相談する",
-            style=style,
+            style=discord.ButtonStyle.blurple,
             custom_id="anon_ticket_create"
         ))
 
