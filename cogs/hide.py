@@ -155,10 +155,10 @@ class AnonymousTicketCog(commands.Cog):
         except:
             return await interaction.followup.send("DM送信できません", ephemeral=True)
 
-        rand = random.randint(1000, 9999)
+        no = await self.get_next_ticket_number(interaction.guild_id)
 
         thread = await interaction.channel.create_thread(
-            name=f"匿名相談-{rand}",
+            name=f"匿名相談-{no:04d}",
             type=discord.ChannelType.private_thread,
             invitable=False
         )
