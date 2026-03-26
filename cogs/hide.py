@@ -156,6 +156,7 @@ class AnonymousTicketCog(commands.Cog):
             return await interaction.followup.send("DM送信できません", ephemeral=True)
 
         no = await self.get_next_ticket_number(interaction.guild_id)
+        print("ticket no:", no)
 
         thread = await interaction.channel.create_thread(
             name=f"匿名相談-{no:04d}",
