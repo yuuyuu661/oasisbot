@@ -4384,4 +4384,35 @@ class Database:
         )
         return bool(row)
 
+    # ======================================================
+    # 匿名パネル3.26
+    # ======================================================
 
+    async def create_anon_panel(
+        self,
+        panel_id: int,
+        guild_id: int,
+        channel_id: int,
+        title: str,
+        body: str,
+        first_msg: str,
+        role_ids: list[int],
+        log_channel_id: int
+    ):
+        await self._execute("""
+            INSERT INTO anon_ticket_panels
+            (panel_id, guild_id, channel_id, title, body, first_msg, role_ids, log_channel_id)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        """, panel_id, guild_id, channel_id, title, body, first_msg, role_ids, log_channel_id)
+
+
+    async def get_all_anon_panels(self):
+        return await self._fetch("""
+            SELECT * FROM anon_ticket_panels
+        """)
+
+    async def delete_anon_panel(self, panel_id: int):
+        await self._execute("""
+            DELETE FROM anon_ticket_panels
+            WHERE panel_id=$1
+        """, panel_id)
