@@ -2,8 +2,8 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
-GUILD_ID = 1310885590094450739
-PANEL_ADMIN_ROLE = 1310906528517062770
+GUILD_ID = 1420918259187712093
+PANEL_ADMIN_ROLE = 1445403813853925418
 
 class RolePanel(commands.Cog):
     def __init__(self, bot):
