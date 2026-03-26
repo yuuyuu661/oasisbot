@@ -117,7 +117,10 @@ class RolePanel(commands.Cog):
         msg = await interaction.channel.send(embed=embed)
 
         for emoji, role in valid_pairs:
-            await msg.add_reaction(emoji)
+            try:
+                await msg.add_reaction(emoji)
+            except Exception as e:
+                print("REACTION ERROR:", emoji, e)
 
         panel_data = {
             str(e): r.id for e, r in valid_pairs
