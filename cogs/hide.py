@@ -347,7 +347,32 @@ class AnonymousTicketCog(commands.Cog):
             except Exception as e:
                 print("DM SEND ERROR:", e)
                 await message.channel.send("⚠ 転送失敗")
+                
+async def get_next_ticket_number(self, guild_id: int):
+    try:
+        row = await self.bot.db._fetchrow(
+            "SELECT counter FROM anon_ticket_counter WHERE guild_id=$1",
+            guild_id
+        )
 
+        if row:
+            new = row["counter"] + 1
+            await self.bot.db._execute(
+                "UPDATE anon_ticket_counter SET counter=$1 WHERE guild_id=$2",
+                new, guild_id
+            )
+        else:
+            new = 1
+            await self.bot.db._execute(
+                "INSERT INTO anon_ticket_counter (guild_id, counter) VALUES($1,$2)",
+                guild_id, new
+            )
+
+        return new
+
+    except Exception as e:
+        print("🔥 ticket counter error:", e)
+        return random.randint(1000,9999)
 
 async def setup(bot):
     cog = AnonymousTicketCog(bot)
