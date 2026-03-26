@@ -971,6 +971,17 @@ class Database:
         )
         """)
 
+        # =========================
+        # ロール付与パネル
+        # =========================
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS role_panels (
+            message_id BIGINT PRIMARY KEY,
+            guild_id BIGINT,
+            panel_data JSONB
+        )
+        """)
+
         
         
 
@@ -4416,3 +4427,21 @@ class Database:
             DELETE FROM anon_ticket_panels
             WHERE panel_id=$1
         """, panel_id)
+
+
+    # =========================
+    # role panel save3.26
+    # =========================
+    async def save_role_panel(self, message_id, guild_id, data):
+        await self._execute("""
+            INSERT INTO role_panels (message_id, guild_id, panel_data)
+            VALUES ($1,$2,$3)
+            ON CONFLICT (message_id)
+            DO UPDATE SET panel_data = EXCLUDED.panel_data
+        """, message_id, guild_id, data)
+
+
+    async def load_role_panels(self):
+        return await self._fetch("""
+            SELECT message_id, panel_data FROM role_panels
+        """)
