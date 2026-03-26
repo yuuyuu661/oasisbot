@@ -95,8 +95,9 @@ class CloseAnonDMView(View):
 # =========================
 
 class AnonymousTicketCreateView(View):
-    def __init__(self, title, body, first_msg, role_ids, log_channel_id):
+    def __init__(self, panel_id: int, title: str, body: str, first_msg: str, role_ids: list[int], log_channel_id: int):
         super().__init__(timeout=None)
+        self.panel_id = panel_id
         self.title = title
         self.body = body
         self.first_msg = first_msg
@@ -106,7 +107,7 @@ class AnonymousTicketCreateView(View):
         self.add_item(Button(
             label="匿名で相談する",
             style=discord.ButtonStyle.blurple,
-            custom_id="anon_ticket_create"
+            custom_id=f"anon_ticket_create:{panel_id}"
         ))
 
     async def interaction_check(self, interaction: discord.Interaction):
@@ -125,6 +126,23 @@ class AnonymousTicketCog(commands.Cog):
 
     async def cog_load(self):
         self.bot.add_view(CloseAnonDMView())
+
+        try:
+            panels = await self.bot.db.get_all_anon_panels()
+
+            for p in panels:
+                view = AnonymousTicketCreateView(
+                    panel_id=p["panel_id"],
+                    title=p["title"],
+                    body=p["body"],
+                    first_msg=p["first_msg"],
+                    role_ids=p["role_ids"] or [],
+                    log_channel_id=p["log_channel_id"]
+                )
+                self.bot.add_view(view)
+                print(f"✅ 匿名相談パネル復元: panel_id={p['panel_id']}")
+        except Exception as e:
+            print("🔥 匿名相談パネル復元失敗:", e)
 
 
     async def get_next_ticket_number(self, guild_id: int):
@@ -229,15 +247,12 @@ class AnonymousTicketCog(commands.Cog):
         対応ロール4: discord.Role | None = None,
         対応ロール5: discord.Role | None = None,
     ):
-
-        # ★ 管理ロール制限
         if not any(r.id == 1445403813853925418 for r in interaction.user.roles):
             return await interaction.response.send_message(
                 "このコマンドは管理者のみ使用可能です",
                 ephemeral=True
             )
 
-        # ★ role list 作成
         role_ids = [
             r.id for r in [
                 対応ロール1,
@@ -248,18 +263,32 @@ class AnonymousTicketCog(commands.Cog):
             ] if r is not None
         ]
 
-        # ★ View 作成
+        panel_id = random.randint(10**15, 10**16 - 1)
+
         view = AnonymousTicketCreateView(
-            タイトル,
-            本文,
-            初期メッセージ,
-            role_ids,
-            チケット管理ログ.id
+            panel_id=panel_id,
+            title=タイトル,
+            body=本文,
+            first_msg=初期メッセージ,
+            role_ids=role_ids,
+            log_channel_id=チケット管理ログ.id
         )
 
         embed = discord.Embed(title=タイトル, description=本文)
 
         await interaction.channel.send(embed=embed, view=view)
+
+        await self.bot.db.create_anon_panel(
+            panel_id=panel_id,
+            guild_id=interaction.guild.id,
+            channel_id=interaction.channel.id,
+            title=タイトル,
+            body=本文,
+            first_msg=初期メッセージ,
+            role_ids=role_ids,
+            log_channel_id=チケット管理ログ.id
+        )
+
         await interaction.response.send_message("設置しました", ephemeral=True)
 
     # =========================
