@@ -944,6 +944,18 @@ class Database:
             created_at TIMESTAMP DEFAULT NOW()
         );
         """)
+
+        # =========================
+        # 匿名チケット通し番号
+        # =========================
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS anon_ticket_counter (
+            guild_id BIGINT PRIMARY KEY,
+            counter BIGINT DEFAULT 0
+        )
+        """)
+
+        
         
 
         # -----------------------------------------
@@ -4355,3 +4367,28 @@ class Database:
             thread_id
         )
         return bool(row)
+
+    async def get_next_ticket_number(self, guild_id: int):
+
+        row = await self.bot.db._fetchrow(
+            "SELECT counter FROM anon_ticket_counter WHERE guild_id=$1",
+            guild_id
+        )
+
+        if row:
+            new = row["counter"] + 1
+
+            await self.bot.db._execute(
+                "UPDATE anon_ticket_counter SET counter=$1 WHERE guild_id=$2",
+                new, guild_id
+            )
+
+        else:
+            new = 1
+
+            await self.bot.db._execute(
+                "INSERT INTO anon_ticket_counter (guild_id, counter) VALUES($1,$2)",
+                guild_id, new
+            )
+
+        return new
