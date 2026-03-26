@@ -4438,7 +4438,7 @@ class Database:
             VALUES ($1,$2,$3)
             ON CONFLICT (message_id)
             DO UPDATE SET panel_data = EXCLUDED.panel_data
-        """, message_id, guild_id, json.dumps(data))
+        """, message_id, guild_id, data)
 
 
     async def load_role_panels(self):
