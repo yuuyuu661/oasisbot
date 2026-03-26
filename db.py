@@ -4435,10 +4435,10 @@ class Database:
     async def save_role_panel(self, message_id, guild_id, data):
         await self._execute("""
             INSERT INTO role_panels (message_id, guild_id, panel_data)
-            VALUES ($1,$2,$3)
+            VALUES ($1,$2,$3::jsonb)
             ON CONFLICT (message_id)
             DO UPDATE SET panel_data = EXCLUDED.panel_data
-        """, message_id, guild_id, data)
+        """, message_id, guild_id, json.dumps(data))
 
 
     async def load_role_panels(self):
