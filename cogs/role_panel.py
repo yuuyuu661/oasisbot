@@ -126,13 +126,15 @@ class RolePanel(commands.Cog):
         self.bot.role_panels[msg.id] = panel_data
 
         # DB保存
-        asyncio.create_task(
-            self.bot.db.save_role_panel(
+        try:
+            await self.bot.db.save_role_panel(
                 message_id=msg.id,
                 guild_id=interaction.guild_id,
                 data=panel_data
             )
-        )
+            print("ROLE PANEL SAVED")
+        except Exception as e:
+            print("ROLE PANEL SAVE ERROR:", e)
 
         await interaction.followup.send("設置しました", ephemeral=True)
 
