@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
+import json 
 
 GUILD_ID = 1420918259187712093
 PANEL_ADMIN_ROLE = 1445403813853925418
@@ -21,10 +22,6 @@ class RolePanel(commands.Cog):
         await self.restore_role_panels()
 
     async def restore_role_panels(self):
-        """
-        DBに保存されているロールパネル情報を
-        self.bot.role_panels に復元する
-        """
         if not hasattr(self.bot, "db"):
             print("RolePanel: bot.db がないため復元をスキップ")
             return
@@ -38,13 +35,17 @@ class RolePanel(commands.Cog):
                 message_id = int(row["message_id"])
                 panel_data = row["panel_data"] or {}
 
-                # 念のため key=value を文字列/整数で整える
+                # 🔥 JSON文字列ならdictに戻す
+                if isinstance(panel_data, str):
+                    panel_data = json.loads(panel_data)
+
                 self.bot.role_panels[message_id] = {
                     str(emoji): int(role_id)
                     for emoji, role_id in panel_data.items()
                 }
 
             print(f"ROLE PANEL LOADED: {len(rows)}")
+
         except Exception as e:
             print(f"RolePanel restore error: {e}")
 
