@@ -955,6 +955,22 @@ class Database:
         )
         """)
 
+        # =========================
+        # 匿名相談パネル3.26
+        # =========================
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS anon_ticket_panels (
+            panel_id BIGINT PRIMARY KEY,
+            guild_id BIGINT,
+            channel_id BIGINT,
+            title TEXT,
+            body TEXT,
+            first_msg TEXT,
+            role_ids BIGINT[],
+            log_channel_id BIGINT
+        )
+        """)
+
         
         
 
