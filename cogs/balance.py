@@ -29,10 +29,20 @@ def build_badge_image(badges: list[str]) -> io.BytesIO | None:
     for b in badges:
         if b not in BADGE_FILES:
             continue
+
         path = os.path.join(BADGE_DIR, BADGE_FILES[b])
-        img = Image.open(path).convert("RGBA")
-        img = img.resize((size, size))
-        imgs.append(img)
+
+        if not os.path.exists(path):
+            print(f"⚠️ badge file missing: {path}")
+            continue
+
+        try:
+            with Image.open(path) as img:
+                img = img.convert("RGBA")
+                img = img.resize((size, size))
+                imgs.append(img.copy())
+        except Exception as e:
+            print(f"⚠️ badge load error: {b}", e)
 
     if not imgs:
         print("NO IMAGES LOADED")
@@ -248,14 +258,32 @@ class BalanceCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        count = 0
-        for m in members:
-            await self.bot.db.add_user_badge(
+        import asyncio
+
+        tasks = [
+            self.bot.db.add_user_badge(
                 str(m.id),
                 str(guild.id),
                 badge_value
             )
-            count += 1
+            for m in members
+        ]
+
+        # 同時実行数（ここ調整ポイント）
+        CHUNK_SIZE = 20
+
+        count = 0
+
+        for i in range(0, len(tasks), CHUNK_SIZE):
+            chunk = tasks[i:i + CHUNK_SIZE]
+            results = await asyncio.gather(*chunk, return_exceptions=True)
+
+            # 成功カウント（エラー除外）
+            for r in results:
+                if not isinstance(r, Exception):
+                    count += 1
+                else:
+                    print("badge add error:", r)
 
         await interaction.followup.send(
             f"🏅 {role.name} の {count}人に **{badge_value}** を付与しました。",
