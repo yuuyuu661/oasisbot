@@ -1005,7 +1005,7 @@ class Database:
             channel_id TEXT PRIMARY KEY,
             source_vc_id TEXT NOT NULL
         )
-""")
+        """)
 
         
         
