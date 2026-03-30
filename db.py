@@ -998,6 +998,14 @@ class Database:
             PRIMARY KEY (guild_id, source_vc_id)
         )
         """)
+        
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS temp_created_vcs (
+            guild_id TEXT NOT NULL,
+            channel_id TEXT PRIMARY KEY,
+            source_vc_id TEXT NOT NULL
+        )
+""")
 
         
         
