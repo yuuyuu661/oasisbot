@@ -22,6 +22,9 @@ class TempVCCog(commands.Cog):
         await self._restore_settings()
 
     async def _restore_settings(self):
+        # =========================
+        # 転送設定復元
+        # =========================
         rows = await self.bot.db._fetch("""
             SELECT guild_id, source_vc_id, max_users, names_a, names_b, name_c
             FROM temp_vc_settings
@@ -38,6 +41,19 @@ class TempVCCog(commands.Cog):
                 "names_b": r["names_b"] or [],
                 "name_c": r["name_c"],
             })
+
+        # =========================
+        # 作成済みVC復元（←ここ追加）
+        # =========================
+        created_rows = await self.bot.db._fetch("""
+            SELECT channel_id, source_vc_id
+            FROM temp_created_vcs
+        """)
+
+        self.created_vcs.clear()
+
+        for r in created_rows:
+            self.created_vcs[int(r["channel_id"])] = int(r["source_vc_id"])
 
     @app_commands.command(name="vc転送設定", description="VC転送設定を追加します")
     @app_commands.guilds(discord.Object(id=GUILD_ID))
@@ -186,18 +202,30 @@ class TempVCCog(commands.Cog):
                 )
 
                 self.created_vcs[new_vc.id] = base_channel.id
+
+                await self.bot.db._execute("""
+                    INSERT INTO temp_created_vcs
+                    (guild_id, channel_id, source_vc_id)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (channel_id) DO NOTHING
+                """, str(guild.id), str(new_vc.id), str(base_channel.id))
                 await member.move_to(new_vc)
-                return
 
         # 退出時：作成VCが空なら削除
         if before.channel is not None and before.channel.id in self.created_vcs:
             if len(before.channel.members) == 0:
-                self.created_vcs.pop(before.channel.id, None)
+                channel_id = before.channel.id
+
+                self.created_vcs.pop(channel_id, None)
+
+                await self.bot.db._execute("""
+                    DELETE FROM temp_created_vcs
+                    WHERE channel_id = $1
+                """, str(channel_id))
+
                 try:
                     await before.channel.delete()
                 except discord.NotFound:
-                    pass
-                except discord.Forbidden:
                     pass
 
 
