@@ -982,6 +982,23 @@ class Database:
         )
         """)
 
+        # =========================
+        # VC転送3.30
+        # =========================
+
+
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS temp_vc_settings (
+            guild_id TEXT NOT NULL,
+            source_vc_id TEXT NOT NULL,
+            max_users INTEGER NOT NULL,
+            names_a TEXT[],
+            names_b TEXT[],
+            name_c TEXT,
+            PRIMARY KEY (guild_id, source_vc_id)
+        )
+        """)
+
         
         
 
