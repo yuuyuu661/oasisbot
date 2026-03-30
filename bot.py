@@ -73,7 +73,8 @@ class MyBot(commands.Bot):
             "cogs.anonboard",
             "cogs.stampcard",
             "cogs.hide",
-            "cogs.role_panel",            
+            "cogs.role_panel",    
+            "cogs.temp_vc",
             
         ]
 
