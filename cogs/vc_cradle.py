@@ -11,6 +11,13 @@ ALLOWED_ROLES = {
 
 GUILD_ID = 1420918259187712093
 
+# 実行者ごとの専用メッセージ
+SPECIAL_MESSAGES = {
+    111111111111111111: "A",
+    222222222222222222: "B",
+    333333333333333333: "C",
+}
+
 
 class VCCradleCog(commands.Cog):
     def __init__(self, bot):
@@ -18,6 +25,16 @@ class VCCradleCog(commands.Cog):
 
     def has_permission(self, member: discord.Member):
         return any(r.id in ALLOWED_ROLES for r in member.roles)
+
+    def get_cradle_message(self, actor: discord.Member, target: discord.Member):
+        """
+        actor = コマンド実行者
+        target = 移動される人
+        """
+        return SPECIAL_MESSAGES.get(
+            actor.id,
+            f"{target.display_name} はゆりかごに収容されました"
+        )
 
     @app_commands.command(name="ゆりかご", description="指定ユーザーをゆりかごVCに移動")
     @app_commands.guilds(discord.Object(id=GUILD_ID))
@@ -42,7 +59,7 @@ class VCCradleCog(commands.Cog):
             )
             return
 
-        # ⭐ すでにゆりかごにいるチェック
+        # すでにゆりかご
         if user.voice.channel.id == TARGET_VC_ID:
             await interaction.response.send_message(
                 f"{user.display_name} はもうすやすやしています"
@@ -60,9 +77,10 @@ class VCCradleCog(commands.Cog):
 
         try:
             await user.move_to(target_vc)
-            await interaction.response.send_message(
-                f"{user.display_name} はゆりかごに収容されました"
-            )
+
+            message = self.get_cradle_message(interaction.user, user)
+
+            await interaction.response.send_message(message)
 
         except Exception as e:
             await interaction.response.send_message(
