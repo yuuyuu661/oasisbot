@@ -24,7 +24,25 @@ class VCCradleCog(commands.Cog):
             return f"発送！！！！！！！\n({target.display_name} はゆりかごに収容されました)"
 
         elif actor.id == 969739156756508672:
-            return f"今日もおつかれした！ {target.display_name} はゆりかごに収容されました"
+            return f"今日もおつかれした！\n({target.display_name} はゆりかごに収容されました)"
+
+        elif actor.id == 111111111111111111:
+            return f"🌙 深夜便発車\n({target.display_name} はゆりかごに収容されました)"
+
+        elif actor.id == 222222222222222222:
+            return f"🛏 寝かしつけ完了\n({target.display_name} はゆりかごに収容されました)"
+
+        elif actor.id == 333333333333333333:
+            return f"😈 強制搬送\n({target.display_name} はゆりかごに収容されました)"
+
+        elif actor.id == 444444444444444444:
+            return f"💤 本日も安眠ルート\n({target.display_name} はゆりかごに収容されました)"
+
+        elif actor.id == 555555555555555555:
+            return f"🚑 緊急ゆりかご搬送\n({target.display_name} はゆりかごに収容されました)"
+
+       elif actor.id == 666666666666666666:
+            return f"🍼 おやすみサービス発動\n({target.display_name} はゆりかごに収容されました)"
 
         return f"{target.display_name} はゆりかごに収容されました"
         
