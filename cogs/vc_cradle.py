@@ -11,13 +11,6 @@ ALLOWED_ROLES = {
 
 GUILD_ID = 1420918259187712093
 
-# 実行者ごとの専用メッセージ
-SPECIAL_MESSAGES = {
-    111111111111111111: "A",
-    222222222222222222: "B",
-    333333333333333333: "C",
-}
-
 
 class VCCradleCog(commands.Cog):
     def __init__(self, bot):
@@ -27,14 +20,14 @@ class VCCradleCog(commands.Cog):
         return any(r.id in ALLOWED_ROLES for r in member.roles)
 
     def get_cradle_message(self, actor: discord.Member, target: discord.Member):
-        """
-        actor = コマンド実行者
-        target = 移動される人
-        """
-        return SPECIAL_MESSAGES.get(
-            actor.id,
-            f"{target.display_name} はゆりかごに収容されました"
-        )
+        if actor.id == 716667546241335328:
+            return f"発送！！！！！！！ {target.display_name} はゆりかごに収容されました"
+
+        elif actor.id == 969739156756508672:
+            return f"今日もおつかれした！ {target.display_name} はゆりかごに収容されました"
+
+        return f"{target.display_name} はゆりかごに収容されました"
+        
 
     @app_commands.command(name="ゆりかご", description="指定ユーザーをゆりかごVCに移動")
     @app_commands.guilds(discord.Object(id=GUILD_ID))
