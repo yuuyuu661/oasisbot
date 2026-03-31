@@ -21,7 +21,7 @@ class VCCradleCog(commands.Cog):
 
     def get_cradle_message(self, actor: discord.Member, target: discord.Member):
         if actor.id == 716667546241335328:
-            return f"発送！！！！！！！ {target.display_name} はゆりかごに収容されました"
+            return f"発送！！！！！！！\n({target.display_name} はゆりかごに収容されました)"
 
         elif actor.id == 969739156756508672:
             return f"今日もおつかれした！ {target.display_name} はゆりかごに収容されました"
