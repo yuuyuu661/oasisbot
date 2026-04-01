@@ -281,7 +281,7 @@ class PopularityVoteCog(commands.Cog):
 
         lines = []
         for i, (name, score) in enumerate(top10, 1):
-            lines.append(f"**{i}位** {name}　`{score}票`")
+            lines.append(f"**{i}位** {name}　`{score}ポイント`")
 
         embed = discord.Embed(
             title="🏆 人気投票結果",
