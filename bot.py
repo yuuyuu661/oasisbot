@@ -75,6 +75,7 @@ class MyBot(commands.Bot):
             "cogs.hide",
             "cogs.role_panel",    
             "cogs.temp_vc",
+            "cogs.popularity_vote",
             
         ]
 
