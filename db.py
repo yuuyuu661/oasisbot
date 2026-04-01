@@ -1007,6 +1007,25 @@ class Database:
         )
         """)
 
+        # =========================
+        # おあしすっち人気投票4.1
+        # =========================
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS oasistchi_popularity_votes (
+            guild_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            rank_1 TEXT NOT NULL,
+            rank_2 TEXT NOT NULL,
+            rank_3 TEXT NOT NULL,
+            rank_4 TEXT NOT NULL,
+            rank_5 TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW(),
+            PRIMARY KEY (guild_id, user_id)
+        )
+        """)
+
+        
+
         
         
 
