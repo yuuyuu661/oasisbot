@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
-GUILD_ID = 1310885590094450739   # VPS本番
+GUILD_ID = 1420918259187712093   # テスト
 PAGE_SIZE = 25
 
 ADULT_CATALOG = [
