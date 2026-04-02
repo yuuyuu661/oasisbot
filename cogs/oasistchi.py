@@ -163,6 +163,8 @@ def get_passive_display(passive_key: str | None) -> str:
     return f"{data['emoji']} {data['label']}"
 RACE_TIMES = ["09:00", "12:00", "15:00", "18:00", "21:00"]
 
+SPECIAL_RACE_TIME = "23:00"
+
 DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
 SURFACES = ["芝", "ダート"]
 CONDITIONS = ["良", "稍重", "重", "不良"]
