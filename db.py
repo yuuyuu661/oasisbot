@@ -2934,10 +2934,15 @@ class Database:
         guild_id: str,
         user_id: str,
         pet_id: int,
-        race_date,          # date 型
+        race_date,
         entry_fee: int,
         paid: bool,
     ):
+        print(
+            f"[DB ENTRY INSERT] race={schedule_id} "
+            f"guild={guild_id} user={user_id} pet={pet_id} fee={entry_fee}"
+        )
+
         await self._execute("""
             INSERT INTO race_entries (
                 race_date,
@@ -2960,6 +2965,7 @@ class Database:
         entry_fee,
         paid
         )
+        
     # =====================================================
     # 返金対象をまとめて取得
     # =====================================================
