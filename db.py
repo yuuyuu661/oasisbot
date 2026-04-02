@@ -2639,14 +2639,16 @@ class Database:
         print(f"🏆 上位レース追加完了: guild={guild_id} date={race_date}")
 
     async def has_today_race_schedules(self, race_date: date, guild_id: str) -> bool:
-        return await self._fetchval("""
-            SELECT EXISTS(
-                SELECT 1
-                FROM race_schedules
-                WHERE race_date = $1
-                  AND guild_id = $2
-            )
+        count = await self._fetchval("""
+            SELECT COUNT(*)
+            FROM race_schedules
+            WHERE race_date = $1
+              AND guild_id = $2
         """, race_date, guild_id)
+
+        print(f"[RACE CHECK] guild={guild_id} date={race_date} count={count}")
+
+        return count >= 6
 
     # -----------------------------------------
     # race_schedules テーブル カラム補完
