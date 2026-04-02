@@ -2716,7 +2716,7 @@ class CareView(discord.ui.View):
         db = interaction.client.db
         pet = self.pet
 
-        # ★ 今日のレース予定を取得
+        # 今日のレース予定を取得
         today = today_jst_date()
         guild_id = str(interaction.guild.id)
 
@@ -2732,11 +2732,9 @@ class CareView(discord.ui.View):
             pet.get("happiness", 0)
         )
 
-        ENTRY_FEE = 0
-
         embed = discord.Embed(
             title="🏁 レース出走確認",
-            description="この状態でレースに出走しますか？",
+            description="出走するレースを次の画面で選択してください。",
             color=discord.Color.red()
         )
 
@@ -2754,13 +2752,12 @@ class CareView(discord.ui.View):
 
         embed.add_field(
             name="💰 参加費",
-            value=f"{ENTRY_FEE:,}",
+            value="通常レース: 0rrc\n🏆 上位レース: 30,000rrc",
             inline=False
         )
 
         view = RaceEntryConfirmView(
             pet=pet,
-            entry_fee=ENTRY_FEE,
             schedules=schedules
         )
 
