@@ -4088,15 +4088,14 @@ class PaidPetConfirmView(discord.ui.View):
 
         # レース
 class RaceEntryConfirmView(discord.ui.View):
-    def __init__(self, pet: dict, entry_fee: int, schedules: list[dict]):
+    def __init__(self, pet: dict, schedules: list[dict]):
         super().__init__(timeout=120)
 
         self.pet = pet
-        self.entry_fee = entry_fee
         self.schedules = schedules
 
         self.selected_race: dict | None = None
-        self._confirmed = False  # 二重押し防止
+        self._confirmed = False
 
         self.add_item(RaceSelect(self, schedules))
 
@@ -4141,23 +4140,25 @@ class RaceEntryConfirmView(discord.ui.View):
                 ephemeral=True
             )
 
+        # 選択したレースの参加費
+        entry_fee = int(race.get("entry_fee", 0) or 0)
+
         # ③ エントリー保存（pending）
         await db.insert_race_entry(
             schedule_id=schedule_id,
             guild_id=guild_id,
             user_id=uid,
-            pet_id=int(pet["id"]),       # ★ここが「個体ID」になっていることが重要
+            pet_id=int(pet["id"]),
             race_date=race_date,
-            entry_fee=self.entry_fee,    # ★50000固定じゃなく、viewに渡した entry_fee を使うのが安全
+            entry_fee=entry_fee,
             paid=True
         )
 
-        # 参加費処理（ENTRY_FEEが0なら実質ノーダメ）
-        if self.entry_fee > 0:
-            await db.remove_balance(uid, guild_id, self.entry_fee)
+        # 参加費処理（通常0 / 上位30000）
+        if entry_fee > 0:
+            await db.remove_balance(uid, guild_id, entry_fee)
 
-        # ④ 同一おあしすっちの「同日・他レース」エントリーを無効化（pendingだけ潰す）
-        # ＝同じペットで別レースに入れようとしたら、後勝ち/前勝ちの仕様をここで作れる
+        # ④ 同一おあしすっちの同日他レースを無効化
         await db.cancel_other_entries(
             pet_id=int(pet["id"]),
             race_date=race_date,
