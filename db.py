@@ -3465,7 +3465,10 @@ class Database:
                            reward_paid,
                            distance,
                            surface,
-                           condition
+                           condition,
+                           prize_1,
+                           prize_2,
+                           prize_3
                     FROM race_schedules
                     WHERE id = $1
                     FOR UPDATE
@@ -3532,14 +3535,13 @@ class Database:
                     schedule_id_int = schedule_id
 
                     # 報酬計算
-                    if rank == 1:
-                        reward = 50000
-                    elif rank == 2:
-                        reward = 30000
-                    elif rank == 3:
-                        reward = 10000
-                    else:
-                        reward = 0
+                    prize_map = {
+                        1: int(race.get("prize_1", 50000) or 50000),
+                        2: int(race.get("prize_2", 30000) or 30000),
+                        3: int(race.get("prize_3", 10000) or 10000),
+                    }
+
+                    reward = prize_map.get(rank, 0)
 
                     # race_results 保存
                     await conn.execute("""
