@@ -2552,6 +2552,7 @@ class Database:
         print("[RACE DEBUG] race_schedules columns:")
         for c in cols:
             print(f"  {c['column_name']} | nullable={c['is_nullable']}")
+
         # 念のため同日分を削除（再生成耐性）
         await self._execute("""
             DELETE FROM race_schedules
@@ -2559,7 +2560,10 @@ class Database:
               AND guild_id = $2;
         """, race_date, str(guild_id))
 
-        for i, race_time in enumerate(RACE_TIMES, start=1):
+        # =========================
+        # 通常レース 5本
+        # =========================
+        for i, race_time in enumerate(NORMAL_RACE_TIMES, start=1):
             await self._execute("""
                 INSERT INTO race_schedules (
                     guild_id,
@@ -2572,21 +2576,67 @@ class Database:
                     race_date,
                     distance,
                     surface,
-                    condition
+                    condition,
+                    race_tier
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10);
+                VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11);
             """,
-            str(guild_id),          # ← ★ これが必須
-            i,                      # race_no
+            str(guild_id),
+            i,
             race_time,
             ENTRY_OPEN_MINUTES,
             8,
-            50000,
+            0,
             race_date,
             random.choice(DISTANCES),
             random.choice(SURFACES),
             random.choice(CONDITIONS),
+            "normal"
             )
+
+        # =========================
+        # 23時 上位レース
+        # =========================
+        await self._execute("""
+            INSERT INTO race_schedules (
+                guild_id,
+                race_no,
+                race_time,
+                entry_open_minutes,
+                max_entries,
+                entry_fee,
+                created_at,
+                race_date,
+                distance,
+                surface,
+                condition,
+                race_tier,
+                prize_1,
+                prize_2,
+                prize_3
+            )
+            VALUES (
+                $1, $2, $3, $4, $5, $6, NOW(),
+                $7, $8, $9, $10, $11, $12, $13, $14
+            );
+        """,
+        str(guild_id),
+        6,
+        SPECIAL_RACE_TIME,
+        ENTRY_OPEN_MINUTES,
+        8,
+        30000,
+       race_date,
+        random.choice(DISTANCES),
+        random.choice(SURFACES),
+        random.choice(CONDITIONS),
+        "special",
+        200000,
+        150000,
+        100000
+        )
+
+        print(f"🏆 上位レース追加完了: guild={guild_id} date={race_date}")
 
     async def has_today_race_schedules(self, race_date: date, guild_id: str) -> bool:
         return await self._fetchval("""
