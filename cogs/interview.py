@@ -34,7 +34,7 @@ class InterviewCog(commands.Cog):
         guild_id = str(interaction.guild.id)
 
         # interview_settings に UPSERT（INSERT or UPDATE）
-        await self.bot.db.conn.execute("""
+        await self.bot.db._execute("""
             INSERT INTO interview_settings (
                 guild_id, interviewer_role, wait_role, done_role, reward_amount, log_channel
             ) VALUES ($1, $2, $3, $4, $5, $6)
