@@ -112,6 +112,7 @@ class InterviewCog(commands.Cog):
         done_role = guild.get_role(int(done_role_id))
 
         processed = []
+        egg_given_count = 0
 
         for member in members:
             if member.bot:
@@ -136,6 +137,7 @@ class InterviewCog(commands.Cog):
 
                 if egg_result:
                     egg_type, egg_label = egg_result
+                    egg_given_count += 1
 
                     try:
                         await member.send(
