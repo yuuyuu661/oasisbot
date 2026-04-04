@@ -169,9 +169,9 @@ class InterviewCog(commands.Cog):
             f"実行者：{interaction.user.mention}\n"
             f"VC：{vc.mention}\n"
             f"人数：{len(processed)}\n"
-            f"付与額：{reward_amount}\n\n"
+            f"付与額：{reward_amount}\n"
+            f"🥚 初回たまご：{egg_given_count}名\n\n"
             f"評価期限：{expire_str}\n\n"
-
         )
 
         if processed:
