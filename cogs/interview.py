@@ -123,7 +123,27 @@ class InterviewCog(commands.Cog):
                 await member.add_roles(done_role)
 
                 # 通貨付与
-                await self.bot.db.set_balance(str(member.id), guild_id, reward_amount)
+                await self.bot.db.set_balance(
+                    str(member.id),
+                    guild_id,
+                    reward_amount
+                )
+
+                # 🥚 初回だけランダム卵付与
+                egg_result = await self.bot.db.grant_random_oasistchi_egg_if_none(
+                    str(member.id)
+                )
+
+                if egg_result:
+                    egg_type, egg_label = egg_result
+
+                    try:
+                        await member.send(
+                            f"🎉 面接通過おめでとう！\n"
+                            f"初回特典として {egg_label} をプレゼントしました🥚"
+                        )
+                    except discord.Forbidden:
+                        pass
 
                 processed.append(member)
 
