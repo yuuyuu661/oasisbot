@@ -4590,3 +4590,72 @@ class Database:
         return await self._fetch("""
             SELECT message_id, panel_data FROM role_panels
         """)
+
+    # =========================
+    # 面接たまご付与4.4
+    # =========================
+    async def grant_random_oasistchi_egg_if_none(
+        self,
+        user_id: str
+    ) -> tuple[str, str] | None:
+        import random
+        import time
+
+        await self._ensure_pool()
+
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+
+                # ① すでに1匹でも持っているならスキップ
+                has_pet = await conn.fetchval("""
+                    SELECT 1
+                    FROM oasistchi_pets
+                    WHERE user_id = $1
+                    LIMIT 1
+                """, user_id)
+
+                if has_pet:
+                    return None
+
+                # ② 5色ランダム
+                EGG_COLORS = [
+                    ("red", "🔴 あかいたまご"),
+                    ("blue", "🔵 あおいたまご"),
+                    ("green", "🟢 みどりたまご"),
+                    ("yellow", "🟡 きいろたまご"),
+                    ("purple", "🟣 むらさきたまご"),
+                ]
+
+                egg_type, egg_label = random.choice(EGG_COLORS)
+                now = time.time()
+
+                # ③ たまご付与
+                await conn.execute("""
+                    INSERT INTO oasistchi_pets (
+                        user_id,
+                        stage,
+                        egg_type,
+                        growth,
+                        hunger,
+                        happiness,
+                        poop,
+                        last_interaction,
+                        last_growth_tick,
+                        last_poop_tick,
+                        next_poop_check_at
+                    ) VALUES (
+                        $1,
+                        'egg',
+                        $2,
+                        0,
+                        100,
+                        50,
+                        FALSE,
+                        $3::REAL,
+                        $3::REAL,
+                        $3::REAL,
+                        ($3::REAL + 3600)
+                    )
+                """, user_id, egg_type, now)
+
+                return egg_type, egg_label
