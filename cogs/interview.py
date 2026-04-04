@@ -1,7 +1,7 @@
-# cogs/interview.py
 import discord
 from discord.ext import commands
 from discord import app_commands
+from datetime import datetime, timedelta, timezone
 
 
 class InterviewCog(commands.Cog):
@@ -73,7 +73,8 @@ class InterviewCog(commands.Cog):
         guild_id = str(guild.id)
 
         # 設定を取得
-        row = await self.bot.db.conn.fetchrow(
+
+        row = await self.bot.db._fetchrow(
             "SELECT * FROM interview_settings WHERE guild_id=$1",
             guild_id
         )
@@ -128,6 +129,20 @@ class InterviewCog(commands.Cog):
 
         # ログ送信
         log_channel = guild.get_channel(int(log_channel_id))
+        extra_log_channel = guild.get_channel(1482022619145441320)
+
+        JST = timezone(timedelta(hours=9))
+
+        today = datetime.now(JST)
+        expire_date = today + timedelta(days=28)
+
+        expire_str = expire_date.strftime("%Y-%m-%d")
+
+
+
+
+
+
 
         log_msg = (
             f"【面接通過】\n"
@@ -135,6 +150,8 @@ class InterviewCog(commands.Cog):
             f"VC：{vc.mention}\n"
             f"人数：{len(processed)}\n"
             f"付与額：{reward_amount}\n\n"
+            f"評価期限：{expire_str}\n\n"
+
         )
 
         if processed:
@@ -145,12 +162,19 @@ class InterviewCog(commands.Cog):
         if log_channel:
             await log_channel.send(log_msg)
 
+        if extra_log_channel:
+            await extra_log_channel.send(log_msg)
+
         await interaction.response.send_message(f"処理完了：{len(processed)}名")
 
 # --------------------------------------------------------
 # setup（必須）
 # --------------------------------------------------------
-async def setup(bot: commands.Bot):
-    await bot.add_cog(InterviewCog(bot))
+async def setup(bot):
+    cog = InterviewCog(bot)
+    await bot.add_cog(cog)
 
+    for cmd in cog.get_app_commands():
+        for gid in bot.GUILD_IDS:
+            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
 
