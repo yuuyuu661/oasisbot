@@ -660,49 +660,10 @@ class Database:
             race_time TIME NOT NULL,
             entry_open_minutes INTEGER NOT NULL,
             max_entries INTEGER NOT NULL DEFAULT 8,
-            entry_fee INTEGER NOT NULL DEFAULT 0,
+            entry_fee INTEGER NOT NULL DEFAULT 50000,
             created_at TIMESTAMP DEFAULT NOW()
         );
         """)
-        # =========================
-        # レース報酬・ランク 4.2
-        # =========================
-        cols = await self._fetch("""
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_name = 'race_schedules';
-        """)
-        existing_cols = {c["column_name"] for c in cols}
-
-        if "race_tier" not in existing_cols:
-            print("🛠 race_schedules に race_tier を追加します…")
-            await self._execute("""
-                ALTER TABLE race_schedules
-                ADD COLUMN race_tier TEXT DEFAULT 'normal';
-            """)
-
-        if "prize_1" not in existing_cols:
-            print("🛠 prize_1 を追加します…")
-            await self._execute("""
-                ALTER TABLE race_schedules
-                ADD COLUMN prize_1 INTEGER DEFAULT 50000;
-            """)
-
-        if "prize_2" not in existing_cols:
-            print("🛠 prize_2 を追加します…")
-            await self._execute("""
-                ALTER TABLE race_schedules
-                ADD COLUMN prize_2 INTEGER DEFAULT 30000;
-            """)
-
-        if "prize_3" not in existing_cols:
-            print("🛠 prize_3 を追加します…")
-            await self._execute("""
-                ALTER TABLE race_schedules
-                ADD COLUMN prize_3 INTEGER DEFAULT 10000;
-            """)
-
-        print("✅ レース報酬カラム補完完了")
 
         await self._execute("""
         CREATE TABLE IF NOT EXISTS race_entries (
@@ -716,6 +677,8 @@ class Database:
             UNIQUE (race_date, schedule_id, pet_id)
         );
         """)
+
+
 
         # =========================
         # 馬券関連テーブル（パリミュチュエル方式）
