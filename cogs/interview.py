@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 
 class InterviewCog(commands.Cog):
@@ -188,6 +189,83 @@ class InterviewCog(commands.Cog):
             await extra_log_channel.send(log_msg)
 
         await interaction.response.send_message(f"処理完了：{len(processed)}名")
+
+
+    # --------------------------------------------------------
+    # /おあしすっちたまご付与
+    # --------------------------------------------------------
+    @app_commands.command(
+        name="おあしすっちたまご付与",
+        description="指定したユーザーまたはロールにたまごを配布します"
+    )
+    async def give_oasistchi_egg(
+        self,
+        interaction: discord.Interaction,
+        mode: Literal["新規のみ", "付与"],
+        target: discord.Role | discord.Member
+    ):
+        settings = await self.bot.db.get_settings()
+        admin_roles = settings["admin_roles"] or []
+
+        # 管理者権限
+        if not any(str(r.id) in admin_roles for r in interaction.user.roles):
+            return await interaction.response.send_message(
+                "❌ 管理者ロールのみ使用できます。",
+                ephemeral=True
+            )
+
+        await interaction.response.defer(ephemeral=True)
+
+        # 対象一覧作成
+        if isinstance(target, discord.Role):
+            members = [m for m in target.members if not m.bot]
+        else:
+            members = [target]
+
+        success = []
+        skipped = []
+
+        for member in members:
+            if mode == "新規のみ":
+                egg_result = await self.bot.db.grant_random_oasistchi_egg_if_none(
+                    str(member.id)
+                )
+            else:
+                egg_result = await self.bot.db.grant_random_oasistchi_egg_force(
+                    str(member.id)
+                )
+
+            if egg_result:
+                egg_type, egg_label = egg_result
+                success.append((member, egg_label))
+
+                try:
+                    await member.send(
+                        f"🥚 {egg_label} をプレゼントしました！"
+                    )
+                except discord.Forbidden:
+                    pass
+            else:
+                skipped.append(member)
+
+        msg = (
+            f"🥚 たまご付与完了\n"
+            f"対象: {len(members)}名\n"
+            f"成功: {len(success)}名\n"
+            f"スキップ: {len(skipped)}名"
+        )
+
+        if success:
+            msg += "\n\n【付与成功】\n" + "\n".join(
+                [f"- {m.mention} ({label})" for m, label in success[:20]]
+            )
+
+        if skipped:
+            msg += "\n\n【スキップ】\n" + "\n".join(
+               [f"- {m.mention}" for m in skipped[:20]]
+            )
+
+        await interaction.followup.send(msg, ephemeral=True)
 
 # --------------------------------------------------------
 # setup（必須）
