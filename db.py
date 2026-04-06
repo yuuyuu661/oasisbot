@@ -4571,3 +4571,57 @@ class Database:
                 """, user_id, egg_type, now)
 
                 return egg_type, egg_label
+
+    # =========================
+    # 強制たまご付与4.6
+    # =========================
+    async def grant_random_oasistchi_egg_force(
+        self,
+        user_id: str
+    ) -> tuple[str, str]:
+        import random
+        import time
+
+        await self._ensure_pool()
+
+        EGG_COLORS = [
+            ("red", "🔴 あかいたまご"),
+            ("blue", "🔵 あおいたまご"),
+            ("green", "🟢 みどりたまご"),
+            ("yellow", "🟡 きいろたまご"),
+            ("purple", "🟣 むらさきたまご"),
+        ]
+
+        egg_type, egg_label = random.choice(EGG_COLORS)
+        now = time.time()
+
+        async with self.pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO oasistchi_pets (
+                    user_id,
+                    stage,
+                    egg_type,
+                    growth,
+                    hunger,
+                    happiness,
+                    poop,
+                    last_interaction,
+                    last_growth_tick,
+                    last_poop_tick,
+                    next_poop_check_at
+                ) VALUES (
+                    $1,
+                    'egg',
+                    $2,
+                    0,
+                    100,
+                    50,
+                    FALSE,
+                    $3::REAL,
+                    $3::REAL,
+                    $3::REAL,
+                    ($3::REAL + 3600)
+                )
+            """, user_id, egg_type, now)
+
+        return egg_type, egg_label
