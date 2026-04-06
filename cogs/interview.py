@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 from datetime import datetime, timedelta, timezone
 from typing import Literal
+EXCLUDE_ROLE_ID = 1445403608035364874
 
 
 
@@ -253,10 +254,19 @@ class InterviewCog(commands.Cog):
         await interaction.response.defer(ephemeral=True)
 
         # 対象一覧作成
+        # 対象一覧作成（除外ロール対応）
         if isinstance(target, discord.Role):
-            members = [m for m in target.members if not m.bot]
+            members = [
+                m for m in target.members
+                if not m.bot
+                and EXCLUDE_ROLE_ID not in [r.id for r in m.roles]
+            ]
         else:
-            members = [target]
+            # 単体指定でも除外ロール持ちは対象外
+            if EXCLUDE_ROLE_ID in [r.id for r in target.roles]:
+                members = []
+            else:
+                members = [target]
 
         success = []
         skipped = []
