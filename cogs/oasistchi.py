@@ -14,10 +14,9 @@ from PIL import Image, ImageSequence
 from datetime import datetime, timezone, timedelta, time as dtime
 from db import PASSIVE_SKILLS
 JST = timezone(timedelta(hours=9))
+import traceback
 
-WEB_SECRET = "9f3a7c4d8b2e1f0a6c8d9e7f1a2b3c4d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a5"
-
-
+WEB_SECRET = "9f3a7c4d8b2e1f0a6c8d9e7f1a2b3c4d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4"
 
 def today_jst_date():
     return datetime.now(JST).date()
@@ -63,17 +62,11 @@ EGG_CATALOG = [
 ]
 ADULT_CATALOG = [
     {"key": "cyan","name": "ちゃん","groups": ["blue"]},
-    {"key": "eru","name": "エル","groups": ["green"]},
-    {"key": "inpure","name": "いんぷれ","groups": ["purple"]},
-    {"key": "kirigiri","name": "きりぎり","groups": ["yellow"]},
     {"key": "kiza","name": "きっざにあ","groups": ["red"]},
     {"key": "konkuri","name": "こんくり","groups": ["blue"]},
     {"key": "kurisu","name": "クリス","groups": ["green"]},
-    {"key": "misui","name": "みすい","groups": ["purple"]},
     {"key": "nino","name": "にの","groups": ["yellow"]},
     {"key": "numaru","name": "ぬまるん","groups": ["red"]},
-    {"key": "saotome","name": "さおとめ","groups": ["blue"]},
-    {"key": "sato","name": "さとー","groups": ["green"]},
     {"key": "yuina","name": "ゆいな","groups": ["purple"]},
     {"key": "zenten","name": "ぜんてん","groups": ["yellow"]},
     {"key": "eng","name": "えんじぇる","groups": ["red"]},
@@ -84,7 +77,6 @@ ADULT_CATALOG = [
     {"key": "bul","name": "おいら","groups": ["red"]},
     {"key": "hana","name": "はなこ","groups": ["green"]},
     {"key": "inu","name": "いぬ","groups": ["purple"]},
-    {"key": "saku","name": "さく","groups": ["yellow"]},
     {"key": "ouki","name": "おうき","groups": ["red"]},
     {"key": "aka","name": "あかり","groups": ["blue"]},
     {"key": "shiba","name": "しば","groups": ["green"]},
@@ -92,23 +84,17 @@ ADULT_CATALOG = [
     {"key": "gero","name": "ゲロ","groups": ["yellow"]},
     {"key": "san","name": "サンダー","groups": ["red"]},  
     {"key": "jinsei","name": "loser","groups": ["red"]},
-    {"key": "kaeko","name": "かえこ","groups": ["blue"]},
-    {"key": "remi","name": "れみたん","groups": ["green"]},
+
     {"key": "tonbo","name": "トンボ","groups": ["purple"]},
-    {"key": "yuyu","name": "ゆゆ","groups": ["yellow"]},
-    {"key": "naruse","name": "なるせ","groups": ["purple"]},
-    {"key": "rapi","name": "ラピ","groups": ["yellow"]},
+    {"key": "yuyu","name": "ゅゅ","groups": ["yellow"]},
     {"key": "rei","name": "れい","groups": ["red"]},  
     {"key": "tumu","name": "つむ","groups": ["blue"]},
     {"key": "urufu","name": "うるふ","groups": ["green"]},
     
     {"key": "cyoumi","name": "ちょうみりょう","groups": ["purple"]},
     {"key": "erechima","name": "ういえれ","groups": ["yellow"]},
-    {"key": "tenshi","name": "てんし","groups": ["red"]},  
-    {"key": "muku","name": "むく","groups": ["blue"]},
     {"key": "shigu","name": "シグ","groups": ["green"]},
 
-    {"key": "a","name": "aちゃん","groups": ["purple"]},
     {"key": "liu","name": "リウたん","groups": ["yellow"]},
     {"key": "minmin","name": "みんみん","groups": ["red"]},  
     {"key": "puchia","name": "ぷちあ","groups": ["blue"]},
@@ -132,11 +118,22 @@ ADULT_CATALOG = [
     {"key": "takana","name": "たかな","groups": ["blue"]},
     {"key": "yomo","name": "よもチ","groups": ["green"]},
 
-    {"key": "bachio","name": "はっちお","groups": ["purple"]},
+    {"key": "bachio","name": "ばっちお","groups": ["purple"]},
     {"key": "cry","name": "cry","groups": ["yellow"]},
     {"key": "hyou","name": "メビウス","groups": ["red"]},  
     {"key": "jyaku","name": "弱","groups": ["blue"]},
     {"key": "kuko","name": "くこ","groups": ["green"]},
+
+    {"key": "nyao","name": "にゃおっす","groups": ["purple"]},
+    {"key": "rana","name": "らな","groups": ["yellow"]},
+    {"key": "sana","name": "sana","groups": ["red"]},  
+    {"key": "taida","name": "怠惰","groups": ["blue"]},
+    {"key": "uruha","name": "うるは","groups": ["green"]},
+
+    {"key": "syoa","name": "しょあ","groups": ["blue"]},
+    {"key": "ivu","name": "いゔ","groups": ["yellow"]},
+
+
 
 
 
@@ -161,9 +158,7 @@ def get_passive_display(passive_key: str | None) -> str:
         return "なし"
 
     return f"{data['emoji']} {data['label']}"
-    
-NORMAL_RACE_TIMES = ["09:00", "12:00", "15:00", "18:00", "21:00"]
-SPECIAL_RACE_TIME = "23:00"
+RACE_TIMES = ["09:00", "12:00", "15:00", "18:00", "21:00"]
 
 DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
 SURFACES = ["芝", "ダート"]
@@ -400,7 +395,7 @@ def get_pet_display_name(pet: dict) -> str:
         if key == egg_type:
             return label
 
-    return "🥚 たまご"
+    return "   たまご"
 # -------------------------
 # 通知名前判定
 # -------------------------
@@ -534,40 +529,6 @@ def decide_race_order(pets: list[dict]):
 
     results.sort(key=lambda x: x["score"], reverse=True)
     return results
-# -------------------------
-# 計算だけ
-# -------------------------
-
-def process_time_tick_calc_only(self, pet: dict):
-    updates = {}
-    notify_jobs = []  # DMしたいメッセージなど
-
-    now = time.time()
-
-    # 例：うんち発生
-    next_check = pet.get("next_poop_check_at", 0)
-    if now >= next_check and not pet.get("poop", False):
-        if random.random() < (0.4 if pet["stage"] == "adult" else 0.3):
-            updates["poop"] = True
-            notify_jobs.append("💩 うんちしたよ！")
-        updates["next_poop_check_at"] = now + 3600
-
-    # 例：孵化成長
-    if pet["stage"] == "egg":
-        before = pet.get("growth", 0.0)
-        elapsed = now - pet.get("last_growth_tick", now)
-        hours = int(elapsed // 3600)
-        if hours > 0:
-            gain = (100/12) * hours
-            after = min(100.0, before + gain)
-            updates["growth"] = after
-            updates["last_growth_tick"] = now
-
-            if before < 100 <= after and not pet.get("notified_hatch", False):
-                updates["notified_hatch"] = True
-                notify_jobs.append("🐣 孵化できるよ！")
-
-    return updates, notify_jobs
     
 # -------------------------
 # レース予定関数
@@ -603,11 +564,11 @@ class OasistchiCog(commands.Cog):
         self._race_lock = asyncio.Lock()
 
     async def cog_load(self):
+        print("🔥 cog_load 呼ばれた")
+
+
         if not self.poop_check.is_running():
             self.poop_check.start()
-
-        if not self.race_tick.is_running():
-            self.race_tick.start()
 
         if not self.oasistchi_tick.is_running():
             self.oasistchi_tick.start()
@@ -615,11 +576,27 @@ class OasistchiCog(commands.Cog):
         if not self.race_lottery_watcher.is_running():
             self.race_lottery_watcher.start()
 
+
+        if not self.trifecta_purchase_dm_watcher.is_running():
+            self.trifecta_purchase_dm_watcher.start()
+
     async def cog_unload(self):
         self.poop_check.cancel()
         self.race_tick.cancel()
         self.oasistchi_tick.cancel()
         self.race_lottery_watcher.cancel()
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if not hasattr(self.bot, "_race_started"):
+            self.bot._race_started = True
+
+            print("🏇 Race loop starting...")
+
+            await asyncio.sleep(2)
+
+            if not self.race_tick.is_running():
+                self.race_tick.start()
 
 
 
@@ -648,7 +625,7 @@ class OasistchiCog(commands.Cog):
             )
 
             if stats["guts"]:
-                line += " ｜🔥 **根性発動！**"
+                line += " ｜   **根性発動！**"
 
             embed.add_field(
                 name="\u200b",
@@ -882,6 +859,15 @@ class OasistchiCog(commands.Cog):
                 if not pet:
                     continue
 
+                passive_key = pet.get("passive_skill")
+
+
+                if passive_key and passive_key in PASSIVE_SKILLS:
+                    skill = PASSIVE_SKILLS[passive_key]
+                    passive_text = f"{skill['emoji']} {skill['label']}"
+                else:
+                    passive_text = "なし"
+
                 # ★ 関数をそのまま呼ぶ（self.get_condition_text じゃない）
                 condition = get_condition_text(int(pet.get("happiness", 0)))
 
@@ -892,6 +878,7 @@ class OasistchiCog(commands.Cog):
 
                 name = pet.get("name", "おあしすっち")
 
+
                 embed.add_field(
                     name=f"【枠番 {frame_no}】🐣 {name}",
                     value=(
@@ -899,7 +886,8 @@ class OasistchiCog(commands.Cog):
                         f"📉 コンディション：{condition}\n\n"
                         f"🏃 スピード：{speed}\n"
                         f"🫀 スタミナ：{stamina}\n"
-                        f"💥 パワー：{power}"
+                        f"💥 パワー：{power}\n"
+                        f"✨ パッシブ：{passive_text}"
                     ),
                     inline=False
                 )
@@ -1086,6 +1074,7 @@ class OasistchiCog(commands.Cog):
                                 if not results:
                                     print(f"[RACE WARNING] no results race_id={race.get('id')}")
                                     continue
+                                print("RESULTS DEBUG:", results)
 
                                 # =========================
                                 # 💰 完全プール式 払い戻し
@@ -1101,7 +1090,7 @@ class OasistchiCog(commands.Cog):
                                     WHERE schedule_id = $1
                                 """, race["id"])
 
-                                total_pool = total_pool_row["total"] or 0
+                                total_pool = (total_pool_row["total"] if total_pool_row else 0) or 0
 
 
                                 # 勝ち馬への総投票額
@@ -1111,10 +1100,10 @@ class OasistchiCog(commands.Cog):
                                     FROM race_bets
                                     WHERE schedule_id = $1
                                       AND pet_id = $2
-                                """, race["id"], str(winner_pet_id))
+                                """, race["id"], int(winner_pet_id))
 
 
-                                winner_pool = winner_pool_row["total"] or 0
+                                winner_pool = (winner_pool_row["total"] if winner_pool_row else 0) or 0
 
                                 print(f"[POOL] total={total_pool} winner_pool={winner_pool}")
 
@@ -1129,7 +1118,7 @@ class OasistchiCog(commands.Cog):
                                         FROM race_bets
                                         WHERE schedule_id = $1
                                           AND pet_id = $2
-                                    """, race["id"], str(winner_pet_id))
+                                    """, race["id"], int(winner_pet_id))
 
                                     for bet in winning_bets:
 
@@ -1144,8 +1133,8 @@ class OasistchiCog(commands.Cog):
 
 
                                         await self.bot.db.add_balance(
-                                            str(bet["user_id"]),
-                                            str(race["guild_id"]),
+                                            int(bet["user_id"]),
+                                            int(race["guild_id"]),
                                             payout
                                         )
 
@@ -1167,6 +1156,7 @@ class OasistchiCog(commands.Cog):
                                 else:
                                     print(f"[NO WINNERS] race_id={race['id']} winner_pool=0")
 
+
                                 # =========================
                                 # 🎯 3連単 払い戻し
                                 # =========================
@@ -1177,11 +1167,16 @@ class OasistchiCog(commands.Cog):
                                     second_id = results[1]["pet_id"]
                                     third_id  = results[2]["pet_id"]
 
-                                    total_tri_pool = await self.bot.db._fetchval("""
-                                        SELECT COALESCE(SUM(amount),0)
-                                        FROM race_trifecta_bets
+
+
+                                    pool_row = await self.bot.db._fetchrow("""
+                                        SELECT total_pool
+                                        FROM race_trifecta_pools
                                         WHERE schedule_id = $1
                                     """, race["id"])
+
+                                    total_tri_pool = pool_row["total_pool"] if pool_row else 0
+
 
                                     combo_pool = await self.bot.db._fetchval("""
                                         SELECT COALESCE(SUM(amount),0)
@@ -1234,8 +1229,33 @@ class OasistchiCog(commands.Cog):
                                             except Exception as e:
                                                 print(f"[TRIFECTA DM ERROR] {e!r}")
 
+                                        await self.bot.db._execute("""
+                                                UPDATE race_trifecta_pools
+                                                SET total_pool = 0
+                                                WHERE schedule_id = $1
+                                            """, race["id"])
+
                                     else:
                                         print(f"[TRIFECTA NO WINNER] race_id={race['id']}")
+
+                                        if total_tri_pool > 0:
+
+                                            # 🔥 次レースへcarry加算
+                                            await self.bot.db._execute("""
+                                                UPDATE race_trifecta_carry
+                                                SET carry_over = carry_over + $1
+                                                WHERE guild_id = $2
+                                            """, total_tri_pool, guild_id)
+
+                                            # 🔥 今レースのプールをクリア（重要）
+                                            await self.bot.db._execute("""
+                                                UPDATE race_trifecta_pools
+                                                SET total_pool = 0
+                                                WHERE schedule_id = $1
+                                            """, race["id"])
+
+                                            print(f"[TRIFECTA CARRY ADD] +{total_tri_pool}")
+
 
                                 # =========================
                                 # 結果整形（最終オッズ＋パッシブ付き）
@@ -1263,9 +1283,9 @@ class OasistchiCog(commands.Cog):
                                         FROM race_bets
                                         WHERE schedule_id = $1
                                           AND pet_id = $2
-                                    """, race["id"], str(r["pet_id"]))
+                                    """, race["id"], r["pet_id"])
 
-                                    pet_pool = pet_pool_row["total"] or 0
+                                    pet_pool = (pet_pool_row["total"] if pet_pool_row else 0) or 0
 
                                     # -------------------------
                                     # 最終オッズ計算
@@ -1298,10 +1318,57 @@ class OasistchiCog(commands.Cog):
 
                     except Exception as race_err:
                         print(f"[RACE LOOP ERROR] race_id={race.get('id')} err={race_err!r}")
+
+                        traceback.print_exc()
+
                         continue
 
         except Exception as fatal:
             print(f"[RACE WATCHER FATAL] {fatal!r}")
+
+
+    # =========================
+    # 3連単通知ループ
+    # =========================
+
+    @tasks.loop(seconds=10)
+    async def trifecta_purchase_dm_watcher(self):
+
+        rows = await self.bot.db.get_unnotified_trifecta_bets()
+
+        for r in rows:
+
+            pets = await self.bot.db._fetch("""
+                SELECT id, name
+                FROM oasistchi_pets
+                WHERE id = ANY($1::int[])
+            """, [r["first_pet_id"], r["second_pet_id"], r["third_pet_id"]])
+
+            pet_map = {p["id"]: p["name"] for p in pets}
+
+            units = r["amount"] // 10000
+
+            try:
+                user = await self.bot.fetch_user(int(r["user_id"]))
+
+                await user.send(
+                    "🎯 **3連単購入完了**\n\n"
+                    f"🥇1着 {pet_map.get(r['first_pet_id'],'?')}\n"
+                    f"🥈2着 {pet_map.get(r['second_pet_id'],'?')}\n"
+                    f"🥉3着 {pet_map.get(r['third_pet_id'],'?')}\n\n"
+                    f"🎫 購入口数 {units}口"
+                )
+
+            except Exception as e:
+                print("[TRIFECTA BUY DM ERROR]", e)
+                continue
+
+            await self.bot.db.mark_trifecta_dm_sent(r["id"])
+
+
+
+
+
 
     # 共通：時間差分処理
     # =========================
@@ -1385,7 +1452,7 @@ class OasistchiCog(commands.Cog):
                 updates["poop_notified_at"] = now
 
             # 次回チェックは必ず1時間後
-            updates["next_poop_check_at"] = now + 3600
+            updates["next_poop_check_at"] = now + 10800
 
         # -------------------
         # 孵化成長（1時間単位）
@@ -1774,6 +1841,7 @@ class OasistchiCog(commands.Cog):
 
     @tasks.loop(minutes=1)
     async def race_tick(self):
+        print("🔥 race_tick 動いた")
         print("[RACE TICK] tick")
 
         async with self._race_lock:
@@ -1886,7 +1954,7 @@ class OasistchiPanelRootView(discord.ui.View):
 
         # レースが存在しない
         if not race:
-            url = f"https://racetest-production.up.railway.app/index.html?guild={guild_id}"
+            url = f"https://lacesite-production.up.railway.app/index.html?guild={guild_id}"
             return await interaction.followup.send(
                 f"🌐 レースサイトはこちら\n{url}",
                 ephemeral=True
@@ -1899,7 +1967,7 @@ class OasistchiPanelRootView(discord.ui.View):
         token = generate_token(str(user_id), str(guild_id), str(race_id))
 
         url = (
-            "https://racetest-production.up.railway.app/index.html"
+            "https://lacesite-production.up.railway.app/index.html"
             f"?guild={guild_id}"
             f"&user={user_id}"
             f"&race={race_id}"
@@ -1923,6 +1991,7 @@ class ChargeSelectView(discord.ui.View):
         self.add_item(ChargeSelect(self.slot_price))
 
 
+
 class ChargeSelect(discord.ui.Select):
     def __init__(self, slot_price: int):
         self.slot_price = slot_price
@@ -1943,7 +2012,7 @@ class ChargeSelect(discord.ui.Select):
                 value="train_reset"
             ),
             discord.SelectOption(
-                label="🥚 かぶりなし たまご",
+                label="   かぶりなし たまご",
                 description="未所持のみ孵化（300,000rrc）",
                 value="unique_egg"
             ),
@@ -1960,19 +2029,31 @@ class ChargeSelect(discord.ui.Select):
         uid = str(interaction.user.id)
 
         # ① 育成枠
+
+
         if value == "slot":
+
+            # ⭐ 現在枠数取得
+            user = await interaction.client.db.get_oasistchi_user(uid)
+            current_slots = user["slots"]
+
+            # ⭐ 表示用価格
+            display_price = self.slot_price * 2 if current_slots >= 5 else self.slot_price
+
             view = ConfirmPurchaseView(
                 kind="slot",
                 label="育成枠を増築",
-                price=self.slot_price,
+                price=self.slot_price,   # ← 実際の価格はそのまま
                 egg_key=None,
                 slot_price=self.slot_price
             )
+
             return await interaction.response.send_message(
-                f"育成枠を **{self.slot_price:,} rrc** で増築しますか？",
+                f"育成枠を **{display_price:,} rrc** で増築しますか？",
                 ephemeral=True,
                 view=view
             )
+
 
         # ② 転生 / 特訓リセット
         elif value in ("rebirth", "train_reset"):
@@ -2202,7 +2283,7 @@ class ConfirmPurchaseView(discord.ui.View):
             # 🧺 育成枠
             # =========================
             elif self.kind == "slot":
-                new_slots = await db.purchase_oasistchi_slot_safe(
+                new_slots, actual_price = await db.purchase_oasistchi_slot_safe(
                     user_id=uid,
                     guild_id=gid,
                     base_price=self.slot_price,
@@ -2215,7 +2296,7 @@ class ConfirmPurchaseView(discord.ui.View):
                     content=(
                         "✅ **育成枠を1つ増築しました！**\n"
                         f"現在の育成枠: **{new_slots} / 10**\n"
-                        f"消費: **{self.slot_price:,} {unit}**"
+                        f"消費: **{actual_price:,} {unit}**"
                     ),
                     view=None
                 )
@@ -2287,7 +2368,7 @@ class CareView(discord.ui.View):
             if pet["stage"] == "egg" and label in {
                 "🍖 ごはん",
                 "🏁 レース参加",
-                "💔 お別れ",
+                "   お別れ",
                 "🏋️ 特訓",      # ← 特訓ボタン想定
             }:
                 self.remove_item(child)
@@ -2296,9 +2377,12 @@ class CareView(discord.ui.View):
             if pet["stage"] == "adult" and label == "🐣 孵化":
                 self.remove_item(child)
 
+
         # ⭐ ここに追加（forの外）
         if pet["stage"] == "adult":
             self.add_item(ExploreButton(self.pet_id))
+
+
 
     def is_owner(self, interaction: discord.Interaction) -> bool:
         return str(interaction.user.id) == self.uid
@@ -2337,14 +2421,6 @@ class CareView(discord.ui.View):
             last_interaction=now,
             last_unhappy_tick=now,
         )
-        # =========================
-        # 💰 なでなで
-        # =========================
-        await interaction.followup.send(
-            "🤚 なでなでしてあげた！",
-            ephemeral=True
-        )
-
         pet = await db.get_oasistchi_pet(self.pet_id)
 
         # ⑥ いったん pet.gif を表示（元メッセージ編集）
@@ -2668,9 +2744,6 @@ class CareView(discord.ui.View):
             view=self
         )
 
-
-
-
     @discord.ui.button(label="📘 図鑑", style=discord.ButtonStyle.secondary)
     async def open_dex(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
@@ -2716,7 +2789,7 @@ class CareView(discord.ui.View):
         db = interaction.client.db
         pet = self.pet
 
-        # 今日のレース予定を取得
+        # ★ 今日のレース予定を取得
         today = today_jst_date()
         guild_id = str(interaction.guild.id)
 
@@ -2732,9 +2805,11 @@ class CareView(discord.ui.View):
             pet.get("happiness", 0)
         )
 
+        ENTRY_FEE = 0
+
         embed = discord.Embed(
             title="🏁 レース出走確認",
-            description="出走するレースを次の画面で選択してください。",
+            description="この状態でレースに出走しますか？",
             color=discord.Color.red()
         )
 
@@ -2752,12 +2827,13 @@ class CareView(discord.ui.View):
 
         embed.add_field(
             name="💰 参加費",
-            value="通常レース: 0rrc\n🏆 上位レース: 30,000rrc",
+            value=f"{ENTRY_FEE:,}",
             inline=False
         )
 
         view = RaceEntryConfirmView(
             pet=pet,
+            entry_fee=ENTRY_FEE,
             schedules=schedules
         )
 
@@ -2766,9 +2842,10 @@ class CareView(discord.ui.View):
             view=view,
             ephemeral=True
         )
-# =========================
-# エントリー状況3.9
-# =========================
+
+    # =========================
+    # エントリー状況3.9
+    # =========================
     @discord.ui.button(label="📋 エントリー状況", style=discord.ButtonStyle.secondary)
     async def entry_status(self, interaction: discord.Interaction, button: discord.ui.Button):
 
@@ -2839,6 +2916,22 @@ class CareView(discord.ui.View):
         )
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # =========================
 # お別れビュー
 # =========================
@@ -2880,6 +2973,13 @@ class FarewellConfirmView(discord.ui.View):
             content="キャンセルしました。",
             view=None
         )
+
+class TrainingSelectView(discord.ui.View):
+    def __init__(self, pet_id: int):
+        super().__init__(timeout=60)
+        self.pet_id = pet_id
+        self.add_item(TrainingSelect(pet_id))
+
 
 # ⭐ 探索テーブル3.19
 EXPLORE_TABLE = [
@@ -3568,98 +3668,118 @@ class ExploreButton(discord.ui.Button):
     def __init__(self, pet_id: int):
         super().__init__(
             label="🌲 探索",
-            style=discord.ButtonStyle.success
+            style=discord.ButtonStyle.success,
+            custom_id=f"oasistchi_explore:{pet_id}"
         )
         self.pet_id = pet_id
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
 
-        db = interaction.client.db
-        uid = str(interaction.user.id)
-        gid = str(interaction.guild.id)
+        print("🌲 explore button clicked", interaction.user.id, self.pet_id)
 
-        now = now_ts()
+        try:
+            await interaction.response.defer(ephemeral=True)
 
-        # =========================
-        # クールタイム
-        # =========================
-        last = await db.get_explore_time(uid)
+            db = interaction.client.db
+            uid = str(interaction.user.id)
+            gid = str(interaction.guild.id)
 
-        if last and now - last < 10800:
-            remain = 10800 - (now - last)
-            m = remain // 60
+            now = now_ts()
+
+            print("🌲 explore after defer OK")
+
+            print("A")
+            last = await db.get_explore_time(uid)
+            print("B")
+
+            if last and now - last < 10800:
+                remain = 10800 - (now - last)
+                m = remain // 60
+
+                embed = discord.Embed(
+                    title="🌲 探索できない",
+                    description=f"あと **{m}分** 待つ必要があります",
+                    color=discord.Color.red()
+                )
+
+                return await interaction.followup.send(embed=embed, ephemeral=True)
+
+            pet = await db.get_oasistchi_pet(self.pet_id)
+            print("C")
+
+            if not pet:
+                print("EXPLORE PET NOT FOUND", self.pet_id)
+                return await interaction.followup.send(
+                    "ペット情報取得失敗", ephemeral=True
+                )
+
+            # 抽選
+            r = random.random()
+            total = 0
+            reward = 0
+
+            for p, money in EXPLORE_TABLE:
+                total += p
+                if r < total:
+                    reward = money
+                    break
+
+            text = random.choice(EXPLORE_FLAVOR[reward]).format(name=pet["name"])
+
+            if reward > 0:
+                await db.add_balance(uid, gid, reward)
+            print("D")
+
+            await db.set_explore_time(uid, now)
+            print("E")
+
+            unit = (await db.get_settings())["currency_unit"]
+
+            rank = EXPLORE_RANK.get(reward, "N")
+            color = EXPLORE_COLOR[rank]
 
             embed = discord.Embed(
-                title="🌲 探索できない",
-                description=f"あと **{m}分** 待つ必要があります",
-                color=discord.Color.red()
+                title=f"🌲 探索結果 [{rank}]",
+                description=text,
+                color=color
             )
 
-            return await interaction.followup.send(embed=embed, ephemeral=True)
+            if reward > 0:
+                embed.add_field(
+                    name="獲得",
+                    value=f"+{reward:,}{unit}",
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="結果",
+                    value="何も見つからなかった…",
+                    inline=False
+                )
 
-        pet = await db.get_oasistchi_pet(self.pet_id)
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
-        # =========================
-        # 抽選
-        # =========================
-        r = random.random()
-        total = 0
-        reward = 0
+        except Exception:
+            import traceback
+            traceback.print_exc()
 
-        for p, money in EXPLORE_TABLE:
-            total += p
-            if r < total:
-                reward = money
-                break
+            try:
+                await interaction.followup.send(
+                    "探索中にエラーが発生しました",
+                    ephemeral=True
+                )
+            except:
+                pass
 
-        # =========================
-        # フレーバー
-        # =========================
-        text = random.choice(EXPLORE_FLAVOR[reward]).format(name=pet["name"])
 
-        # =========================
-        # 報酬
-        # =========================
-        if reward > 0:
-            await db.add_balance(uid, gid, reward)
 
-        await db.set_explore_time(uid, now)
 
-        # =========================
-        # パネル
-        # =========================
-        unit = (await db.get_settings())["currency_unit"]
 
-        rank = EXPLORE_RANK.get(reward, "N")
-        color = EXPLORE_COLOR[rank]
 
-        embed = discord.Embed(
-            title=f"🌲 探索結果 [{rank}]",
-            description=text,
-            color=color
-        )
 
-        if reward > 0:
-            embed.add_field(
-                name="獲得",
-                value=f"+{reward:,}{unit}",
-                inline=False
-            )
-        else:
-            embed.add_field(
-                name="結果",
-                value="何も見つからなかった…",
-                inline=False
-            )
 
-        await interaction.followup.send(embed=embed, ephemeral=True)
 
-class TrainingSelectView(discord.ui.View):
-    def __init__(self, pet_id: int):
-        super().__init__(timeout=60)
-        self.pet_id = pet_id
-        self.add_item(TrainingSelect(pet_id))
+
 
 
 
@@ -3705,6 +3825,13 @@ class EntryCancelButton(discord.ui.Button):
             f"❌ {self.entry['pet_name']} のエントリーをキャンセルしました。",
             ephemeral=True
         )
+
+
+
+
+
+
+
 
 class TrainingSelect(discord.ui.Select):
     def __init__(self, pet_id: int):
@@ -3753,6 +3880,56 @@ class TrainingSelect(discord.ui.Select):
             f"🏋️ 特訓回数：{pet.get('training_count', 0) + 1} / 30",
             ephemeral=True
         )
+
+class RankUpConfirmView(discord.ui.View):
+    def __init__(self, pet_id: int, new_skill: str, old_skill: str):
+        super().__init__(timeout=30)
+        self.pet_id = pet_id
+        self.new_skill = new_skill
+        self.old_skill = old_skill
+
+    @discord.ui.button(label="はい（上書きする）", style=discord.ButtonStyle.success)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        db = interaction.client.db
+
+        await db._execute(
+            """
+            UPDATE oasistchi_pets
+            SET passive_skill = $1,
+                growth = 0
+            WHERE id = $2
+            """,
+            self.new_skill,
+            self.pet_id
+        )
+
+        old_text = get_passive_display(self.old_skill)
+        new_text = get_passive_display(self.new_skill)
+
+        await interaction.response.edit_message(
+            content=f"✨ ランクアップ成功！\n旧スキル：{old_text}\n新スキル：{new_text}",
+            view=None
+        )
+
+    @discord.ui.button(label="いいえ（上書きしない）", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        db = interaction.client.db
+
+        await db._execute(
+            """
+            UPDATE oasistchi_pets
+            SET growth = 0
+            WHERE id = $1
+            """,
+            self.pet_id
+        )
+
+        await interaction.response.edit_message(
+            content="✨ ランクアップを見送りました（ゲージのみリセット）",
+            view=None
+        )
+
+
 class RankUpButton(discord.ui.Button):
     def __init__(self, pet_id: int):
         super().__init__(
@@ -3772,37 +3949,56 @@ class RankUpButton(discord.ui.Button):
                 ephemeral=True
             )
 
-        # ✅ 条件チェック（成体＆ゲージMAX）
         if pet["stage"] != "adult" or pet.get("growth", 0) < 100:
             return await interaction.response.send_message(
                 "ランクアップ条件を満たしていません。",
                 ephemeral=True
             )
 
-        old_skill = pet.get("passive_skill")
-
-        # ✅ 新スキル抽選（均等）
-        new_skill = random.choice(list(PASSIVE_SKILLS.keys()))
-
-        # ✅ 上書き＋ゲージ消費
+        # ⭐ ここで即消費
         await db._execute(
             """
             UPDATE oasistchi_pets
-            SET passive_skill = $1,
-                growth = 0
-            WHERE id = $2
+            SET growth = 0
+            WHERE id = $1
             """,
-            new_skill,
             self.pet_id
         )
 
-        old_text = get_passive_display(old_skill) if old_skill else "なし"
+        old_skill = pet.get("passive_skill")
+        new_skill = random.choice(list(PASSIVE_SKILLS.keys()))
+
+        # ⭐ パッシブなし → 即付与
+        if not old_skill:
+            await db._execute(
+                """
+                UPDATE oasistchi_pets
+                SET passive_skill = $1
+                WHERE id = $2
+                """,
+                new_skill,
+                self.pet_id
+            )
+
+            new_text = get_passive_display(new_skill)
+
+            return await interaction.response.send_message(
+                f"✨ ランクアップ成功！\n新スキル：{new_text}",
+                ephemeral=True
+            )
+
+        # ⭐ パッシブあり → 確認UI
+        old_text = get_passive_display(old_skill)
         new_text = get_passive_display(new_skill)
 
+        view = RankUpConfirmView(self.pet_id, new_skill, old_skill)
+
         await interaction.response.send_message(
-            f"✨ ランクアップ成功！\n"
+            f"⚠️ 既にパッシブスキルを持っています\n"
             f"旧スキル：{old_text}\n"
-            f"新スキル：{new_text}",
+            f"新候補：{new_text}\n\n"
+            f"上書きしますか？",
+            view=view,
             ephemeral=True
         )
 
@@ -4088,14 +4284,15 @@ class PaidPetConfirmView(discord.ui.View):
 
         # レース
 class RaceEntryConfirmView(discord.ui.View):
-    def __init__(self, pet: dict, schedules: list[dict]):
+    def __init__(self, pet: dict, entry_fee: int, schedules: list[dict]):
         super().__init__(timeout=120)
 
         self.pet = pet
+        self.entry_fee = entry_fee
         self.schedules = schedules
 
         self.selected_race: dict | None = None
-        self._confirmed = False
+        self._confirmed = False  # 二重押し防止
 
         self.add_item(RaceSelect(self, schedules))
 
@@ -4140,25 +4337,23 @@ class RaceEntryConfirmView(discord.ui.View):
                 ephemeral=True
             )
 
-        # 選択したレースの参加費
-        entry_fee = int(race.get("entry_fee", 0) or 0)
-
         # ③ エントリー保存（pending）
         await db.insert_race_entry(
             schedule_id=schedule_id,
             guild_id=guild_id,
             user_id=uid,
-            pet_id=int(pet["id"]),
+            pet_id=int(pet["id"]),       # ★ここが「個体ID」になっていることが重要
             race_date=race_date,
-            entry_fee=entry_fee,
+            entry_fee=self.entry_fee,    # ★50000固定じゃなく、viewに渡した entry_fee を使うのが安全
             paid=True
         )
 
-        # 参加費処理（通常0 / 上位30000）
-        if entry_fee > 0:
-            await db.remove_balance(uid, guild_id, entry_fee)
+        # 参加費処理（ENTRY_FEEが0なら実質ノーダメ）
+        if self.entry_fee > 0:
+            await db.remove_balance(uid, guild_id, self.entry_fee)
 
-        # ④ 同一おあしすっちの同日他レースを無効化
+        # ④ 同一おあしすっちの「同日・他レース」エントリーを無効化（pendingだけ潰す）
+        # ＝同じペットで別レースに入れようとしたら、後勝ち/前勝ちの仕様をここで作れる
         await db.cancel_other_entries(
             pet_id=int(pet["id"]),
             race_date=race_date,
