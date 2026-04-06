@@ -5,10 +5,46 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 
+
+
+
 class InterviewCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+
+
+
+    # =========================
+    # 長文followup安全送信
+    # =========================
+    async def send_long_followup(
+        self,
+        interaction: discord.Interaction,
+        text: str,
+        ephemeral: bool = True
+    ):
+        CHUNK_SIZE = 1900
+        chunks = []
+        current = ""
+
+        for line in text.split("\n"):
+            if len(current) + len(line) + 1 > CHUNK_SIZE:
+                chunks.append(current)
+                current = line
+            else:
+                current += ("\n" if current else "") + line
+
+        if current:
+            chunks.append(current)
+
+        for chunk in chunks:
+            await interaction.followup.send(
+                chunk,
+                ephemeral=ephemeral
+            )
+
+    
     # --------------------------------------------------------
     # /面接設定（管理者ロール必須）
     # --------------------------------------------------------
@@ -265,7 +301,11 @@ class InterviewCog(commands.Cog):
                [f"- {m.mention}" for m in skipped[:20]]
             )
 
-        await interaction.followup.send(msg, ephemeral=True)
+        await self.send_long_followup(
+            interaction,
+            msg,
+            ephemeral=True
+        )
 
 # --------------------------------------------------------
 # setup（必須）
