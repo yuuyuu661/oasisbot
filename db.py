@@ -13,7 +13,7 @@ JST = timezone(timedelta(hours=9))
 load_dotenv()
 
 NORMAL_RACE_TIMES = ["09:00", "12:00", "15:00", "18:00", "21:00"]
-SPECIAL_RACE_TIME = "23:00"
+
 
 DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
 SURFACES = ["芝", "ダート"]
