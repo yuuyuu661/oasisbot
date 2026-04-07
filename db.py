@@ -12,7 +12,7 @@ JST = timezone(timedelta(hours=9))
 
 load_dotenv()
 
-NORMAL_RACE_TIMES = ["09:00", "12:00", "15:00", "18:00", "21:00"]
+RACE_TIMES = ["09:00", "12:00", "15:00", "18:00", "21:00"]
 
 
 DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
@@ -2490,13 +2490,8 @@ class Database:
         )
 
 
-    async def get_oasistchi_notify_settings(self, user_id: str) -> dict | None:
-        await self._ensure_pool()
-        row = await self._fetchrow(
-            "SELECT notify_poop, notify_food, notify_pet_ready FROM oasistchi_notify WHERE user_id=$1",
-            user_id
-        )
-        return dict(row) if row else None
+
+
 
     async def get_today_race_schedules(self, race_date: date, guild_id: str):
         return await self._fetch("""
@@ -2562,7 +2557,6 @@ class Database:
                   AND guild_id = $2
             )
         """, race_date, guild_id)
-
 
     # -----------------------------------------
     # race_schedules テーブル カラム補完
@@ -2660,7 +2654,7 @@ class Database:
             await self._execute("ALTER TABLE race_results ADD COLUMN rank INTEGER;")
 
         if "final_score" not in existing:
-            print("🛠 race_results に final_score を追加します…")
+            print("   race_results に final_score を追加します…")
             await self._execute("ALTER TABLE race_results ADD COLUMN final_score DOUBLE PRECISION;")
 
         if "user_id" not in existing:
@@ -2846,15 +2840,10 @@ class Database:
         guild_id: str,
         user_id: str,
         pet_id: int,
-        race_date,
+        race_date,          # date 型
         entry_fee: int,
         paid: bool,
     ):
-        print(
-            f"[DB ENTRY INSERT] race={schedule_id} "
-            f"guild={guild_id} user={user_id} pet={pet_id} fee={entry_fee}"
-        )
-
         await self._execute("""
             INSERT INTO race_entries (
                 race_date,
@@ -2877,7 +2866,6 @@ class Database:
         entry_fee,
         paid
         )
-        
     # =====================================================
     # 返金対象をまとめて取得
     # =====================================================
@@ -2902,6 +2890,7 @@ class Database:
                 locked = TRUE
             WHERE id = $1
         """, race_id)
+
 
 
     # =====================================================
