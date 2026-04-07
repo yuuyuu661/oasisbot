@@ -1028,6 +1028,26 @@ class Database:
         )
         """)
 
+        # =========================
+        # 上位レース用 race_class 追加4.7
+        # =========================
+        col_check = await self._fetch("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'race_schedules';
+        """)
+        existing_cols = {row["column_name"] for row in col_check}
+
+        if "race_class" not in existing_cols:
+            print("🛠 race_schedules に race_class カラムを追加します…")
+
+            await self._execute("""
+                ALTER TABLE race_schedules
+                ADD COLUMN race_class TEXT NOT NULL DEFAULT 'normal';
+            """)
+
+            print("✅ race_class 追加完了")
+
         
 
         
