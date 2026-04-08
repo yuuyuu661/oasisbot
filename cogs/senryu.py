@@ -63,6 +63,29 @@ class SenryuCog(commands.Cog):
 
         return mora, mora_map
 
+    def is_natural_break(self, text: str) -> bool:
+        return text[-1] in CUT_HINTS if text else False
+
+
+    def build_kana_map(self, text: str):
+        hira = ""
+        mapping = []
+
+        result = self.converter.convert(text)
+
+        raw_index = 0
+
+        for item in result:
+            orig = item["orig"]
+            kana = item["hira"]
+
+            hira += kana
+            mapping.extend([raw_index] * len(kana))
+
+            raw_index += len(orig)
+
+        return hira, mapping
+
     # =========================
     # 川柳検出
     # =========================
