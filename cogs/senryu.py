@@ -86,7 +86,7 @@ class SenryuCog(commands.Cog):
 
             chunk = mora[start:end]
 
-           first = "".join(chunk[:5])
+            first = "".join(chunk[:5])
             second = "".join(chunk[5:12])
             third = "".join(chunk[12:17])
 
