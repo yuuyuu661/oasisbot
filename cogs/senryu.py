@@ -80,9 +80,18 @@ class SenryuCog(commands.Cog):
             kana = item["hira"]
 
             hira += kana
-            mapping.extend([raw_index] * len(kana))
 
-            raw_index += len(orig)
+            orig_len = len(orig)
+            kana_len = len(kana)
+
+            for i in range(kana_len):
+                mapped = raw_index + min(
+                    orig_len - 1,
+                    i * orig_len // kana_len
+                )
+                mapping.append(mapped)
+
+            raw_index += orig_len
 
         return hira, mapping
 
