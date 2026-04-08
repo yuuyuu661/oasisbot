@@ -61,7 +61,6 @@ class SenryuCog(commands.Cog):
     # 川柳検出
     # =========================
     def detect_senryu(self, original_text: str):
-        # 漢字をひらがな化
         hira = self.converter.do(original_text)
 
         cleaned = re.sub(r"\s+", "", hira)
@@ -69,17 +68,20 @@ class SenryuCog(commands.Cog):
 
         mora = self.split_mora(cleaned)
 
+        # 全文の全開始位置をスキャン
         for start in range(len(mora)):
-            if start + 17 > len(mora):
+            end = start + 17
+            if end > len(mora):
                 break
 
-            chunk = mora[start:start + 17]
+            chunk = mora[start:end]
 
-            return (
-                "".join(chunk[:5]),
-                "".join(chunk[5:12]),
-                "".join(chunk[12:17]),
-            )
+            first = "".join(chunk[:5])
+            second = "".join(chunk[5:12])
+            third = "".join(chunk[12:17])
+
+            # 最初に見つかった一句だけ返す
+            return first, second, third
 
         return None
 
