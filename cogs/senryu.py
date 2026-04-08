@@ -50,36 +50,18 @@ class SenryuCog(commands.Cog):
     # =========================
     # モーラ分解
     # =========================
-    def split_mora(self, text: str):
+    def split_mora_with_map(self, hira: str, mapping: list[int]):
         mora = []
-        for ch in text:
+        mora_map = []
+
+        for i, ch in enumerate(hira):
             if ch in SMALL and mora:
                 mora[-1] += ch
             else:
                 mora.append(ch)
-        return mora
+                mora_map.append(mapping[i])
 
-    def is_natural_break(self, text: str) -> bool:
-        return text[-1] in CUT_HINTS if text else False
-
-    def build_kana_map(self, text: str):
-        hira = ""
-        mapping = []
-
-        result = self.converter.convert(text)
-
-        raw_index = 0
-
-        for item in result:
-            orig = item["orig"]
-            kana = item["hira"]
-
-            hira += kana
-            mapping.extend([raw_index] * len(kana))
-
-            raw_index += len(orig)
-
-        return hira, mapping
+        return mora, mora_map
 
     # =========================
     # 川柳検出
@@ -93,7 +75,7 @@ class SenryuCog(commands.Cog):
 
         hira, mapping = self.build_kana_map(cleaned_orig)
 
-        mora = self.split_mora(hira)
+        mora, mora_map = self.split_mora_with_map(hira, mapping)
 
         candidates = []
 
@@ -106,10 +88,10 @@ class SenryuCog(commands.Cog):
             second_end = start + 12
 
             # 元文インデックスへ戻す
-            raw_start = mapping[start]
-            raw_first_end = mapping[first_end - 1] + 1
-            raw_second_end = mapping[second_end - 1] + 1
-            raw_end = mapping[end - 1] + 1
+            raw_start = mora_map[start]
+            raw_first_end = mora_map[first_end - 1] + 1
+            raw_second_end = mora_map[second_end - 1] + 1
+            raw_end = mora_map[end - 1] + 1
 
             first = cleaned_orig[raw_start:raw_first_end]
             second = cleaned_orig[raw_first_end:raw_second_end]
