@@ -63,23 +63,21 @@ class SenryuCog(commands.Cog):
         return text[-1] in CUT_HINTS if text else False
 
     def build_kana_map(self, text: str):
-        """
-        元文 → かな変換 + 元文字位置マップ
-        文脈依存ズレを減らすため全文ベースで処理
-        """
         hira = ""
         mapping = []
 
-        for i in range(len(text)):
-            part = text[: i + 1]
-            kana_full = self.converter.do(part)
+        result = self.converter.convert(text)
 
-            # 前回との差分だけ追加
-            kana_prev = self.converter.do(text[:i]) if i > 0 else ""
-            added = kana_full[len(kana_prev):]
+        raw_index = 0
 
-            hira += added
-            mapping.extend([i] * len(added))
+        for item in result:
+            orig = item["orig"]
+            kana = item["hira"]
+
+            hira += kana
+            mapping.extend([raw_index] * len(kana))
+
+            raw_index += len(orig)
 
         return hira, mapping
 
