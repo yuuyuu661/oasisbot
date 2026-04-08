@@ -96,9 +96,15 @@ class SenryuCog(commands.Cog):
         if not cleaned_orig:
             return None
 
+        print("[SENRYU RAW]", cleaned_orig)
+
         hira, mapping = self.build_kana_map(cleaned_orig)
+        print("[SENRYU HIRA]", hira)
+        print("[SENRYU MAP]", mapping)
 
         mora, mora_map = self.split_mora_with_map(hira, mapping)
+        print("[SENRYU MORA]", mora)
+        print("[SENRYU MORA_MAP]", mora_map)
 
         candidates = []
 
@@ -110,7 +116,6 @@ class SenryuCog(commands.Cog):
             first_end = start + 5
             second_end = start + 12
 
-            # 元文インデックスへ戻す
             raw_start = mora_map[start]
             raw_first_end = mora_map[first_end - 1] + 1
             raw_second_end = mora_map[second_end - 1] + 1
@@ -119,6 +124,14 @@ class SenryuCog(commands.Cog):
             first = cleaned_orig[raw_start:raw_first_end]
             second = cleaned_orig[raw_first_end:raw_second_end]
             third = cleaned_orig[raw_second_end:raw_end]
+
+            print(
+                "[SENRYU CUT]",
+                f"start={start}",
+                f"first={first}",
+                f"second={second}",
+                f"third={third}"
+            )
 
             first_m = "".join(mora[start:first_end])
             second_m = "".join(mora[first_end:second_end])
@@ -132,11 +145,13 @@ class SenryuCog(commands.Cog):
             candidates.append((score, first, second, third))
 
         if not candidates:
+            print("[SENRYU] no candidates")
             return None
 
         candidates.sort(key=lambda x: x[0], reverse=True)
-        _, first, second, third = candidates[0]
+        print("[SENRYU BEST]", candidates[0])
 
+        _, first, second, third = candidates[0]
         return first, second, third
 
     # =========================
