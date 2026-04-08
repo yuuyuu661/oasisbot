@@ -4732,3 +4732,29 @@ class Database:
             FROM senryu_channels
             WHERE guild_id = $1
         """, guild_id)
+
+    async def toggle_senryu_channel(self, guild_id: str, channel_id: str):
+        row = await self._fetchrow("""
+            SELECT 1
+            FROM senryu_channels
+            WHERE guild_id = $1
+              AND channel_id = $2
+        """, guild_id, channel_id)
+
+        if row:
+            await self._execute("""
+                DELETE FROM senryu_channels
+                WHERE guild_id = $1
+                  AND channel_id = $2
+            """, guild_id, channel_id)
+            return False
+
+        await self._execute("""
+            INSERT INTO senryu_channels (
+                guild_id,
+                channel_id
+            )
+            VALUES ($1, $2)
+        """, guild_id, channel_id)
+
+        return True
