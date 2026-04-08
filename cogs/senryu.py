@@ -4,7 +4,7 @@ from discord.ext import commands
 from discord import app_commands
 
 
-GUILD_ID = 1310885590094450739
+GUILD_ID = 1420918259187712093
 ADMIN_ROLE_ID = 1310906528517062770
 
 # 小文字は前文字と結合して1音
@@ -122,5 +122,16 @@ class SenryuCog(commands.Cog):
         )
 
 
+
+
+
 async def setup(bot):
-    await bot.add_cog(SenryuCog(bot))
+    cog = SenryuCog(bot)
+    await bot.add_cog(cog)
+
+    for cmd in cog.get_app_commands():
+        for gid in bot.GUILD_IDS:
+            try:
+                bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+            except Exception:
+                pass
