@@ -5,7 +5,7 @@ from discord import app_commands
 
 
 GUILD_ID = 1420918259187712093
-ADMIN_ROLE_ID = 1310906528517062770
+ADMIN_ROLE_ID = 1445403813853925418
 
 # 小文字は前文字と結合して1音
 SMALL = set("ゃゅょぁぃぅぇぉャュョァィゥェォ")
