@@ -1028,6 +1028,19 @@ class Database:
             PRIMARY KEY (guild_id, user_id)
         )
         """)
+        # =========================
+        # 川柳4.8
+        # =========================
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS senryu_channels (
+            guild_id TEXT NOT NULL,
+            channel_id TEXT NOT NULL,
+            PRIMARY KEY (guild_id, channel_id)
+        )
+        """)
+
+
+        
 
         # =========================
         # 上位レース用 race_class 追加4.7
@@ -4686,3 +4699,36 @@ class Database:
             """, user_id, egg_type, now)
 
         return egg_type, egg_label
+
+
+    # =========================
+    # 川柳4.8
+    # =========================
+    async def toggle_senryu_channel(self, guild_id: str, channel_id: str):
+        row = await self._fetchrow("""
+            SELECT 1
+            FROM senryu_channels
+            WHERE guild_id = $1 AND channel_id = $2
+        """, guild_id, channel_id)
+
+        if row:
+            await self._execute("""
+                DELETE FROM senryu_channels
+                WHERE guild_id = $1 AND channel_id = $2
+            """, guild_id, channel_id)
+            return False
+
+        await self._execute("""
+            INSERT INTO senryu_channels (guild_id, channel_id)
+            VALUES ($1, $2)
+        """, guild_id, channel_id)
+
+        return True
+
+
+    async def get_senryu_channels(self, guild_id: str):
+        return await self._fetch("""
+            SELECT channel_id
+            FROM senryu_channels
+            WHERE guild_id = $1
+        """, guild_id)
