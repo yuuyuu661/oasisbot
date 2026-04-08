@@ -65,14 +65,21 @@ class SenryuCog(commands.Cog):
     def build_kana_map(self, text: str):
         """
         元文 → かな変換 + 元文字位置マップ
+        文脈依存ズレを減らすため全文ベースで処理
         """
         hira = ""
         mapping = []
 
-        for i, ch in enumerate(text):
-            kana = self.converter.do(ch)
-            hira += kana
-            mapping.extend([i] * len(kana))
+        for i in range(len(text)):
+            part = text[: i + 1]
+            kana_full = self.converter.do(part)
+
+            # 前回との差分だけ追加
+            kana_prev = self.converter.do(text[:i]) if i > 0 else ""
+            added = kana_full[len(kana_prev):]
+
+           hira += added
+            mapping.extend([i] * len(added))
 
         return hira, mapping
 
