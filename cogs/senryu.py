@@ -62,23 +62,36 @@ class SenryuCog(commands.Cog):
     def is_natural_break(self, text: str) -> bool:
         return text[-1] in CUT_HINTS if text else False
 
+    def build_kana_map(self, text: str):
+        """
+        元文 → かな変換 + 元文字位置マップ
+        """
+        hira = ""
+        mapping = []
+
+        for i, ch in enumerate(text):
+            kana = self.converter.do(ch)
+            hira += kana
+            mapping.extend([i] * len(kana))
+
+        return hira, mapping
+
     # =========================
     # 川柳検出
     # =========================
     def detect_senryu(self, original_text: str):
-        hira = self.converter.do(original_text)
+        cleaned_orig = re.sub(r"\s+", "", original_text)
+        cleaned_orig = re.sub(r"[。、！!？?・…ｗwW,，]", "", cleaned_orig)
 
-        cleaned = re.sub(r"\s+", "", hira)
-        cleaned = re.sub(r"[。、！!？?・…ｗwW,，]", "", cleaned)
-
-        if not cleaned:
+        if not cleaned_orig:
             return None
 
-        mora = self.split_mora(cleaned)
+        hira, mapping = self.build_kana_map(cleaned_orig)
+
+        mora = self.split_mora(hira)
 
         candidates = []
 
-        # 全開始位置を最後まで探索
         for start in range(len(mora)):
             end = start + 17
             if end > len(mora):
@@ -86,30 +99,34 @@ class SenryuCog(commands.Cog):
 
             chunk = mora[start:end]
 
-            first = "".join(chunk[:5])
-            second = "".join(chunk[5:12])
-            third = "".join(chunk[12:17])
+            first_m = "".join(chunk[:5])
+            second_m = "".join(chunk[5:12])
+            third_m = "".join(chunk[12:17])
+
+            # 元文の位置へ逆変換
+            raw_start = mapping[start]
+            raw_end = mapping[end - 1] + 1
+
+            raw_chunk = cleaned_orig[raw_start:raw_end]
 
             score = 0
-
-            # 自然区切りを高評価
-            if self.is_natural_break(first):
+            if self.is_natural_break(first_m):
                 score += 2
-            if self.is_natural_break(second):
+            if self.is_natural_break(second_m):
                 score += 2
 
-            # 漢字変換で助詞終わりが多いほど良い
-            if first.endswith(("ない", "たい")):
-                score += 1
-
-            candidates.append((score, first, second, third))
+            candidates.append((score, raw_chunk))
 
         if not candidates:
             return None
 
-        # 一番スコア高い一句
         candidates.sort(key=lambda x: x[0], reverse=True)
-        _, first, second, third = candidates[0]
+        _, raw_chunk = candidates[0]
+
+        # 表示は元文ベースで自然に3分割
+        first = raw_chunk[:len(raw_chunk)//3]
+        second = raw_chunk[len(raw_chunk)//3:len(raw_chunk)*2//3]
+        third = raw_chunk[len(raw_chunk)*2//3:]
 
         return first, second, third
 
