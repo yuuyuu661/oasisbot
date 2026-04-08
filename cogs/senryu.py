@@ -84,7 +84,7 @@ class SenryuCog(commands.Cog):
         cleaned_orig = re.sub(r"[。、！!？?・…ｗwW,，]", "", cleaned_orig)
 
         if not cleaned_orig:
-            return None
+           return None
 
         hira, mapping = self.build_kana_map(cleaned_orig)
 
@@ -97,17 +97,21 @@ class SenryuCog(commands.Cog):
             if end > len(mora):
                 break
 
-            chunk = mora[start:end]
+            first_end = start + 5
+            second_end = start + 12
 
-            first_m = "".join(chunk[:5])
-            second_m = "".join(chunk[5:12])
-            third_m = "".join(chunk[12:17])
-
-            # 元文の位置へ逆変換
+            # 元文インデックスへ戻す
             raw_start = mapping[start]
+            raw_first_end = mapping[first_end - 1] + 1
+            raw_second_end = mapping[second_end - 1] + 1
             raw_end = mapping[end - 1] + 1
 
-            raw_chunk = cleaned_orig[raw_start:raw_end]
+            first = cleaned_orig[raw_start:raw_first_end]
+            second = cleaned_orig[raw_first_end:raw_second_end]
+            third = cleaned_orig[raw_second_end:raw_end]
+
+            first_m = "".join(mora[start:first_end])
+            second_m = "".join(mora[first_end:second_end])
 
             score = 0
             if self.is_natural_break(first_m):
@@ -115,18 +119,13 @@ class SenryuCog(commands.Cog):
             if self.is_natural_break(second_m):
                 score += 2
 
-            candidates.append((score, raw_chunk))
+            candidates.append((score, first, second, third))
 
         if not candidates:
             return None
 
         candidates.sort(key=lambda x: x[0], reverse=True)
-        _, raw_chunk = candidates[0]
-
-        # 表示は元文ベースで自然に3分割
-        first = raw_chunk[:len(raw_chunk)//3]
-        second = raw_chunk[len(raw_chunk)//3:len(raw_chunk)*2//3]
-        third = raw_chunk[len(raw_chunk)*2//3:]
+        _, first, second, third = candidates[0]
 
         return first, second, third
 
