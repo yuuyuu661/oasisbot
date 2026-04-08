@@ -22,16 +22,22 @@ class SenryuCog(commands.Cog):
         kks = kakasi()
         self.converter = kks.getConverter()
 
+    async def cog_load(self):
+        for guild in self.bot.guilds:
+            rows = await self.bot.db.get_senryu_channels(str(guild.id))
+            for r in rows:
+                self.target_channels.add(int(r["channel_id"]))
+
+        print("🌸 川柳チャンネル復元完了", self.target_channels)
+
     # =========================
-    # 管理者設定
+    # 管理者設定（トグル式）
     # =========================
     @app_commands.command(name="川柳検出")
     async def setup_senryu(
         self,
         interaction: discord.Interaction,
-        channel1: discord.TextChannel,
-        channel2: discord.TextChannel | None = None,
-        channel3: discord.TextChannel | None = None,
+        channel: discord.TextChannel,
     ):
         if not any(r.id == ADMIN_ROLE_ID for r in interaction.user.roles):
             return await interaction.response.send_message(
@@ -39,11 +45,23 @@ class SenryuCog(commands.Cog):
                 ephemeral=True
             )
 
-        channels = [channel1, channel2, channel3]
-        self.target_channels = {c.id for c in channels if c}
+        guild_id = str(interaction.guild.id)
+        channel_id = str(channel.id)
+
+        enabled = await self.bot.db.toggle_senryu_channel(
+            guild_id,
+            channel_id
+        )
+
+        if enabled:
+            self.target_channels.add(channel.id)
+            msg = f"🌸 {channel.mention} の川柳検出をONにしました"
+        else:
+            self.target_channels.discard(channel.id)
+            msg = f"🧹 {channel.mention} の川柳検出を解除しました"
 
         await interaction.response.send_message(
-            "🌸 川柳検出ON",
+            msg,
             ephemeral=True
         )
 
