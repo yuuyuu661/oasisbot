@@ -198,11 +198,29 @@ class SenryuCog(commands.Cog):
 
         first, second, third = result
 
-        await message.channel.send(
-            "🌸 **川柳を検出しました！！**\n\n"
-            f"「{first}\n"
-            f"　{second}\n"
-            f"　　{third}」"
+        # =========================
+        # 川柳名人 webhook送信
+        # =========================
+        webhooks = await message.channel.webhooks()
+        webhook = discord.utils.get(webhooks, name="川柳名人")
+
+        if webhook is None:
+            with open(self.senryu_icon_path, "rb") as f:
+                avatar_bytes = f.read()
+
+            webhook = await message.channel.create_webhook(
+                name="川柳名人",
+                avatar=avatar_bytes
+            )
+
+        await webhook.send(
+            content=(
+                "🌸 **川柳を検出しました！！**\n\n"
+                f"「{first}\n"
+                f"　{second}\n"
+                f"　　{third}」"
+            ),
+            username="川柳名人"
         )
 
 
