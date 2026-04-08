@@ -78,7 +78,7 @@ class SenryuCog(commands.Cog):
             kana_prev = self.converter.do(text[:i]) if i > 0 else ""
             added = kana_full[len(kana_prev):]
 
-           hira += added
+            hira += added
             mapping.extend([i] * len(added))
 
         return hira, mapping
@@ -91,7 +91,7 @@ class SenryuCog(commands.Cog):
         cleaned_orig = re.sub(r"[。、！!？?・…ｗwW,，]", "", cleaned_orig)
 
         if not cleaned_orig:
-           return None
+            return None
 
         hira, mapping = self.build_kana_map(cleaned_orig)
 
