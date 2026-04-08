@@ -5,3 +5,4 @@ pillow
 imageio
 fastapi
 uvicorn
+pykakasi
