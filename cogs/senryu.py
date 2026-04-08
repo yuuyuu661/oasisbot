@@ -21,6 +21,7 @@ class SenryuCog(commands.Cog):
 
         kks = kakasi()
         self.converter = kks.getConverter()
+        self.senryu_icon_path = "cogs/assets/senryu/master.png"
 
     async def cog_load(self):
         for guild in self.bot.guilds:
