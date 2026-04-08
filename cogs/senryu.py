@@ -69,37 +69,49 @@ class SenryuCog(commands.Cog):
         hira = self.converter.do(original_text)
 
         cleaned = re.sub(r"\s+", "", hira)
-        cleaned = re.sub(r"[。、！!？?・…ｗwW]", "", cleaned)
+        cleaned = re.sub(r"[。、！!？?・…ｗwW,，]", "", cleaned)
 
         if not cleaned:
             return None
 
         mora = self.split_mora(cleaned)
 
-        best = None
+        candidates = []
 
-        # 全文の全開始位置を最後まで探索
+        # 全開始位置を最後まで探索
         for start in range(len(mora)):
             end = start + 17
             if end > len(mora):
-                continue
+                break
 
             chunk = mora[start:end]
 
-            first = "".join(chunk[:5])
+           first = "".join(chunk[:5])
             second = "".join(chunk[5:12])
             third = "".join(chunk[12:17])
 
-            # 助詞など自然な切れ目を優先
-            if self.is_natural_break(first) or self.is_natural_break(second):
-                best = (first, second, third)
-                break
+            score = 0
 
-            # 自然区切りがなくても保険で最初の一句を保持
-            if best is None:
-                best = (first, second, third)
+            # 自然区切りを高評価
+            if self.is_natural_break(first):
+                score += 2
+            if self.is_natural_break(second):
+                score += 2
 
-        return best
+            # 漢字変換で助詞終わりが多いほど良い
+            if first.endswith(("ない", "たい")):
+                score += 1
+
+            candidates.append((score, first, second, third))
+
+        if not candidates:
+            return None
+
+        # 一番スコア高い一句
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        _, first, second, third = candidates[0]
+
+        return first, second, third
 
     # =========================
     # 監視
