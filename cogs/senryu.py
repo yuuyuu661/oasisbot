@@ -11,6 +11,8 @@ ADMIN_ROLE_ID = 1445403813853925418
 # 小文字は前文字と結合して1音
 SMALL = set("ゃゅょぁぃぅぇぉャュョァィゥェォ")
 
+CUT_HINTS = {"は", "が", "を", "に", "で", "と", "も", "の"}
+
 
 class SenryuCog(commands.Cog):
     def __init__(self, bot):
@@ -57,6 +59,9 @@ class SenryuCog(commands.Cog):
                 mora.append(ch)
         return mora
 
+    def is_natural_break(self, text: str) -> bool:
+        return text[-1] in CUT_HINTS if text else False
+
     # =========================
     # 川柳検出
     # =========================
@@ -66,13 +71,18 @@ class SenryuCog(commands.Cog):
         cleaned = re.sub(r"\s+", "", hira)
         cleaned = re.sub(r"[。、！!？?・…ｗwW]", "", cleaned)
 
+        if not cleaned:
+            return None
+
         mora = self.split_mora(cleaned)
 
-        # 全文の全開始位置をスキャン
+        best = None
+
+        # 全文の全開始位置を最後まで探索
         for start in range(len(mora)):
             end = start + 17
             if end > len(mora):
-                break
+                continue
 
             chunk = mora[start:end]
 
@@ -80,10 +90,16 @@ class SenryuCog(commands.Cog):
             second = "".join(chunk[5:12])
             third = "".join(chunk[12:17])
 
-            # 最初に見つかった一句だけ返す
-            return first, second, third
+            # 助詞など自然な切れ目を優先
+            if self.is_natural_break(first) or self.is_natural_break(second):
+                best = (first, second, third)
+                break
 
-        return None
+            # 自然区切りがなくても保険で最初の一句を保持
+            if best is None:
+                best = (first, second, third)
+
+        return best
 
     # =========================
     # 監視
