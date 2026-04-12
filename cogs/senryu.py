@@ -8,10 +8,33 @@ from pykakasi import kakasi
 GUILD_ID = 1420918259187712093
 ADMIN_ROLE_ID = 1445403813853925418
 
+
+
 # 小文字は前文字と結合して1音
 SMALL = set("ゃゅょぁぃぅぇぉャュョァィゥェォ")
 
-CUT_HINTS = {"は", "が", "を", "に", "で", "と", "も", "の"}
+# 句切れとして強い
+CUT_HINTS_STRONG = {"。", "、", "！", "？", "…", " ", "　"}
+
+# 句切れとして弱い
+CUT_HINTS_WEAK = {"は", "が", "を", "に", "で", "と", "も", "の", "へ", "や", "か"}
+
+# 句の終わりに来やすい
+GOOD_ENDINGS = {
+    "だ", "です", "ます", "かな", "けり", "なり",
+    "よ", "ね", "ぞ", "や", "か", "な", "わ",
+    "た", "て", "る", "たい", "ない"
+}
+
+# 句の終わりに来るとかなり不自然になりやすい
+BAD_ENDINGS = {
+    "を", "に", "で", "と", "が", "は", "の", "へ"
+}
+
+# 句の頭に来ると不自然になりやすい
+BAD_STARTS = {
+    "を", "に", "で", "と", "が", "は", "の", "も", "へ"
+}
 
 
 class SenryuCog(commands.Cog):
@@ -119,9 +142,13 @@ class SenryuCog(commands.Cog):
     # =========================
     def detect_senryu(self, original_text: str):
         cleaned_orig = re.sub(r"\s+", "", original_text)
-        cleaned_orig = re.sub(r"[。、！!？?・…ｗwW,，]", "", cleaned_orig)
+        cleaned_orig = re.sub(r"[。!！?？・,…，ｗwW]+", "", cleaned_orig)
 
         if not cleaned_orig:
+            return None
+
+        # 短すぎ・長すぎは除外
+        if len(cleaned_orig) < 5:
             return None
 
         print("[SENRYU RAW]", cleaned_orig)
@@ -149,9 +176,13 @@ class SenryuCog(commands.Cog):
             raw_second_end = mora_map[second_end - 1] + 1
             raw_end = mora_map[end - 1] + 1
 
-            first = cleaned_orig[raw_start:raw_first_end]
-            second = cleaned_orig[raw_first_end:raw_second_end]
-            third = cleaned_orig[raw_second_end:raw_end]
+            first = cleaned_orig[raw_start:raw_first_end].strip()
+            second = cleaned_orig[raw_first_end:raw_second_end].strip()
+            third = cleaned_orig[raw_second_end:raw_end].strip()
+
+            first_m = "".join(mora[start:first_end])
+            second_m = "".join(mora[first_end:second_end])
+            third_m = "".join(mora[second_end:end])
 
             print(
                 "[SENRYU CUT]",
@@ -161,26 +192,145 @@ class SenryuCog(commands.Cog):
                 f"third={third}"
             )
 
-            first_m = "".join(mora[start:first_end])
-            second_m = "".join(mora[first_end:second_end])
+            score = self.candidate_score(first, second, third, first_m, second_m)
 
-            score = 0
-            if self.is_natural_break(first_m):
-                score += 2
-            if self.is_natural_break(second_m):
-                score += 2
+            print(
+                "[SENRYU SCORE]",
+                f"score={score}",
+                f"first={first}",
+                f"second={second}",
+                f"third={third}"
+            )
 
-            candidates.append((score, first, second, third))
+            if self.is_good_candidate(first, second, third, score):
+                candidates.append((score, first, second, third))
 
         if not candidates:
-            print("[SENRYU] no candidates")
+            print("[SENRYU] no good candidates")
             return None
 
         candidates.sort(key=lambda x: x[0], reverse=True)
-        print("[SENRYU BEST]", candidates[0])
+        best = candidates[0]
 
-        _, first, second, third = candidates[0]
+        print("[SENRYU BEST]", best)
+
+        _, first, second, third = best
         return first, second, third
+
+
+    def is_strong_break(self, text: str) -> bool:
+        return bool(text) and any(text.endswith(x) for x in CUT_HINTS_STRONG)
+
+    def is_weak_break(self, text: str) -> bool:
+        return bool(text) and any(text.endswith(x) for x in CUT_HINTS_WEAK)
+
+    def has_bad_repetition(self, text: str) -> bool:
+        # 同じ文字3連続以上
+        return re.search(r"(.)\1\1", text) is not None
+
+    def is_mostly_hiragana(self, text: str) -> bool:
+        hira = re.findall(r"[ぁ-んー]", text)
+        if not text:
+            return False
+        return len(hira) / max(1, len(text)) >= 0.8
+
+    def phrase_quality_score(self, phrase: str, is_last: bool = False) -> int:
+       score = 0
+        phrase = phrase.strip()
+
+        if not phrase:
+            return -100
+
+        # 長さが短すぎる句は弱い
+        if len(phrase) >= 2:
+            score += 1
+        else:
+            score -= 2
+
+        # 同じ文字連打は減点
+        if self.has_bad_repetition(phrase):
+            score -= 4
+
+        # 句頭が助詞っぽいのはかなり不自然
+        if any(phrase.startswith(x) for x in BAD_STARTS):
+            score -= 4
+
+        # 句末評価
+        if any(phrase.endswith(x) for x in BAD_ENDINGS):
+            score -= 4
+
+        if any(phrase.endswith(x) for x in GOOD_ENDINGS):
+            score += 2
+
+        # 最終句は言い切りっぽいほうが自然
+        if is_last:
+            if any(phrase.endswith(x) for x in BAD_ENDINGS):
+                score -= 2
+            if re.search(r"[ぁ-んァ-ン一-龥]$", phrase):
+                score += 1
+
+        # ひらがなだけ過ぎると意味が崩れがち
+        if self.is_mostly_hiragana(phrase) and len(phrase) >= 4:
+            score -= 1
+
+        return score
+
+    def candidate_score(self, first: str, second: str, third: str, first_m: str, second_m: str) -> int:
+        score = 0
+
+        # 句切れ
+        if self.is_strong_break(first):
+            score += 5
+        elif self.is_weak_break(first_m):
+            score += 2
+
+        if self.is_strong_break(second):
+            score += 5
+        elif self.is_weak_break(second_m):
+            score += 2
+
+        # 各句の自然さ
+        score += self.phrase_quality_score(first)
+        score += self.phrase_quality_score(second)
+        score += self.phrase_quality_score(third, is_last=True)
+
+        # 極端に短い・変な句を減点
+        if len(first.strip()) <= 1:
+            score -= 3
+        if len(second.strip()) <= 1:
+            score -= 3
+        if len(third.strip()) <= 1:
+            score -= 3
+
+        # 全部ほぼひらがなだけで構成されるとノイズ率高め
+        joined = first + second + third
+        if self.is_mostly_hiragana(joined) and len(joined) >= 10:
+            score -= 2
+
+        return score
+
+    def is_good_candidate(self, first: str, second: str, third: str, score: int) -> bool:
+        # 不自然候補をここで弾く
+        if score < 3:
+        return False
+
+        # 助詞スタートは落とす
+        if any(first.startswith(x) for x in BAD_STARTS):
+            return False
+        if any(second.startswith(x) for x in BAD_STARTS):
+            return False
+        if any(third.startswith(x) for x in BAD_STARTS):
+            return False
+
+        # 句末が全部助詞系なのは落とす
+        bad_end_count = 0
+        for p in (first, second, third):
+            if any(p.endswith(x) for x in BAD_ENDINGS):
+                bad_end_count += 1
+        if bad_end_count >= 2:
+            return False
+
+        return True
 
     # =========================
     # 監視
@@ -193,15 +343,22 @@ class SenryuCog(commands.Cog):
         if message.channel.id not in self.target_channels:
             return
 
-        result = self.detect_senryu(message.content)
+        text = message.content.strip()
+
+        # 短文すぎる・URLだけ・メンションだけを弾く
+        if len(text) < 8:
+            return
+        if re.fullmatch(r"https?://\S+", text):
+            return
+        if re.fullmatch(r"<@!?[0-9]+>", text):
+            return
+
+        result = self.detect_senryu(text)
         if not result:
             return
 
         first, second, third = result
 
-        # =========================
-        # 川柳名人 webhook送信
-        # =========================
         webhooks = await message.channel.webhooks()
         webhook = discord.utils.get(webhooks, name="川柳名人")
 
@@ -217,6 +374,7 @@ class SenryuCog(commands.Cog):
         await webhook.send(
             content=(
                 "🌸 **川柳を検出しました！！**\n\n"
+                "**ここで一句！**\n\n"
                 f"「{first}\n"
                 f"　{second}\n"
                 f"　　{third}」"
