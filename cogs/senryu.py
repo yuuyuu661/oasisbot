@@ -321,11 +321,24 @@ class SenryuCog(commands.Cog):
         return True
 
     # =========================
+    # 自分の川柳Webhook除外
+    # =========================
+    def is_own_senryu_webhook(self, message: discord.Message) -> bool:
+        return (
+            message.webhook_id is not None
+            and message.author.name == "川柳名人"
+        )
+
+    # =========================
     # 監視
     # =========================
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot:
+            return
+
+        # 川柳名人Webhookは無視
+        if self.is_own_senryu_webhook(message):
             return
 
         if message.channel.id not in self.target_channels:
