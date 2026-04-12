@@ -105,9 +105,6 @@ class SenryuCog(commands.Cog):
 
         return mora, mora_map
 
-    def is_natural_break(self, text: str) -> bool:
-        return text[-1] in CUT_HINTS if text else False
-
 
     def build_kana_map(self, text: str):
         hira = ""
@@ -235,41 +232,35 @@ class SenryuCog(commands.Cog):
         return len(hira) / max(1, len(text)) >= 0.8
 
     def phrase_quality_score(self, phrase: str, is_last: bool = False) -> int:
-       score = 0
+        score = 0
         phrase = phrase.strip()
 
         if not phrase:
             return -100
 
-        # 長さが短すぎる句は弱い
         if len(phrase) >= 2:
             score += 1
         else:
             score -= 2
 
-        # 同じ文字連打は減点
         if self.has_bad_repetition(phrase):
             score -= 4
 
-        # 句頭が助詞っぽいのはかなり不自然
         if any(phrase.startswith(x) for x in BAD_STARTS):
             score -= 4
 
-        # 句末評価
         if any(phrase.endswith(x) for x in BAD_ENDINGS):
             score -= 4
 
         if any(phrase.endswith(x) for x in GOOD_ENDINGS):
             score += 2
 
-        # 最終句は言い切りっぽいほうが自然
         if is_last:
             if any(phrase.endswith(x) for x in BAD_ENDINGS):
                 score -= 2
             if re.search(r"[ぁ-んァ-ン一-龥]$", phrase):
                 score += 1
 
-        # ひらがなだけ過ぎると意味が崩れがち
         if self.is_mostly_hiragana(phrase) and len(phrase) >= 4:
             score -= 1
 
@@ -310,11 +301,9 @@ class SenryuCog(commands.Cog):
         return score
 
     def is_good_candidate(self, first: str, second: str, third: str, score: int) -> bool:
-        # 不自然候補をここで弾く
         if score < 3:
-        return False
+            return False
 
-        # 助詞スタートは落とす
         if any(first.startswith(x) for x in BAD_STARTS):
             return False
         if any(second.startswith(x) for x in BAD_STARTS):
@@ -322,7 +311,6 @@ class SenryuCog(commands.Cog):
         if any(third.startswith(x) for x in BAD_STARTS):
             return False
 
-        # 句末が全部助詞系なのは落とす
         bad_end_count = 0
         for p in (first, second, third):
             if any(p.endswith(x) for x in BAD_ENDINGS):
