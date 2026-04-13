@@ -71,7 +71,7 @@ ADULT_CATALOG = [
     {"key": "nino","name": "にの","groups": ["yellow"]},
     {"key": "numaru","name": "ぬまるん","groups": ["red"]},
     {"key": "yuina","name": "ゆいな","groups": ["purple"]},
-    {"key": "zenten","name": "ぜんてん","groups": ["yellow"]},
+    {"key": "zenten","name": "ぜんてん","groups": ["yellow", "rainbow"]},
     {"key": "eng","name": "えんじぇる","groups": ["red"]},
     {"key": "yama","name": "やまだ","groups": ["blue"]},
     {"key": "kono","name": "この","groups": ["green"]},
