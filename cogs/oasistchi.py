@@ -2865,6 +2865,12 @@ class CareView(discord.ui.View):
                 ephemeral=True
             )
 
+        normal_schedules = [
+            dict(s)
+            for s in schedules
+            if s.get("race_class", "normal") != "elite"
+        ]
+
         condition, condition_emoji, face_count = get_race_condition(
             pet.get("happiness", 0)
         )
@@ -3019,13 +3025,21 @@ class CareView(discord.ui.View):
         # schedule_id -> entry
         entry_map = {e["schedule_id"]: e for e in entries}
 
+        normal_schedule_ids = {r["id"] for r in normal_schedules}
+
+        normal_entries = [
+            e for e in entries
+            if e["schedule_id"] in normal_schedule_ids
+        ]
+
         embed = discord.Embed(
             title="🧪 本日のレースエントリー状況",
             description=f"📅 {today}",
             color=discord.Color.blue()
         )
+        
 
-        view = EntryCancelView(entries)
+        view = EntryCancelView(normal_entries)
 
         for i, race in enumerate(normal_schedules, start=1):
 
