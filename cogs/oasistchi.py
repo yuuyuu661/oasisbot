@@ -2327,6 +2327,12 @@ class ConfirmPurchaseView(discord.ui.View):
                         view=None
                     )
 
+                # 🌈 虹色たまご専用4.13
+                fixed_adult_key = None
+
+                if self.egg_key == "rainbow":
+                    fixed_adult_key = random.choice(POPULAR_VOTE_ADULTS)
+
                 await db.purchase_oasistchi_egg_safe(
                     user_id=uid,
                     guild_id=gid,
