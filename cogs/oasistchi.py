@@ -2718,6 +2718,10 @@ class CareView(discord.ui.View):
             view=self
         )
 
+        # -------------------------
+        # 孵化4.13
+        # -------------------------
+
     @discord.ui.button(label="🐣 孵化", style=discord.ButtonStyle.success)
     async def hatch(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not self.is_owner(interaction):
@@ -2737,24 +2741,24 @@ class CareView(discord.ui.View):
 
         egg_type = pet["egg_type"]
 
-        candidates = [
-            a for a in ADULT_CATALOG
-            if egg_type in a["groups"]
-        ]
-
-        if not candidates:
-            return await interaction.response.send_message(
-                "このたまごに対応する成体が登録されていません。",
-                ephemeral=True
-            )
-
-        # ★ここが重要
+        # 🌈 固定排出がある場合は最優先
         if pet.get("fixed_adult_key"):
             adult = next(
                 a for a in ADULT_CATALOG
                 if a["key"] == pet["fixed_adult_key"]
             )
         else:
+            candidates = [
+                a for a in ADULT_CATALOG
+                if egg_type in a["groups"]
+            ]
+
+            if not candidates:
+                return await interaction.response.send_message(
+                    "このたまごに対応する成体が登録されていません。",
+                    ephemeral=True
+                )
+
             adult = random.choice(candidates)
 
         hatch_gif = os.path.join(ASSET_BASE, "egg", pet["egg_type"], "hatch.gif")
