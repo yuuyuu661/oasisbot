@@ -2474,12 +2474,12 @@ class CareView(discord.ui.View):
         now = now_ts()
 
         # ④ クールタイム判定（defer後は followup を使う）
-        if now - pet.get("last_pet", 0) < 10800:
-            await interaction.followup.send(
-                "まだなでなでできません。（3時間クールタイム）",
-                ephemeral=True
-            )
-            return
+        # if now - pet.get("last_pet", 0) < 10800:
+        #     await interaction.followup.send(
+        #         "まだなでなでできません。（3時間クールタイム）",
+        #         ephemeral=True
+        #     )
+        #     return
         # ⑤ ステータス更新
         new_happiness = min(100, pet["happiness"] + 10)
         new_growth = min(100.0, pet["growth"] + 5.0)
