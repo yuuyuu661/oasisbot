@@ -2537,7 +2537,16 @@ class Database:
         """, race_date, guild_id)
 
         # =========================
-        # レース生成4.7
+        # 賞金生成4.13
+        # =========================
+
+    def get_prizes_by_class(self, race_class: str):
+        if race_class == "elite":
+            return 200000, 150000, 100000
+        return 50000, 30000, 10000
+
+        # =========================
+        # レース生成 4.13
         # =========================
 
     async def generate_today_races(self, guild_id: str, race_date: date):
@@ -2562,6 +2571,9 @@ class Database:
         # 通常レース
         # =========================
         for i, race_time in enumerate(RACE_TIMES, start=1):
+            race_class = "normal"
+            prize_1, prize_2, prize_3 = self.get_prizes_by_class(race_class)
+
             await self._execute("""
                 INSERT INTO race_schedules (
                     guild_id,
@@ -2575,11 +2587,15 @@ class Database:
                     distance,
                     surface,
                     condition,
-                    race_class
+                    race_class,
+                    prize_1,
+                    prize_2,
+                    prize_3
                 )
                 VALUES (
                     $1, $2, $3, $4, $5, $6,
-                    NOW(), $7, $8, $9, $10, $11
+                    NOW(), $7, $8, $9, $10, $11,
+                    $12, $13, $14
                 );
             """,
             str(guild_id),
@@ -2587,12 +2603,15 @@ class Database:
             race_time,
             ENTRY_OPEN_MINUTES,
             8,
-            50000,
+            0,
             race_date,
             random.choice(DISTANCES),
             random.choice(SURFACES),
             random.choice(CONDITIONS),
-            "normal"
+            race_class,
+            prize_1,
+            prize_2,
+            prize_3
             )
 
         # =========================
@@ -2600,6 +2619,9 @@ class Database:
         # =========================
 
         for i, race_time in enumerate(ELITE_RACE_TIMES, start=1):
+            race_class = "elite"
+            prize_1, prize_2, prize_3 = self.get_prizes_by_class(race_class)
+
             await self._execute("""
                 INSERT INTO race_schedules (
                     guild_id,
@@ -2613,24 +2635,31 @@ class Database:
                     distance,
                     surface,
                     condition,
-                    race_class
+                    race_class,
+                    prize_1,
+                    prize_2,
+                    prize_3
                 )
                 VALUES (
                     $1, $2, $3, $4, $5, $6,
-                    NOW(), $7, $8, $9, $10, $11
+                    NOW(), $7, $8, $9, $10, $11,
+                    $12, $13, $14
                 );
             """,
             str(guild_id),
-            100 + i,   # ← 通常と被らない番号
+            100 + i,
             race_time,
             ENTRY_OPEN_MINUTES,
             8,
-            100000,    # 上位レース参加費
+            30000,
             race_date,
             random.choice(DISTANCES),
             random.choice(SURFACES),
             random.choice(CONDITIONS),
-            "elite"
+            race_class,
+            prize_1,
+            prize_2,
+            prize_3
             )
 
     async def has_today_race_schedules(self, race_date: date, guild_id: str) -> bool:
