@@ -2979,7 +2979,7 @@ class CareView(discord.ui.View):
             pet.get("happiness", 0)
         )
 
-        ENTRY_FEE = 100000
+        ENTRY_FEE = 30000
 
         embed = discord.Embed(
             title="🏆 上位レース出走確認",
