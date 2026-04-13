@@ -3460,7 +3460,11 @@ class Database:
                            condition,
                            prize_1,
                            prize_2,
-                           prize_3
+                           prize_3,
+                           race_class
+
+
+                           
                     FROM race_schedules
                     WHERE id = $1
                     FOR UPDATE
@@ -3502,15 +3506,20 @@ class Database:
                         WHERE id = $1
                     """, e["pet_id"])
 
+
                     entries.append({
                         "user_id": e["user_id"],
                         "pet_id": e["pet_id"],
-                        "passive_skill": pet["passive_skill"],
-                        "adult_key": pet["adult_key"],
-                        "speed": (pet["base_speed"] or 0) + (pet["train_speed"] or 0),
-                        "power": (pet["base_power"] or 0) + (pet["train_power"] or 0),
-                        "stamina": (pet["base_stamina"] or 0) + (pet["train_stamina"] or 0),
-                        "gate": e.get("gate")
+                        "passive_skill": pet["passive_skill"] if pet else None,
+                        "adult_key": pet["adult_key"] if pet else None,
+                        "speed": ((pet["base_speed"] or 0) + (pet["train_speed"] or 0)) if pet else 0,
+                        "power": ((pet["base_power"] or 0) + (pet["train_power"] or 0)) if pet else 0,
+                        "stamina": ((pet["base_stamina"] or 0) + (pet["train_stamina"] or 0)) if pet else 0,
+                        "gate": e.get("gate"),
+
+
+
+
                     })
 
                 # simulate
@@ -3527,26 +3536,28 @@ class Database:
                     schedule_id_int = schedule_id
 
                     # 報酬計算
-                    prize_map = {
-                        1: int(race.get("prize_1", 50000) or 50000),
-                        2: int(race.get("prize_2", 30000) or 30000),
-                        3: int(race.get("prize_3", 10000) or 10000),
-                    }
-
-                    reward = prize_map.get(rank, 0)
+                    if rank == 1:
+                        reward = race["prize_1"] or 0
+                    elif rank == 2:
+                        reward = race["prize_2"] or 0
+                    elif rank == 3:
+                        reward = race["prize_3"] or 0
+                    else:
+                        reward = 0
 
                     # race_results 保存
                     await conn.execute("""
                         INSERT INTO race_results
-                        (guild_id, race_date, schedule_id, pet_id, user_id, position, rank, final_score, reward)
-                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+                        (guild_id, race_date, schedule_id, pet_id, user_id, position, rank, final_score, reward, debug)
+                        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
                         ON CONFLICT (race_date, schedule_id, pet_id)
                         DO UPDATE SET
                             user_id = EXCLUDED.user_id,
                             position = EXCLUDED.position,
                             rank = EXCLUDED.rank,
                             final_score = EXCLUDED.final_score,
-                            reward = EXCLUDED.reward
+                            reward = EXCLUDED.reward,
+                            debug = EXCLUDED.debug
                     """,
                         guild_id,
                         race_date,
@@ -3556,19 +3567,22 @@ class Database:
                         rank,
                         rank,
                         score,
-                        reward
+                        reward,
+                        json.dumps(r.get("debug", {}))
                     )
-
                     # race_entries 更新
+
                     await conn.execute("""
                         UPDATE race_entries
                         SET rank = $1,
-                            score = $2
-                        WHERE schedule_id = $3
-                          AND pet_id = $4
+                            score = $2,
+                            debug_json = $3
+                        WHERE schedule_id = $4
+                          AND pet_id = $5
                     """,
                         rank,
-                        score,
+                        float(r["score"]),
+                        json.dumps(r.get("debug", {})),
                         schedule_id_int,
                         pet_id
                     )
@@ -3597,6 +3611,7 @@ class Database:
                 """, schedule_id)
 
                 return results
+
 
     async def get_latest_active_race(self, guild_id: str):
         """
