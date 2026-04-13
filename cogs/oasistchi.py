@@ -50,6 +50,7 @@ EGG_COLORS = [
     ("green", "🟢 みどりたまご"),
     ("yellow", "🟡 きいろたまご"),
     ("purple", "🟣 むらさきたまご"),
+    ("rainbow", "🌈 にじいろたまご"),
 ]
 
 EGG_CATALOG = [
@@ -60,6 +61,8 @@ EGG_CATALOG = [
     }
     for key, name in EGG_COLORS
 ]
+
+POPULAR_VOTE_ADULTS = ["zenten"]
 ADULT_CATALOG = [
     {"key": "cyan","name": "ちゃん","groups": ["blue"]},
     {"key": "kiza","name": "きっざにあ","groups": ["red"]},
