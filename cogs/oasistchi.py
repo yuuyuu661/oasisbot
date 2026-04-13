@@ -2337,6 +2337,14 @@ class ConfirmPurchaseView(discord.ui.View):
                     user_id=uid,
                     guild_id=gid,
                     egg_type=self.egg_key or "red",
+                    price=self.price,
+                    fixed_adult_key=fixed_adult_key
+                )
+
+                await db.purchase_oasistchi_egg_safe(
+                    user_id=uid,
+                    guild_id=gid,
+                    egg_type=self.egg_key or "red",
                     price=self.price
                 )
 
