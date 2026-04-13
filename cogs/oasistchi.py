@@ -2898,7 +2898,7 @@ class CareView(discord.ui.View):
         view = RaceEntryConfirmView(
             pet=pet,
             entry_fee=ENTRY_FEE,
-            schedules=schedules
+            schedules=normal_schedules
         )
 
         await interaction.followup.send(
@@ -3007,6 +3007,12 @@ class CareView(discord.ui.View):
         # 今日のレース
         schedules = await db.get_today_race_schedules(today, guild_id)
 
+        normal_schedules = [
+            dict(s)
+            for s in schedules
+            if s.get("race_class", "normal") != "elite"
+        ]
+
         # 自分のエントリー
         entries = await db.get_user_entries(uid)
 
@@ -3021,7 +3027,7 @@ class CareView(discord.ui.View):
 
         view = EntryCancelView(entries)
 
-        for i, race in enumerate(schedules, start=1):
+        for i, race in enumerate(normal_schedules, start=1):
 
             schedule_id = race["id"]
 
@@ -4049,14 +4055,28 @@ class EntryCancelButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
 
         db = interaction.client.db
+        uid = str(interaction.user.id)
+        guild_id = str(interaction.guild.id)
 
+        # キャンセル実行
         await db.cancel_entry(
             self.entry["pet_id"],
             self.entry["schedule_id"]
         )
 
+        # 🔥 参加費返却
+        refund = self.entry.get("entry_fee", 0)
+
+        if refund > 0:
+            await db.add_balance(uid, guild_id, refund)
+
+        msg = f"❌ {self.entry['pet_name']} のエントリーをキャンセルしました。"
+
+        if refund > 0:
+            msg += f"\n💰 {refund:,} rrc を返却しました。"
+
         await interaction.response.send_message(
-            f"❌ {self.entry['pet_name']} のエントリーをキャンセルしました。",
+            msg,
             ephemeral=True
         )
 
