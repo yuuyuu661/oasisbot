@@ -1907,13 +1907,15 @@ class OasistchiPanelRootView(discord.ui.View):
             ephemeral=True
         )
 
+# =========================
+# レース予定4.7
+# =========================
+
     @discord.ui.button(
         label="レース予定",
         style=discord.ButtonStyle.primary,
         custom_id="oasistchi:race_schedule"
     )
-
-
     async def show_race_schedule(
         self,
         interaction: discord.Interaction,
@@ -1927,16 +1929,27 @@ class OasistchiPanelRootView(discord.ui.View):
         guild_id = str(interaction.guild.id)
 
         schedules = await db.get_today_race_schedules(today, guild_id)
-        
+
         if not schedules:
             return await interaction.followup.send(
                 "本日のレース予定はまだ生成されていません。",
                 ephemeral=True
             )
 
-        schedules = [dict(s) for s in schedules]
+        # normalだけ抽出
+        normal_schedules = [
+            dict(s)
+            for s in schedules
+            if s.get("race_tier", "normal") == "normal"
+        ]
 
-        embed = build_race_schedule_embed(schedules)
+        if not normal_schedules:
+            return await interaction.followup.send(
+                "本日の通常レース予定はありません。",
+                ephemeral=True
+            )
+
+        embed = build_race_schedule_embed(normal_schedules)
         await interaction.followup.send(embed=embed, ephemeral=True)
 
 
