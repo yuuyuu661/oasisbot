@@ -4217,7 +4217,7 @@ class Database:
         return units
 
     # ======================================================
-    # エントリー獲得3.9
+    # エントリー獲得4.13
     # ======================================================
     async def get_user_entries(self, user_id):
 
@@ -4226,6 +4226,7 @@ class Database:
                 e.pet_id,
                 p.name as pet_name,
                 e.status,
+                e.entry_fee,
                 s.race_time,
                 s.distance,
                 s.id as schedule_id
