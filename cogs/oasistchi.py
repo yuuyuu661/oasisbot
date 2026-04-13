@@ -1940,7 +1940,7 @@ class OasistchiPanelRootView(discord.ui.View):
         normal_schedules = [
             dict(s)
             for s in schedules
-            if s.get("race_tier", "normal") == "normal"
+            if s.get("race_class", "normal") == "normal"
         ]
 
         if not normal_schedules:
