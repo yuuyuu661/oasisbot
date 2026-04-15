@@ -1959,7 +1959,7 @@ class OasistchiPanelRootView(discord.ui.View):
 
         # レースが存在しない
         if not race:
-            url = f"https://lacesite-production.up.railway.app/index.html?guild={guild_id}"
+            url = f"https://racetest-production.up.railway.app/index.html?guild={guild_id}"
             return await interaction.followup.send(
                 f"🌐 レースサイトはこちら\n{url}",
                 ephemeral=True
@@ -1972,7 +1972,7 @@ class OasistchiPanelRootView(discord.ui.View):
         token = generate_token(str(user_id), str(guild_id), str(race_id))
 
         url = (
-            "https://lacesite-production.up.railway.app/index.html"
+            "https://racetest-production.up.railway.app/index.html"
             f"?guild={guild_id}"
             f"&user={user_id}"
             f"&race={race_id}"
