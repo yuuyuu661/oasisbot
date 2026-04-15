@@ -3799,7 +3799,7 @@ class ExploreButton(discord.ui.Button):
 
 
 # =========================
-# キャンセル3.9
+# キャンセル4.15
 # =========================
 
 class EntryCancelView(discord.ui.View):
@@ -3815,7 +3815,7 @@ class EntryCancelView(discord.ui.View):
                     EntryCancelButton(e)
                 )
 # =========================
-# キャンセル3.9
+# キャンセル4.15
 # =========================
 class EntryCancelButton(discord.ui.Button):
 
@@ -3835,9 +3835,23 @@ class EntryCancelButton(discord.ui.Button):
             self.entry["pet_id"],
             self.entry["schedule_id"]
         )
+        # =========================
+        # 💰 paid済みだけ返金
+        # =========================
+        if self.entry.get("paid") and self.entry.get("entry_fee", 0) > 0:
+            await db.refund_entry(
+                str(interaction.user.id),
+                str(interaction.guild.id),
+                int(self.entry["entry_fee"])
+            )
+
+        msg = f"❌ {self.entry['pet_name']} のエントリーをキャンセルしました。"
+
+        if self.entry.get("paid") and self.entry.get("entry_fee", 0) > 0:
+            msg += f"\n💰 {self.entry['entry_fee']:,} rrc を返金しました。"
 
         await interaction.response.send_message(
-            f"❌ {self.entry['pet_name']} のエントリーをキャンセルしました。",
+            msg,
             ephemeral=True
         )
 
