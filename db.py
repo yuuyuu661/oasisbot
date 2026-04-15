@@ -12,7 +12,7 @@ JST = timezone(timedelta(hours=9))
 
 load_dotenv()
 
-RACE_TIMES = ["09:00", "12:00", "15:00", "18:00", "21:00"]
+RACE_TIMES = ["09:00", "12:00", "15:00", "18:00", "21:00", "23:00"]
 DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
 SURFACES = ["芝", "ダート"]
 CONDITIONS = ["良", "稍重", "重", "不良"]
@@ -3412,6 +3412,7 @@ class Database:
                 race = await conn.fetchrow("""
                     SELECT race_finished,
                            reward_paid,
+                           race_no,
                            distance,
                            surface,
                            condition
@@ -3486,14 +3487,20 @@ class Database:
                     schedule_id_int = schedule_id
 
                     # 報酬計算
-                    if rank == 1:
-                        reward = 50000
-                    elif rank == 2:
-                        reward = 30000
-                    elif rank == 3:
-                        reward = 10000
+                    if race["race_no"] == 6:
+                        rewards = {
+                            1: 200000,
+                            2: 150000,
+                            3: 100000
+                        }
                     else:
-                        reward = 5000
+                        rewards = {
+                            1: 50000,
+                            2: 30000,
+                            3: 10000
+                        }
+
+                    reward = rewards.get(rank, 5000)
 
                     # race_results 保存
                     await conn.execute("""
