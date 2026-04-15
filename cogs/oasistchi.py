@@ -16,7 +16,7 @@ from db import PASSIVE_SKILLS
 JST = timezone(timedelta(hours=9))
 import traceback
 
-WEB_SECRET = "9f3a7c4d8b2e1f0a6c8d9e7f1a2b3c4d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4"
+WEB_SECRET = "9f3a7c4d8b2e1f0a6c8d9e7f1a2b3c4d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a5"
 
 def today_jst_date():
     return datetime.now(JST).date()
@@ -53,6 +53,7 @@ EGG_COLORS = [
     ("rainbow", "🌈 にじいろたまご"),
 ]
 
+
 EGG_CATALOG = [
     {
         "key": key,
@@ -61,31 +62,29 @@ EGG_CATALOG = [
     }
     for key, name in EGG_COLORS
 ]
-
-POPULAR_VOTE_ADULTS = ["zenten"]
 ADULT_CATALOG = [
-    {"key": "cyan","name": "ちゃん","groups": ["blue"]},
+    {"key": "cyan","name": "ちゃん","groups": ["blue", "rainbow"]},
     {"key": "kiza","name": "きっざにあ","groups": ["red"]},
     {"key": "konkuri","name": "こんくり","groups": ["blue"]},
     {"key": "kurisu","name": "クリス","groups": ["green"]},
     {"key": "nino","name": "にの","groups": ["yellow"]},
     {"key": "numaru","name": "ぬまるん","groups": ["red"]},
     {"key": "yuina","name": "ゆいな","groups": ["purple"]},
-    {"key": "zenten","name": "ぜんてん","groups": ["yellow", "rainbow"]},
+    {"key": "zenten","name": "ぜんてん","groups": ["yellow"]},
     {"key": "eng","name": "えんじぇる","groups": ["red"]},
     {"key": "yama","name": "やまだ","groups": ["blue"]},
     {"key": "kono","name": "この","groups": ["green"]},
     {"key": "hiro","name": "ヒロ","groups": ["purple"]},
     {"key": "mio","name": "mio","groups": ["yellow"]},
-    {"key": "bul","name": "おいら","groups": ["red"]},
+    {"key": "bul","name": "おいら","groups": ["red", "rainbow"]},
     {"key": "hana","name": "はなこ","groups": ["green"]},
     {"key": "inu","name": "いぬ","groups": ["purple"]},
     {"key": "ouki","name": "おうき","groups": ["red"]},
-    {"key": "aka","name": "あかり","groups": ["blue"]},
+    {"key": "aka","name": "あかり","groups": ["blue", "rainbow"]},
     {"key": "shiba","name": "しば","groups": ["green"]},
     {"key": "ero","name": "えろこ","groups": ["purple"]},
     {"key": "gero","name": "ゲロ","groups": ["yellow"]},
-    {"key": "san","name": "サンダー","groups": ["red"]},  
+    {"key": "san","name": "サンダー","groups": ["red", "rainbow"]}, 
     {"key": "jinsei","name": "loser","groups": ["red"]},
 
     {"key": "tonbo","name": "トンボ","groups": ["purple"]},
@@ -106,7 +105,7 @@ ADULT_CATALOG = [
     {"key": "dyun","name": "でゅんでゅん","groups": ["purple"]},
     {"key": "ichigo","name": "いちご","groups": ["yellow"]},
     {"key": "suu","name": "すーちゃん","groups": ["red"]},  
-    {"key": "take","name": "たけのこ","groups": ["blue"]},
+    {"key": "take","name": "たけのこ","groups": ["blue", "rainbow"]},
     {"key": "tokimi","name": "トキミノ","groups": ["green"]},
 
     {"key": "cyama","name": "ちゃま","groups": ["purple"]},
@@ -115,7 +114,6 @@ ADULT_CATALOG = [
     {"key": "lv","name": "lv","groups": ["blue"]},
     {"key": "mata","name": "まったり","groups": ["green"]},
 
-    {"key": "noa","name": "のあ","groups": ["purple"]},
     {"key": "raise","name": "きみのよめ","groups": ["yellow"]},
     {"key": "syuu","name": "しゅうや","groups": ["red"]},  
     {"key": "takana","name": "たかな","groups": ["blue"]},
@@ -127,7 +125,6 @@ ADULT_CATALOG = [
     {"key": "jyaku","name": "弱","groups": ["blue"]},
     {"key": "kuko","name": "くこ","groups": ["green"]},
 
-    {"key": "nyao","name": "にゃおっす","groups": ["purple"]},
     {"key": "rana","name": "らな","groups": ["yellow"]},
     {"key": "sana","name": "sana","groups": ["red"]},  
     {"key": "taida","name": "怠惰","groups": ["blue"]},
@@ -136,7 +133,12 @@ ADULT_CATALOG = [
     {"key": "syoa","name": "しょあ","groups": ["blue"]},
     {"key": "ivu","name": "いゔ","groups": ["yellow"]},
 
-
+    {"key": "ame","name": "あめんぼ","groups": ["purple"]},
+    {"key": "niko","name": "にこるん","groups": ["yellow"]},
+    {"key": "koko","name": "ここ","groups": ["red"]},  
+    {"key": "segawa","name": "せがわ","groups": ["blue"]},
+    {"key": "usui","name": "うすい","groups": ["green"]},
+    {"key": "n","name": "n","groups": ["yellow"]},
 
 
 
@@ -1250,7 +1252,7 @@ class OasistchiCog(commands.Cog):
                                                 WHERE guild_id = $2
                                             """, total_tri_pool, guild_id)
 
-                                            # 🔥 今レースのプールをクリア（重要）
+                                            #    今レースのプールをクリア（重要）
                                             await self.bot.db._execute("""
                                                 UPDATE race_trifecta_pools
                                                 SET total_pool = 0
@@ -1910,15 +1912,13 @@ class OasistchiPanelRootView(discord.ui.View):
             ephemeral=True
         )
 
-# =========================
-# レース予定4.7
-# =========================
-
     @discord.ui.button(
         label="レース予定",
         style=discord.ButtonStyle.primary,
         custom_id="oasistchi:race_schedule"
     )
+
+
     async def show_race_schedule(
         self,
         interaction: discord.Interaction,
@@ -1932,78 +1932,17 @@ class OasistchiPanelRootView(discord.ui.View):
         guild_id = str(interaction.guild.id)
 
         schedules = await db.get_today_race_schedules(today, guild_id)
-
+        
         if not schedules:
             return await interaction.followup.send(
                 "本日のレース予定はまだ生成されていません。",
                 ephemeral=True
             )
 
-        # normalだけ抽出
-        normal_schedules = [
-            dict(s)
-            for s in schedules
-            if s.get("race_class", "normal") == "normal"
-        ]
+        schedules = [dict(s) for s in schedules]
 
-        if not normal_schedules:
-            return await interaction.followup.send(
-                "本日の通常レース予定はありません。",
-                ephemeral=True
-            )
-
-        embed = build_race_schedule_embed(normal_schedules)
+        embed = build_race_schedule_embed(schedules)
         await interaction.followup.send(embed=embed, ephemeral=True)
-
-
-# =========================
-# 上位レース予定4.7
-# =========================
-    @discord.ui.button(
-        label="上位レース予定",
-        style=discord.ButtonStyle.danger,
-        custom_id="oasistchi:elite_race_schedule"
-    )
-    async def show_elite_race_schedule(
-        self,
-        interaction: discord.Interaction,
-        button: discord.ui.Button
-    ):
-        await interaction.response.defer(ephemeral=True)
-
-        db = interaction.client.db
-
-        today = today_jst_date()
-        guild_id = str(interaction.guild.id)
-
-        schedules = await db.get_today_race_schedules(today, guild_id)
-
-        if not schedules:
-            return await interaction.followup.send(
-                "本日の上位レース予定はまだ生成されていません。",
-                ephemeral=True
-            )
-
-        # eliteだけ抽出
-        elite_schedules = [
-            dict(s)
-            for s in schedules
-            if s.get("race_class", "normal") == "elite"
-        ]
-
-        if not elite_schedules:
-            return await interaction.followup.send(
-                "本日の上位レース予定はありません。",
-                ephemeral=True
-            )
-
-        embed = build_race_schedule_embed(elite_schedules)
-        embed.title = "🏆 上位レース予定"
-
-        await interaction.followup.send(
-            embed=embed,
-            ephemeral=True
-        )
 
 
 
@@ -2020,7 +1959,7 @@ class OasistchiPanelRootView(discord.ui.View):
 
         # レースが存在しない
         if not race:
-            url = f"https://racetest-production.up.railway.app/index.html?guild={guild_id}"
+            url = f"https://lacesite-production.up.railway.app/index.html?guild={guild_id}"
             return await interaction.followup.send(
                 f"🌐 レースサイトはこちら\n{url}",
                 ephemeral=True
@@ -2033,7 +1972,7 @@ class OasistchiPanelRootView(discord.ui.View):
         token = generate_token(str(user_id), str(guild_id), str(race_id))
 
         url = (
-            "https://racetest-production.up.railway.app/index.html"
+            "https://lacesite-production.up.railway.app/index.html"
             f"?guild={guild_id}"
             f"&user={user_id}"
             f"&race={race_id}"
@@ -2327,20 +2266,6 @@ class ConfirmPurchaseView(discord.ui.View):
                         view=None
                     )
 
-                # 🌈 虹色たまご専用4.13
-                fixed_adult_key = None
-
-                if self.egg_key == "rainbow":
-                    fixed_adult_key = random.choice(POPULAR_VOTE_ADULTS)
-
-                await db.purchase_oasistchi_egg_safe(
-                    user_id=uid,
-                    guild_id=gid,
-                    egg_type=self.egg_key or "red",
-                    price=self.price,
-                    fixed_adult_key=fixed_adult_key
-                )
-
                 await db.purchase_oasistchi_egg_safe(
                     user_id=uid,
                     guild_id=gid,
@@ -2432,7 +2357,7 @@ class ConfirmPurchaseView(discord.ui.View):
                 view=None
             )     
 # =========================
-# お世話ボタン（既存そのまま）4.7
+# お世話ボタン（既存そのまま）
 # =========================
 class CareView(discord.ui.View):
     def __init__(self, uid: str, pet_id: int, pet: dict):
@@ -2448,7 +2373,6 @@ class CareView(discord.ui.View):
             if pet["stage"] == "egg" and label in {
                 "🍖 ごはん",
                 "🏁 レース参加",
-                "🏆 上位レース参加",
                 "   お別れ",
                 "🏋️ 特訓",      # ← 特訓ボタン想定
             }:
@@ -2482,12 +2406,12 @@ class CareView(discord.ui.View):
         now = now_ts()
 
         # ④ クールタイム判定（defer後は followup を使う）
-        # if now - pet.get("last_pet", 0) < 10800:
-        #     await interaction.followup.send(
-        #         "まだなでなでできません。（3時間クールタイム）",
-        #         ephemeral=True
-        #     )
-        #     return
+        if now - pet.get("last_pet", 0) < 10800:
+            await interaction.followup.send(
+                "まだなでなでできません。（3時間クールタイム）",
+                ephemeral=True
+            )
+            return
         # ⑤ ステータス更新
         new_happiness = min(100, pet["happiness"] + 10)
         new_growth = min(100.0, pet["growth"] + 5.0)
@@ -2680,7 +2604,7 @@ class CareView(discord.ui.View):
             ],
             view=self
         )
-    @discord.ui.button(label="🧠 特訓", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="   特訓", style=discord.ButtonStyle.primary)
     async def training(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not self.is_owner(interaction):
             return await interaction.response.send_message(
@@ -2726,10 +2650,6 @@ class CareView(discord.ui.View):
             view=self
         )
 
-        # -------------------------
-        # 孵化4.13
-        # -------------------------
-
     @discord.ui.button(label="🐣 孵化", style=discord.ButtonStyle.success)
     async def hatch(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not self.is_owner(interaction):
@@ -2749,24 +2669,24 @@ class CareView(discord.ui.View):
 
         egg_type = pet["egg_type"]
 
-        # 🌈 固定排出がある場合は最優先
+        candidates = [
+            a for a in ADULT_CATALOG
+            if egg_type in a["groups"]
+        ]
+
+        if not candidates:
+            return await interaction.response.send_message(
+                "このたまごに対応する成体が登録されていません。",
+                ephemeral=True
+            )
+
+        # ★ここが重要
         if pet.get("fixed_adult_key"):
             adult = next(
                 a for a in ADULT_CATALOG
                 if a["key"] == pet["fixed_adult_key"]
             )
         else:
-            candidates = [
-                a for a in ADULT_CATALOG
-                if egg_type in a["groups"]
-            ]
-
-            if not candidates:
-                return await interaction.response.send_message(
-                    "このたまごに対応する成体が登録されていません。",
-                    ephemeral=True
-                )
-
             adult = random.choice(candidates)
 
         hatch_gif = os.path.join(ASSET_BASE, "egg", pet["egg_type"], "hatch.gif")
@@ -2886,12 +2806,6 @@ class CareView(discord.ui.View):
                 ephemeral=True
             )
 
-        normal_schedules = [
-            dict(s)
-            for s in schedules
-            if s.get("race_class", "normal") != "elite"
-        ]
-
         condition, condition_emoji, face_count = get_race_condition(
             pet.get("happiness", 0)
         )
@@ -2925,90 +2839,7 @@ class CareView(discord.ui.View):
         view = RaceEntryConfirmView(
             pet=pet,
             entry_fee=ENTRY_FEE,
-            schedules=normal_schedules
-        )
-
-        await interaction.followup.send(
-            embed=embed,
-            view=view,
-            ephemeral=True
-        )
-
-    @discord.ui.button(label="🏆 上位レース参加", style=discord.ButtonStyle.danger)
-    async def elite_race_entry(
-        self,
-        interaction: discord.Interaction,
-        button: discord.ui.Button
-    ):
-        await interaction.response.defer(ephemeral=True)
-
-        if not self.is_owner(interaction):
-            return await interaction.followup.send(
-                "❌ このおあしすっちはあなたのものではありません。",
-                ephemeral=True
-            )
-
-        db = interaction.client.db
-        pet = self.pet
-
-        today = today_jst_date()
-        guild_id = str(interaction.guild.id)
-
-        schedules = await db.get_today_race_schedules(today, guild_id)
-
-        if not schedules:
-            return await interaction.followup.send(
-                "本日の上位レース予定がありません。",
-                ephemeral=True
-            )
-
-        # elite のみ抽出
-        elite_schedules = [
-            dict(s)
-            for s in schedules
-            if s.get("race_class", "normal") == "elite"
-        ]
-
-        if not elite_schedules:
-            return await interaction.followup.send(
-                "本日の上位レースはありません。",
-                ephemeral=True
-            )
-
-        condition, condition_emoji, face_count = get_race_condition(
-            pet.get("happiness", 0)
-        )
-
-        ENTRY_FEE = 30000
-
-        embed = discord.Embed(
-            title="🏆 上位レース出走確認",
-            description="この状態で上位レースに出走しますか？",
-            color=discord.Color.gold()
-        )
-
-        embed.add_field(
-            name="🐣 参加おあしすっち",
-            value=f"**{pet['name']}**",
-            inline=False
-        )
-
-        embed.add_field(
-            name="🧠 コンディション",
-            value=f"{condition_emoji} **{condition}**（😊×{face_count}）",
-            inline=False
-        )
-
-        embed.add_field(
-            name="💰 参加費",
-            value=f"{ENTRY_FEE:,}",
-            inline=False
-        )
-
-        view = RaceEntryConfirmView(
-            pet=pet,
-            entry_fee=ENTRY_FEE,
-            schedules=elite_schedules
+            schedules=schedules
         )
 
         await interaction.followup.send(
@@ -3034,35 +2865,21 @@ class CareView(discord.ui.View):
         # 今日のレース
         schedules = await db.get_today_race_schedules(today, guild_id)
 
-        normal_schedules = [
-            dict(s)
-            for s in schedules
-            if s.get("race_class", "normal") != "elite"
-        ]
-
         # 自分のエントリー
         entries = await db.get_user_entries(uid)
 
         # schedule_id -> entry
         entry_map = {e["schedule_id"]: e for e in entries}
 
-        normal_schedule_ids = {r["id"] for r in normal_schedules}
-
-        normal_entries = [
-            e for e in entries
-            if e["schedule_id"] in normal_schedule_ids
-        ]
-
         embed = discord.Embed(
             title="🧪 本日のレースエントリー状況",
             description=f"📅 {today}",
             color=discord.Color.blue()
         )
-        
 
-        view = EntryCancelView(normal_entries)
+        view = EntryCancelView(entries)
 
-        for i, race in enumerate(normal_schedules, start=1):
+        for i, race in enumerate(schedules, start=1):
 
             schedule_id = race["id"]
 
@@ -3093,93 +2910,6 @@ class CareView(discord.ui.View):
 
             embed.add_field(
                 name=f"第{i}レース｜🕘 {race_time}",
-                value=value,
-                inline=False
-            )
-
-        await interaction.followup.send(
-            embed=embed,
-            view=view,
-            ephemeral=True
-        )
-
-    @discord.ui.button(label="🏆 上位エントリー状況", style=discord.ButtonStyle.secondary)
-    async def elite_entry_status(
-        self,
-        interaction: discord.Interaction,
-        button: discord.ui.Button
-    ):
-        await interaction.response.defer(ephemeral=True)
-
-        db = interaction.client.db
-        uid = str(interaction.user.id)
-        guild_id = str(interaction.guild.id)
-        today = today_jst_date()
-
-        # 今日の全レース
-        schedules = await db.get_today_race_schedules(today, guild_id)
-
-        # eliteだけ抽出
-        elite_schedules = [
-            dict(s)
-            for s in schedules
-            if s.get("race_class", "normal") == "elite"
-        ]
-
-        if not elite_schedules:
-            return await interaction.followup.send(
-                "本日の上位レースはありません。",
-                ephemeral=True
-            )
-
-        # 自分のエントリー
-        entries = await db.get_user_entries(uid)
-
-        # schedule_id -> entry
-        entry_map = {e["schedule_id"]: e for e in entries}
-
-        embed = discord.Embed(
-            title="🏆 本日の上位レースエントリー状況",
-            description=f"📅 {today}",
-            color=discord.Color.gold()
-        )
-
-        # eliteだけのキャンセル候補
-        elite_schedule_ids = {r["id"] for r in elite_schedules}
-        elite_entries = [
-            e for e in entries
-            if e["schedule_id"] in elite_schedule_ids
-        ]
-
-        view = EntryCancelView(elite_entries)
-
-        for i, race in enumerate(elite_schedules, start=1):
-            schedule_id = race["id"]
-            race_time = race["race_time"]
-            distance = race["distance"]
-            surface = race["surface"]
-
-            if schedule_id in entry_map:
-                e = entry_map[schedule_id]
-
-                if e["status"] == "pending":
-                    status_text = "🕒 抽選待ち"
-                elif e["status"] == "selected":
-                    status_text = "🏇 出走確定"
-                else:
-                    status_text = e["status"]
-
-                value = (
-                    f"{e['pet_name']}\n"
-                    f"{distance}\n"
-                    f"{surface}\n"
-                    f"{status_text}"
-                )
-            else:
-                value = "エントリー無し"
-
-            embed.add_field(
-                name=f"🏆 上位第{i}レース｜🕘 {race_time}",
                 value=value,
                 inline=False
             )
@@ -4090,28 +3820,14 @@ class EntryCancelButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
 
         db = interaction.client.db
-        uid = str(interaction.user.id)
-        guild_id = str(interaction.guild.id)
 
-        # キャンセル実行
         await db.cancel_entry(
             self.entry["pet_id"],
             self.entry["schedule_id"]
         )
 
-        # 🔥 参加費返却
-        refund = self.entry.get("entry_fee", 0)
-
-        if refund > 0:
-            await db.add_balance(uid, guild_id, refund)
-
-        msg = f"❌ {self.entry['pet_name']} のエントリーをキャンセルしました。"
-
-        if refund > 0:
-            msg += f"\n💰 {refund:,} rrc を返却しました。"
-
         await interaction.response.send_message(
-            msg,
+            f"❌ {self.entry['pet_name']} のエントリーをキャンセルしました。",
             ephemeral=True
         )
 
@@ -4712,6 +4428,11 @@ async def setup(bot):
     for cmd in cog.get_app_commands():
         for gid in bot.GUILD_IDS:
             bot.tree.add_command(cmd, guild=discord.Object(id=gid))
+
+
+
+
+
 
 
 
