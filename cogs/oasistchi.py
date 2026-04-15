@@ -2842,7 +2842,7 @@ class CareView(discord.ui.View):
 
         embed.add_field(
             name="💰 参加費",
-            value=f"{ENTRY_FEE:,}",
+            value="第1～5レース 0rrc 第6レースのみ 30,000rrc",
             inline=False
         )
 
