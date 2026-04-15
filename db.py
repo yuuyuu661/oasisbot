@@ -794,6 +794,12 @@ class Database:
             PRIMARY KEY (guild_id, race_date, schedule_id, pet_id)
         );
         """)
+        # debug カラム補完
+        await self._execute("""
+            ALTER TABLE race_results
+            ADD COLUMN IF NOT EXISTS debug JSONB;
+        """)
+        
         # 🔥 ペット別プール（重要）
         await self._execute("""
         CREATE TABLE IF NOT EXISTS race_pet_pools (
