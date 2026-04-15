@@ -799,6 +799,10 @@ class Database:
             ALTER TABLE race_results
             ADD COLUMN IF NOT EXISTS debug JSONB;
         """)
+        await self._execute("""
+            ALTER TABLE race_entries
+            ADD COLUMN IF NOT EXISTS debug_json JSONB;
+        """)
         
         # 🔥 ペット別プール（重要）
         await self._execute("""
