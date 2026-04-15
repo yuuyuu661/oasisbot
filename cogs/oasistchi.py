@@ -4312,7 +4312,7 @@ class RaceEntryConfirmView(discord.ui.View):
         self.add_item(RaceSelect(self, schedules))
 
     # -----------------------------------------
-    # ✅ エントリー確定（修正版：ペット単位で制御）
+    # ✅ エントリー確定（修正版：ペット単位で制御）4.15
     # -----------------------------------------
     @discord.ui.button(label="✅ エントリー確定", style=discord.ButtonStyle.success)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -4331,6 +4331,8 @@ class RaceEntryConfirmView(discord.ui.View):
         db = interaction.client.db
         pet = self.pet
         race = self.selected_race
+
+        entry_fee = 30000 if race["race_no"] == 6 else 0
 
         schedule_id = int(race["id"])
         race_date = race["race_date"]
@@ -4359,13 +4361,13 @@ class RaceEntryConfirmView(discord.ui.View):
             user_id=uid,
             pet_id=int(pet["id"]),       # ★ここが「個体ID」になっていることが重要
             race_date=race_date,
-            entry_fee=self.entry_fee,    # ★50000固定じゃなく、viewに渡した entry_fee を使うのが安全
+            entry_fee=entry_fee,    # ★50000固定じゃなく、viewに渡した entry_fee を使うのが安全
             paid=True
         )
 
         # 参加費処理（ENTRY_FEEが0なら実質ノーダメ）
-        if self.entry_fee > 0:
-            await db.remove_balance(uid, guild_id, self.entry_fee)
+        if entry_fee > 0:
+            await db.remove_balance(uid, guild_id, entry_fee)
 
         # ④ 同一おあしすっちの「同日・他レース」エントリーを無効化（pendingだけ潰す）
         # ＝同じペットで別レースに入れようとしたら、後勝ち/前勝ちの仕様をここで作れる
