@@ -2806,6 +2806,16 @@ class CareView(discord.ui.View):
                 ephemeral=True
             )
 
+        # =========================
+        # 💰 第6レース参加費表示4.15
+        # =========================
+        sixth_race = next(
+            (s for s in schedules if s["race_no"] == 6),
+            None
+        )
+
+        ENTRY_FEE = 30000 if sixth_race else 0
+
         condition, condition_emoji, face_count = get_race_condition(
             pet.get("happiness", 0)
         )
