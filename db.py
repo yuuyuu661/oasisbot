@@ -13,9 +13,6 @@ JST = timezone(timedelta(hours=9))
 load_dotenv()
 
 RACE_TIMES = ["09:00", "12:00", "15:00", "18:00", "21:00"]
-ELITE_RACE_TIMES = ["23:00"]
-
-
 DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
 SURFACES = ["芝", "ダート"]
 CONDITIONS = ["良", "稍重", "重", "不良"]
@@ -31,7 +28,7 @@ PASSIVE_SKILLS = {
         "emoji": "🏃",
         "type": "stat",
         "target": "speed",
-        "multiplier": 1.10,
+        "multiplier": 1.15,
         "description": "スピードが少し上がる。"
     },
     "stamina_s": {
@@ -39,7 +36,7 @@ PASSIVE_SKILLS = {
         "emoji": "🫀",
         "type": "stat",
         "target": "stamina",
-        "multiplier": 1.10,
+        "multiplier": 1.15,
         "description": "スタミナが少し上がる。"
     },
     "power_s": {
@@ -47,7 +44,7 @@ PASSIVE_SKILLS = {
         "emoji": "💥",
         "type": "stat",
         "target": "power",
-        "multiplier": 1.10,
+        "multiplier": 1.15,
         "description": "パワーが少し上がる。"
     },
 
@@ -59,7 +56,7 @@ PASSIVE_SKILLS = {
         "emoji": "🚀",
         "type": "stat",
         "target": "speed",
-        "multiplier": 1.20,
+        "multiplier": 1.25,
         "description": "スピードが大幅に上がる。"
     },
     "stamina_l": {
@@ -67,7 +64,7 @@ PASSIVE_SKILLS = {
         "emoji": "❤️‍🔥",
         "type": "stat",
         "target": "stamina",
-        "multiplier": 1.20,
+        "multiplier": 1.25,
         "description": "スタミナが大幅に上がる。"
     },
     "power_l": {
@@ -75,7 +72,7 @@ PASSIVE_SKILLS = {
         "emoji": "💣",
         "type": "stat",
         "target": "power",
-        "multiplier": 1.20,
+        "multiplier": 1.25,
         "description": "パワーが大幅に上がる。"
     },
 
@@ -98,7 +95,7 @@ PASSIVE_SKILLS = {
         "emoji": "💪",
         "type": "trade",
         "effects": {
-            "power": 1.25,
+            "power": 1.35,
             "speed": 0.90
         },
         "description": "パワーが大幅に上がる代わりにスピードが少し下がる。"
@@ -109,7 +106,7 @@ PASSIVE_SKILLS = {
         "emoji": "⚡",
         "type": "trade",
         "effects": {
-            "speed": 1.25,
+            "speed": 1.35,
             "stamina": 0.90
         },
         "description": "スピードが大幅に上がる代わりにスタミナが少し下がる。"
@@ -120,7 +117,7 @@ PASSIVE_SKILLS = {
         "emoji": "🐢",
         "type": "trade",
         "effects": {
-            "stamina": 1.25,
+            "stamina": 1.35,
             "power": 0.90
         },
         "description": "スタミナが大幅に上がる代わりにパワーが少し下がる。"
@@ -134,9 +131,10 @@ PASSIVE_SKILLS = {
     "gambler": {
         "label": "勝負師",
         "emoji": "🔥",
-        "type": "guts",
-        "bonus": 5,
-        "description": "少し根性が発動しやすくなる。"
+        "type": "chance_boost",
+        "chance": 0.05,
+        "multiplier": 1.25,
+        "description": "5%の確率で全ステータスが大幅に上がる。"
     },
 
     "turf_specialist": {
@@ -161,7 +159,7 @@ PASSIVE_SKILLS = {
         "label": "同族嫌悪",
         "emoji": "👥",
         "type": "same_adult",
-        "multiplier": 1.15,
+        "multiplier": 1.20,
         "description": "同じ種類のおあしすっちが出場しているとき、全ステータスが大幅に上がる。"
     },
 
@@ -196,13 +194,21 @@ PASSIVE_SKILLS = {
     },
 
     "long_special": {
-        "label": "遠距離得意",
+        "label": "長距離得意",
         "emoji": "🌌",
         "type": "distance",
         "distance": "長距離",
         "multiplier": 1.15,
-        "description": "遠距離レースで全ステータスが上がる。"
+        "description": "長距離レースで全ステータスが上がる。"
     },
+
+
+
+
+
+
+
+
 }
 
 
@@ -242,10 +248,6 @@ class Database:
         if not passive:
             return stats
 
-        speed = stats["speed"]
-        stamina = stats["stamina"]
-        power = stats["power"]
-
         ptype = passive["type"]
 
         if ptype == "stat":
@@ -254,9 +256,10 @@ class Database:
 
         elif ptype == "all":
             m = passive["multiplier"]
-            speed *= m
-            stamina *= m
-            power *= m
+
+            stats["speed"] *= m
+            stats["stamina"] *= m
+            stats["power"] *= m
 
         elif ptype == "trade":
             for k, v in passive["effects"].items():
@@ -265,41 +268,55 @@ class Database:
         elif ptype == "gate_number":
             if context.get("gate") == passive["gate"]:
                 m = passive["multiplier"]
-                speed *= m
-                stamina *= m
-                power *= m
+                stats["speed"] *= m
+                stats["stamina"] *= m
+                stats["power"] *= m
+
 
         elif ptype == "surface":
             if context.get("surface") == passive["surface"]:
                 m = passive["multiplier"]
-                speed *= m
-                stamina *= m
-                power *= m
+                stats["speed"] *= m
+                stats["stamina"] *= m
+                stats["power"] *= m
+
 
         elif ptype == "distance":
             if context.get("distance") == passive["distance"]:
                 m = passive["multiplier"]
-                speed *= m
-                stamina *= m
-                power *= m
+                stats["speed"] *= m
+                stats["stamina"] *= m
+                stats["power"] *= m
+
+
 
         elif ptype == "same_adult":
             if context.get("same_adult_exists"):
                 m = passive["multiplier"]
-                speed *= m
-                stamina *= m
-                power *= m
+                stats["speed"] *= m
+                stats["stamina"] *= m
+                stats["power"] *= m
+
+
+
+        elif ptype == "chance_boost":
+            if random.random() < passive["chance"]:
+                m = passive["multiplier"]
+                stats["speed"] *= m
+                stats["stamina"] *= m
+                stats["power"] *= m
 
         elif ptype == "odds_rank":
             rank = context.get("odds_rank", 1)
             m = 1 + rank * 0.02
-            speed *= m
-            stamina *= m
-            power *= m
 
-        stats["speed"] = int(speed)
-        stats["stamina"] = int(stamina)
-        stats["power"] = int(power)
+            stats["speed"] *= m
+            stats["stamina"] *= m
+            stats["power"] *= m
+
+        stats["speed"] = int(stats["speed"])
+        stats["stamina"] = int(stats["stamina"])
+        stats["power"] = int(stats["power"])
 
         return stats    
 
@@ -343,7 +360,9 @@ class Database:
                 "gate": e.get("gate"),
                 "surface": surface,
                 "distance": distance,
-                "same_adult_exists": same_adult_exists
+                "same_adult_exists": same_adult_exists,
+
+
             }
 
             stats = self.apply_passive_effect(stats, e, context)
@@ -354,8 +373,6 @@ class Database:
 
             base_guts_rate = (happiness / 100) * 0.10
 
-            if e.get("passive_skill") == "gambler":
-                base_guts_rate += 0.05
 
             guts_triggered = random.random() < base_guts_rate
 
@@ -367,11 +384,8 @@ class Database:
                 base_speed *= 1.10
 
             # ③ 距離補正込み能力計算
-            speed = base_speed * balance["speed"] + stats["power"] * balance["power"]
-
             speed = stats["speed"] * balance["speed"] + stats["power"] * balance["power"]
             stamina = stats["stamina"]
-
 
 
             stamina_loss = 50 * balance["stamina"]
@@ -384,12 +398,52 @@ class Database:
 
             final_score = speed * rand_factor
 
+            print(
+                f"[RACE] "
+                f"pet={e['pet_id']} "
+                f"skill={e.get('passive_skill')} "
+                f"same={same_adult_exists} "
+                f"| base_speed={e['speed']} "
+                f"after_passive={stats['speed']} "
+                f"| power={stats['power']} "
+                f"| stamina_after={stamina_after:.1f} "
+                f"| rand={rand_factor:.4f} "
+                f"| final={final_score:.2f} "
+                f"| guts={guts_triggered}"
+            )
+
+
+
+            debug_data = {
+                "base_speed": e["speed"],
+                "after_passive_speed": stats["speed"],
+
+                "base_power": e["power"],
+                "after_passive_power": stats["power"],
+
+                "base_stamina": e["stamina"],
+                "after_passive_stamina": stats["stamina"],
+
+                "stamina_after": stamina_after,
+
+                "rand": rand_factor,
+                "same_adult": same_adult_exists,
+                "passive": e.get("passive_skill"),
+                "distance": distance,
+                "surface": surface,
+                "guts": guts_triggered,
+
+                "final_score": final_score
+            }
+
+
             results.append({
                 "pet_id": e["pet_id"],
-                "user_id": e["user_id"],   
+                "user_id": e["user_id"],
                 "score": final_score,
-                "guts": guts_triggered
+                "debug": debug_data
             })
+
 
         results.sort(key=lambda x: x["score"], reverse=True)
 
@@ -679,8 +733,6 @@ class Database:
         );
         """)
 
-
-
         # =========================
         # 馬券関連テーブル（パリミュチュエル方式）
         # =========================
@@ -753,6 +805,7 @@ class Database:
             PRIMARY KEY (guild_id, race_date, schedule_id, pet_id)
         );
         """)
+
         # =========================
         # 3連単：サーバー単位キャリー
         # =========================
@@ -818,6 +871,24 @@ class Database:
         );
         """)
 
+
+
+        # =========================
+        # 通知テーブル
+        # =========================
+
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS oasistchi_notify(
+            user_id TEXT PRIMARY KEY,
+            notify_poop BOOLEAN DEFAULT TRUE,
+            notify_food BOOLEAN DEFAULT TRUE,
+            notify_pet_ready BOOLEAN DEFAULT TRUE
+        )
+        """)
+
+
+
+
         # =========================
         # ユーザーバッジ
         # =========================
@@ -829,44 +900,6 @@ class Database:
             created_at TIMESTAMP DEFAULT NOW(),
             PRIMARY KEY (guild_id, user_id, badge)
         );
-        """)
-        # =========================
-        # チンチロゲーム3.12
-        # =========================
-        await self._execute("""
-        CREATE TABLE IF NOT EXISTS chinchiro_games(
-            thread_id TEXT PRIMARY KEY,
-            guild_id TEXT,
-            host_id TEXT,
-            parent_id TEXT,
-            phase TEXT,
-            created_at TIMESTAMP DEFAULT NOW()
-        )
-        """)
-
-        # =========================
-        # チンチロ参加者3.12
-        # =========================
-        await self._execute("""
-        CREATE TABLE IF NOT EXISTS chinchiro_players(
-            thread_id TEXT,
-            user_id TEXT,
-            bet BIGINT DEFAULT 0,
-            is_parent BOOLEAN DEFAULT FALSE,
-            turn_order INTEGER,
-            PRIMARY KEY(thread_id,user_id)
-        )
-        """)
-
-        # =========================
-        # チンチロラウンド3.12
-        # =========================
-        await self._execute("""
-        CREATE TABLE IF NOT EXISTS chinchiro_round(
-            thread_id TEXT PRIMARY KEY,
-            parent_hand_rank INT,
-            parent_hand_value INT
-        )
         """)
 
         # =========================
@@ -901,6 +934,8 @@ class Database:
             last_explore BIGINT
         )
         """)
+
+
 
         # =========================
         # スタンプカード
@@ -948,6 +983,17 @@ class Database:
             closed BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT NOW()
         );
+        """)
+
+
+        # =========================
+        # 匿名チケット通し番号
+        # =========================
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS anon_ticket_counter (
+            guild_id BIGINT PRIMARY KEY,
+            counter BIGINT DEFAULT 0
+        )
         """)
 
         # =========================
@@ -1028,6 +1074,7 @@ class Database:
             PRIMARY KEY (guild_id, user_id)
         )
         """)
+
         # =========================
         # 川柳4.8
         # =========================
@@ -1040,32 +1087,10 @@ class Database:
         """)
 
 
-        
 
-        # =========================
-        # 上位レース用 race_class 追加4.7
-        # =========================
-        col_check = await self._fetch("""
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_name = 'race_schedules';
-        """)
-        existing_cols = {row["column_name"] for row in col_check}
 
-        if "race_class" not in existing_cols:
-            print("🛠 race_schedules に race_class カラムを追加します…")
 
-            await self._execute("""
-                ALTER TABLE race_schedules
-                ADD COLUMN race_class TEXT NOT NULL DEFAULT 'normal';
-            """)
 
-            print("✅ race_class 追加完了")
-
-        
-
-        
-        
 
         # -----------------------------------------
         # race_entries に status カラムがなければ追加
@@ -1134,16 +1159,6 @@ class Database:
                 ADD COLUMN guild_id TEXT;
             """)
 
-        # --------------------------------------------------
-        # おあしすっち：パッシブスキルカラム補完
-        # --------------------------------------------------
-        if "passive_skill" not in existing_cols:
-            print("🛠 oasistchi_pets に passive_skill カラムを追加します…")
-            await self._execute("""
-                ALTER TABLE oasistchi_pets
-                ADD COLUMN IF NOT EXISTS passive_skill TEXT;
-            """)
-            print("✅ passive_skill 追加完了")
 
 
 
@@ -1268,7 +1283,7 @@ class Database:
         race_schedule_cols = {r["column_name"] for r in cols}
 
         if "race_finished" not in race_schedule_cols:
-            print("🛠 race_schedules に race_finished を追加します…")
+            print("   race_schedules に race_finished を追加します…")
             await self._execute("""
                 ALTER TABLE race_schedules
                 ADD COLUMN race_finished BOOLEAN DEFAULT FALSE;
@@ -1470,41 +1485,6 @@ class Database:
             await self._execute("""
                 UPDATE hotel_settings SET category_ids = ARRAY[]::TEXT[] WHERE category_ids IS NULL;
             """)
-
-        # race_pet_pools.total_amount
-        col_info = await self._fetch("""
-            SELECT data_type
-           FROM information_schema.columns
-            WHERE table_name = 'race_pet_pools'
-              AND column_name = 'total_amount';
-        """)
-
-        if col_info and col_info[0]["data_type"] != "integer":
-            print("🛠 race_pet_pools.total_amount を INTEGER に修正します…")
-            await self._execute("""
-                ALTER TABLE race_pet_pools
-                ALTER COLUMN total_amount TYPE INTEGER
-                USING total_amount::integer;
-            """)
-            print("✅ race_pet_pools.total_amount 型修正完了")
-
-
-        # race_pools.total_pool
-        col_info = await self._fetch("""
-            SELECT data_type
-            FROM information_schema.columns
-            WHERE table_name = 'race_pools'
-              AND column_name = 'total_pool';
-        """)
-
-        if col_info and col_info[0]["data_type"] != "integer":
-            print("🛠 race_pools.total_pool を INTEGER に修正します…")
-            await self._execute("""
-                ALTER TABLE race_pools
-                ALTER COLUMN total_pool TYPE INTEGER
-                USING total_pool::integer;
-            """)
-            print("✅ race_pools.total_pool 型修正完了")
 
         # ==================================================
         #テーブル初期化
@@ -2372,7 +2352,7 @@ class Database:
                     user_id
                 )
 
-                return slots + 1
+                return slots + 1, price
 
 
 
@@ -2454,24 +2434,37 @@ class Database:
         return row is not None
 
     # -------------------------------
-    # おあしすっち：通知設定（更新）
+    # おあしすっち：通知設定（全体ON/OFF）
     # -------------------------------
     async def set_oasistchi_notify_all(self, user_id: str, on: bool):
         await self._ensure_pool()
 
         if on:
             await self._execute("""
-                INSERT INTO oasistchi_notify (user_id, notify_poop, notify_food, notify_pet_ready)
-                VALUES ($1, TRUE, TRUE, TRUE)
+                INSERT INTO oasistchi_notify (user_id, notify_all, notify_poop, notify_food, notify_pet_ready)
+                VALUES ($1, TRUE, TRUE, TRUE, TRUE)
                 ON CONFLICT (user_id)
                 DO UPDATE SET
-                    notify_poop=TRUE,
-                    notify_food=TRUE,
-                    notify_pet_ready=TRUE
+                    notify_all = TRUE,
+                    notify_poop = TRUE,
+                    notify_food = TRUE,
+                    notify_pet_ready = TRUE
             """, user_id)
         else:
-            # 設定してない状態＝通知なし
-            await self._execute("DELETE FROM oasistchi_notify WHERE user_id=$1", user_id)
+            # 🔥 削除しない：全部OFFにする
+            await self._execute("""
+                INSERT INTO oasistchi_notify (user_id, notify_all, notify_poop, notify_food, notify_pet_ready)
+                VALUES ($1, FALSE, FALSE, FALSE, FALSE)
+                ON CONFLICT (user_id)
+                DO UPDATE SET
+                    notify_all = FALSE,
+                    notify_poop = FALSE,
+                    notify_food = FALSE,
+                    notify_pet_ready = FALSE
+            """, user_id)
+
+
+
 
     async def delete_oasistchi_pet(self, pet_id: int):
         await self._ensure_pool()
@@ -2536,19 +2529,6 @@ class Database:
             ORDER BY race_time
         """, race_date, guild_id)
 
-        # =========================
-        # 賞金生成4.13
-        # =========================
-
-    def get_prizes_by_class(self, race_class: str):
-        if race_class == "elite":
-            return 200000, 150000, 100000
-        return 50000, 30000, 10000
-
-        # =========================
-        # レース生成 4.13
-        # =========================
-
     async def generate_today_races(self, guild_id: str, race_date: date):
         cols = await self._fetch("""
             SELECT column_name, is_nullable
@@ -2559,7 +2539,6 @@ class Database:
         print("[RACE DEBUG] race_schedules columns:")
         for c in cols:
             print(f"  {c['column_name']} | nullable={c['is_nullable']}")
-
         # 念のため同日分を削除（再生成耐性）
         await self._execute("""
             DELETE FROM race_schedules
@@ -2567,13 +2546,7 @@ class Database:
               AND guild_id = $2;
         """, race_date, str(guild_id))
 
-        # =========================
-        # 通常レース
-        # =========================
         for i, race_time in enumerate(RACE_TIMES, start=1):
-            race_class = "normal"
-            prize_1, prize_2, prize_3 = self.get_prizes_by_class(race_class)
-
             await self._execute("""
                 INSERT INTO race_schedules (
                     guild_id,
@@ -2586,80 +2559,20 @@ class Database:
                     race_date,
                     distance,
                     surface,
-                    condition,
-                    race_class,
-                    prize_1,
-                    prize_2,
-                    prize_3
+                    condition
                 )
-                VALUES (
-                    $1, $2, $3, $4, $5, $6,
-                    NOW(), $7, $8, $9, $10, $11,
-                    $12, $13, $14
-                );
+                VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10);
             """,
-            str(guild_id),
-            i,
+            str(guild_id),          # ← ★ これが必須
+            i,                      # race_no
             race_time,
             ENTRY_OPEN_MINUTES,
             8,
-            0,
+            50000,
             race_date,
             random.choice(DISTANCES),
             random.choice(SURFACES),
             random.choice(CONDITIONS),
-            race_class,
-            prize_1,
-            prize_2,
-            prize_3
-            )
-
-        # =========================
-        # 上位レース
-        # =========================
-
-        for i, race_time in enumerate(ELITE_RACE_TIMES, start=1):
-            race_class = "elite"
-            prize_1, prize_2, prize_3 = self.get_prizes_by_class(race_class)
-
-            await self._execute("""
-                INSERT INTO race_schedules (
-                    guild_id,
-                    race_no,
-                    race_time,
-                    entry_open_minutes,
-                    max_entries,
-                    entry_fee,
-                    created_at,
-                    race_date,
-                    distance,
-                    surface,
-                    condition,
-                    race_class,
-                    prize_1,
-                    prize_2,
-                    prize_3
-                )
-                VALUES (
-                    $1, $2, $3, $4, $5, $6,
-                    NOW(), $7, $8, $9, $10, $11,
-                    $12, $13, $14
-                );
-            """,
-            str(guild_id),
-            100 + i,
-            race_time,
-            ENTRY_OPEN_MINUTES,
-            8,
-            30000,
-            race_date,
-            random.choice(DISTANCES),
-            random.choice(SURFACES),
-            random.choice(CONDITIONS),
-            race_class,
-            prize_1,
-            prize_2,
-            prize_3
             )
 
     async def has_today_race_schedules(self, race_date: date, guild_id: str) -> bool:
@@ -3006,7 +2919,6 @@ class Database:
         """, race_id)
 
 
-
     # =====================================================
     # かぶりなしたまご
     # =====================================================
@@ -3256,15 +3168,18 @@ class Database:
         async with self.pool.acquire() as conn:
             async with conn.transaction():
 
+
                 # 二重実行防止
+
                 race = await conn.fetchrow("""
-                    SELECT lottery_done
-                    FROM race_schedules
+                    UPDATE race_schedules
+                    SET lottery_done = TRUE
                     WHERE id = $1
-                    FOR UPDATE
+                      AND lottery_done = FALSE
+                    RETURNING id
                 """, schedule_id)
 
-                if not race or race["lottery_done"]:
+                if not race:
                     return {"selected": [], "cancelled": []}
 
                 # pending取得（同じconn）
@@ -3277,6 +3192,7 @@ class Database:
                       AND status = 'pending'
                     ORDER BY created_at
                 """, str(guild_id), race_date, schedule_id)
+
 
                 if len(entries) < 2:
                     return {"selected": [], "cancelled": []}
@@ -3329,6 +3245,22 @@ class Database:
                     if status == "cancelled":
                         cancelled.append(e)
 
+
+
+
+
+                await conn.execute("""
+                    UPDATE race_schedules
+                    SET lottery_done = TRUE,
+                        locked = TRUE
+                    WHERE id = $1
+                """, schedule_id)
+
+                return {
+                    "selected": selected,
+                    "cancelled": cancelled
+                }
+
     # =========================
     # レース設定取得
     # =========================
@@ -3352,18 +3284,6 @@ class Database:
         """, str(guild_id), str(channel_id))
 
 
-
-
-
-    async def remove_user_badge(self, user_id: str, guild_id: str, badge: str):
-        async with self._lock:
-            data = self._load_badges()
-
-            if guild_id in data and user_id in data[guild_id]:
-                if badge in data[guild_id][user_id]:
-                    data[guild_id][user_id].remove(badge)
-
-            self._save_badges(data)
 
     async def _fetch(self, query, *args, conn=None):
         await self._ensure_pool()
@@ -3406,8 +3326,6 @@ class Database:
 
     async def place_bet(self, guild_id, race_date, schedule_id, user_id, pet_id, amount):
         async with self._lock:
-            guild_id = str(guild_id)
-            user_id = str(user_id)
 
             # ① 馬券保存
             await self._execute("""
@@ -3486,14 +3404,7 @@ class Database:
                            reward_paid,
                            distance,
                            surface,
-                           condition,
-                           prize_1,
-                           prize_2,
-                           prize_3,
-                           race_class
-
-
-                           
+                           condition
                     FROM race_schedules
                     WHERE id = $1
                     FOR UPDATE
@@ -3566,13 +3477,13 @@ class Database:
 
                     # 報酬計算
                     if rank == 1:
-                        reward = race["prize_1"] or 0
+                        reward = 50000
                     elif rank == 2:
-                        reward = race["prize_2"] or 0
+                        reward = 30000
                     elif rank == 3:
-                        reward = race["prize_3"] or 0
+                        reward = 10000
                     else:
-                        reward = 0
+                        reward = 5000
 
                     # race_results 保存
                     await conn.execute("""
@@ -3641,7 +3552,6 @@ class Database:
 
                 return results
 
-
     async def get_latest_active_race(self, guild_id: str):
         """
         open / locked / racing のいずれかの
@@ -3683,15 +3593,47 @@ class Database:
             WHERE guild_id=$1 AND race_date=$2 AND schedule_id=$3
         """, guild_id, race_date, schedule_id)
 
+        # =========================================
+        # 🔥 レコードが存在しない場合は自動生成
+        # =========================================
         if not row:
+
+            BASE_POOL = 200000
+
+            await self._execute("""
+                INSERT INTO race_trifecta_pools
+                (guild_id, race_date, schedule_id, total_pool, carry_in)
+                VALUES ($1,$2,$3,$4,$5)
+                ON CONFLICT DO NOTHING
+            """, guild_id, race_date, schedule_id, BASE_POOL, 0)
+
             return {
-                "total_pool": 0,
+                "total_pool": BASE_POOL,
                 "carry_in": 0,
                 "current_sales": 0
             }
 
         total = row["total_pool"]
         carry = row["carry_in"]
+
+        # =========================================
+        # 🔥 total/carryが両方0なら初期保証注入
+        # =========================================
+        if total == 0 and carry == 0:
+
+            BASE_POOL = 200000
+
+            await self._execute("""
+                UPDATE race_trifecta_pools
+                SET total_pool = $4
+                WHERE guild_id=$1
+                  AND race_date=$2
+                  AND schedule_id=$3
+                  AND total_pool = 0
+                  AND carry_in = 0
+            """, guild_id, race_date, schedule_id, BASE_POOL)
+
+            total = BASE_POOL
 
         return {
             "total_pool": total,
@@ -3906,7 +3848,7 @@ class Database:
                 # ④ 総プール更新
                 # =========================
                 pool_row = await conn.fetchrow("""
-                    SELECT total_pool
+                    SELECT total_pool, carry_in
                     FROM race_trifecta_pools
                     WHERE guild_id=$1
                       AND race_date=$2
@@ -3914,17 +3856,17 @@ class Database:
                     FOR UPDATE
                 """, guild_id, race_date, schedule_id)
 
+                # carry をロックして取得（※ 行が無い可能性あるので後で0扱い）
+                carry = await conn.fetchval("""
+                    SELECT carry_over
+                    FROM race_trifecta_carry
+                    WHERE guild_id=$1
+                    FOR UPDATE
+                """, guild_id)
+                carry = int(carry or 0)
+
                 if not pool_row:
-
-                    carry = await conn.fetchval("""
-                        SELECT carry_over
-                        FROM race_trifecta_carry
-                        WHERE guild_id=$1
-                        FOR UPDATE
-                    """, guild_id) or 0
-
-                    new_total_pool = carry + amount
-
+                    # プール行が無い → carry + amount で新規作成
                     await conn.execute("""
                         INSERT INTO race_trifecta_pools
                         (guild_id, race_date, schedule_id, total_pool, carry_in)
@@ -3933,18 +3875,22 @@ class Database:
                         guild_id,
                         race_date,
                         schedule_id,
-                        new_total_pool,
+                        carry + amount,
                         carry
                     )
-
+                else:
+                    # プール行がある → まず carry があれば注入（carry_inも加算）
                     if carry > 0:
                         await conn.execute("""
-                            UPDATE race_trifecta_carry
-                            SET carry_over = 0
-                            WHERE guild_id=$1
-                        """, guild_id)
+                            UPDATE race_trifecta_pools
+                            SET total_pool = total_pool + $1,
+                                carry_in  = carry_in  + $1
+                            WHERE guild_id=$2
+                              AND race_date=$3
+                              AND schedule_id=$4
+                        """, carry, guild_id, race_date, schedule_id)
 
-                else:
+                    # 次に今回購入分を加算
                     await conn.execute("""
                         UPDATE race_trifecta_pools
                         SET total_pool = total_pool + $1
@@ -3952,6 +3898,14 @@ class Database:
                           AND race_date=$3
                           AND schedule_id=$4
                     """, amount, guild_id, race_date, schedule_id)
+
+                # carry を使ったらゼロクリア
+                if carry > 0:
+                    await conn.execute("""
+                        UPDATE race_trifecta_carry
+                        SET carry_over = 0
+                        WHERE guild_id=$1
+                    """, guild_id)
 
                 # =========================
                 # ⑤ 組み合わせ別プール更新
@@ -4196,18 +4150,17 @@ class Database:
     # ======================================================
     # ユーザーのバッジ一覧取得
     # ======================================================
+
     async def get_user_badges(self, user_id: str, guild_id: str) -> list[str]:
         await self._ensure_pool()
         async with self.pool.acquire() as conn:
             rows = await conn.fetch("""
-                SELECT badge
+                SELECT DISTINCT badge
                 FROM user_badges
                 WHERE user_id = $1
                   AND guild_id = $2
-                ORDER BY created_at
             """, user_id, guild_id)
 
-        print("ROWS:", rows)
         return [r["badge"] for r in rows]
 
     # ======================================================
@@ -4261,7 +4214,64 @@ class Database:
         return units
 
     # ======================================================
-    # エントリー獲得4.13
+    # アクセスログテーブル
+    # ======================================================
+
+    async def ensure_access_table(self):
+
+        await self._execute("""
+            CREATE TABLE IF NOT EXISTS site_access_stats (
+                date DATE PRIMARY KEY,
+                count INTEGER DEFAULT 0
+            )
+        """)
+
+    # ======================================================
+    # アクセスカウント
+    # ======================================================
+
+    async def count_access(self):
+
+        today = date.today()
+
+        await self._execute("""
+            INSERT INTO site_access_stats (date, count)
+            VALUES ($1, 1)
+            ON CONFLICT (date)
+            DO UPDATE SET count = site_access_stats.count + 1
+        """, today)
+
+    # ======================================================
+    # 総アクセス
+    # ======================================================
+
+    async def get_total_access(self):
+
+        row = await self._fetchrow("""
+            SELECT COALESCE(SUM(count),0) as total
+            FROM site_access_stats
+        """)
+
+        return row["total"]
+
+    # ======================================================
+    # 日別アクセス
+    # ======================================================
+
+    async def get_daily_access(self):
+
+        rows = await self._fetch("""
+            SELECT date, count
+            FROM site_access_stats
+            ORDER BY date DESC
+            LIMIT 30
+        """)
+
+        return rows
+
+
+    # ======================================================
+    # エントリー獲得3.9
     # ======================================================
     async def get_user_entries(self, user_id):
 
@@ -4270,7 +4280,6 @@ class Database:
                 e.pet_id,
                 p.name as pet_name,
                 e.status,
-                e.entry_fee,
                 s.race_time,
                 s.distance,
                 s.id as schedule_id
@@ -4293,69 +4302,97 @@ class Database:
     async def cancel_entry(self, pet_id, schedule_id):
 
         await self._execute("""
-            UPDATE race_entries
-            SET status='cancelled'
+            DELETE FROM race_entries
             WHERE pet_id=$1
             AND schedule_id=$2
             AND status='pending'
         """, pet_id, schedule_id)
 
+    async def get_unnotified_trifecta_bets(self):
 
-    # ======================================================
-    # チンチロ3.12
-    # ======================================================
+        return await self._fetch("""
+            SELECT id, user_id, first_pet_id, second_pet_id, third_pet_id, amount
+            FROM race_trifecta_bets
+            WHERE dm_sent = FALSE
+            ORDER BY id ASC
+            LIMIT 20
+        """)
 
-    async def create_chinchiro_game(self, thread_id, guild_id, host_id, players):
-        await self._execute("""
-            INSERT INTO chinchiro_games(thread_id, guild_id, host_id, phase)
-            VALUES ($1,$2,$3,'parent_decision')
-            ON CONFLICT DO NOTHING
-        """, thread_id, guild_id, host_id)
-
-        for i, uid in enumerate(players):
-            await self._execute("""
-                INSERT INTO chinchiro_players(thread_id,user_id,turn_order)
-                VALUES ($1,$2,$3)
-                ON CONFLICT DO NOTHING
-            """, thread_id, uid, i)
-
-
-    async def decide_first_parent(self, thread_id):
-        players = await self._fetch("""
-            SELECT user_id
-            FROM chinchiro_players
-            WHERE thread_id=$1
-            ORDER BY turn_order
-        """, thread_id)
-
-        best = None
-        best_score = -9999
-
-        while True:
-            tie = False
-
-            for p in players:
-                dice = roll_dice()
-                name, score = judge_hand(dice)
-
-                if score > best_score:
-                    best = p["user_id"]
-                    best_score = score
-                    tie = False
-                elif score == best_score:
-                    tie = True
-
-            if not tie:
-                break
+    async def mark_trifecta_dm_sent(self, bet_id):
 
         await self._execute("""
-            UPDATE chinchiro_games
-            SET parent_id=$1,
-                phase='betting'
-            WHERE thread_id=$2
-        """, best, thread_id)
+            UPDATE race_trifecta_bets
+            SET dm_sent = TRUE
+            WHERE id = $1
+        """, bet_id)
 
-        return best
+
+    # ======================================================
+    # 通知関数3.13
+    # ======================================================
+
+
+    async def get_oasistchi_notify_settings(self, user_id: str) -> dict:
+        await self._ensure_pool()
+
+        row = await self._fetchrow("""
+            SELECT notify_poop, notify_food, notify_pet_ready
+            FROM oasistchi_notify
+            WHERE user_id=$1
+        """, user_id)
+
+        if row:
+            return dict(row)
+
+        await self._execute("""
+            INSERT INTO oasistchi_notify(user_id)
+            VALUES($1)
+        """, user_id)
+
+        return {
+            "notify_poop": True,
+            "notify_food": True,
+            "notify_pet_ready": True
+        }
+
+
+    async def set_oasistchi_notify(
+        self,
+        user_id: str,
+        poop: bool = None,
+        food: bool = None,
+        ready: bool = None
+    ):
+        fields = []
+        values = []
+        idx = 1
+
+        if poop is not None:
+            fields.append(f"notify_poop = ${idx}")
+            values.append(poop)
+            idx += 1
+
+        if food is not None:
+            fields.append(f"notify_food = ${idx}")
+            values.append(food)
+            idx += 1
+
+        if ready is not None:
+            fields.append(f"notify_pet_ready = ${idx}")
+            values.append(ready)
+            idx += 1
+
+        if not fields:
+            return
+
+        values.append(user_id)
+
+        await self._execute(f"""
+            UPDATE oasistchi_notify
+            SET {", ".join(fields)}
+            WHERE user_id = ${idx}
+        """, *values)
+
 
     # ======================================================
     # 自己紹介3.13
@@ -4384,7 +4421,16 @@ class Database:
             "channels": json.loads(row["watch_channels"])
         }
         
+
+
     async def save_intro_url(self, guild_id, user_id, url):
+
+        print("====== INTRO SAVE START ======")
+        print("guild:", guild_id)
+        print("user :", user_id)
+        print("url  :", url[:120])
+        print("==============================")
+
         await self._execute("""
             INSERT INTO intro_urls(guild_id, user_id, message_url)
             VALUES($1,$2,$3)
@@ -4393,6 +4439,7 @@ class Database:
                 message_url = EXCLUDED.message_url,
                 updated_at = CURRENT_TIMESTAMP
         """, guild_id, user_id, url)
+
 
     async def get_intro_url(self, guild_id, user_id):
         row = await self._fetchrow("""
@@ -4422,6 +4469,8 @@ class Database:
                 ON CONFLICT (user_id)
                 DO UPDATE SET last_explore=$2
             """, uid, t)
+
+
     # ======================================================
     # 掲示板
     # ======================================================
@@ -4622,6 +4671,7 @@ class Database:
             SELECT message_id, panel_data FROM role_panels
         """)
 
+
     # =========================
     # 面接たまご付与4.4
     # =========================
@@ -4691,6 +4741,7 @@ class Database:
 
                 return egg_type, egg_label
 
+
     # =========================
     # 強制たまご付与4.6
     # =========================
@@ -4744,6 +4795,7 @@ class Database:
             """, user_id, egg_type, now)
 
         return egg_type, egg_label
+
 
 
     # =========================
