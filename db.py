@@ -12,6 +12,9 @@ JST = timezone(timedelta(hours=9))
 
 load_dotenv()
 
+        # =========================
+        # 4.15
+        # =========================
 RACE_TIMES = ["09:00", "12:00", "15:00", "18:00", "21:00", "23:00"]
 DISTANCES = ["短距離", "マイル", "中距離", "長距離"]
 SURFACES = ["芝", "ダート"]
@@ -3477,7 +3480,7 @@ class Database:
                 results = self.simulate_race(entries, race)
 
                 # =========================
-                # 🏆 結果保存 + 賞金処理
+                # 🏆 結果保存 + 賞金処理4.15
                 # =========================
                 for r in results:
 
