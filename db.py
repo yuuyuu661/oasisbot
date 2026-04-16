@@ -1100,6 +1100,22 @@ class Database:
         """)
 
 
+        # =========================
+        # 総選挙4.16
+        # =========================
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS sosenkyo_votes (
+            guild_id TEXT NOT NULL,
+            voter_id TEXT NOT NULL,
+            category_no INT NOT NULL,
+            target_user_id TEXT NOT NULL,
+            comment TEXT,
+            updated_at TIMESTAMP DEFAULT NOW(),
+            PRIMARY KEY (guild_id, voter_id, category_no)
+        )
+        """)
+
+
 
 
 
