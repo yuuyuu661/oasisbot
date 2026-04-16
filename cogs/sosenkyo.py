@@ -3,6 +3,12 @@ from discord.ext import commands
 from discord import app_commands
 
 GUILD_ID = 1420918259187712093
+ADMIN_ROLE_ID = 1445403813853925418
+
+ALLOWED_USER_IDS = {
+    716667546241335328,
+    969739156756508672,
+}
 
 CATEGORIES = {
     1: "①推しの子部門",
@@ -223,9 +229,22 @@ class SosenkyoCog(commands.Cog):
         print("✅ 総選挙 persistent vote button restored")
 
     async def check_admin(self, interaction: discord.Interaction):
+        # 特定ユーザー複数許可
+        if interaction.user.id in ALLOWED_USER_IDS:
+            return True
+
+        # 固定管理者ロール
+        if any(role.id == ADMIN_ROLE_ID for role in interaction.user.roles):
+            return True
+
+        # DB管理ロール
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
-        return any(str(r.id) in admin_roles for r in interaction.user.roles)
+
+        if any(str(r.id) in admin_roles for r in interaction.user.roles):
+            return True
+
+        return False
 
     @app_commands.command(name="総選挙パネル設置")
     @app_commands.guilds(discord.Object(id=GUILD_ID))
