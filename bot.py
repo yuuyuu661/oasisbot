@@ -77,6 +77,7 @@ class MyBot(commands.Bot):
             "cogs.popularity_vote",
             "cogs.senryu",  
             "cogs.role_vc_check",
+            "cogs.sosenkyo",
         ]
 
         for ext in extensions:
