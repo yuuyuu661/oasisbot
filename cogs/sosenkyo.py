@@ -297,7 +297,6 @@ class SosenkyoCog(commands.Cog):
         await interaction.response.send_message(
             embed=embeds[0],
             view=PageView(embeds),
-            ephemeral=True
         )
 
     @app_commands.command(name="総選挙結果発表")
@@ -336,7 +335,6 @@ class SosenkyoCog(commands.Cog):
         await interaction.response.send_message(
             embed=pages[0],
             view=PageView(pages),
-            ephemeral=True
         )
 
     @app_commands.command(name="総選挙投票リセット")
