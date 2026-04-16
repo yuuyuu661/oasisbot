@@ -20,28 +20,6 @@ CATEGORIES = {
 
 
 # =========================
-# ユーザー検索
-# =========================
-def find_member(guild: discord.Guild, keyword: str):
-    keyword = keyword.strip()
-
-    if keyword.isdigit():
-        member = guild.get_member(int(keyword))
-        if member:
-            return member
-
-    keyword = keyword.lower()
-
-    for member in guild.members:
-        if keyword in member.name.lower():
-            return member
-        if keyword in member.display_name.lower():
-            return member
-
-    return None
-
-
-# =========================
 # ページ切替
 # =========================
 class PageView(discord.ui.View):
@@ -75,53 +53,96 @@ class PageView(discord.ui.View):
 
 
 # =========================
-# 次へボタン
+# コメントモーダル
 # =========================
-class NextVoteView(discord.ui.View):
-    def __init__(self, bot, next_no: int):
-        super().__init__(timeout=300)
-        self.bot = bot
-        self.next_no = next_no
-
-    @discord.ui.button(label="次の部門へ", style=discord.ButtonStyle.primary)
-    async def next_btn(self, interaction: discord.Interaction, button):
-        await interaction.response.send_modal(
-            VoteCategoryModal(self.bot, self.next_no)
-        )
-
-
-# =========================
-# 投票モーダル
-# =========================
-class VoteCategoryModal(discord.ui.Modal):
-    def __init__(self, bot, category_no: int):
-        super().__init__(title=CATEGORIES[category_no])
-        self.bot = bot
-        self.category_no = category_no
-
-        self.target = discord.ui.TextInput(
-            label="ID または Discord名",
-            placeholder="ユーザーID or 名前",
-            required=True,
-            max_length=100
-        )
+class CommentModal(discord.ui.Modal, title="コメント入力"):
+    def __init__(self, parent_view):
+        super().__init__()
+        self.parent_view = parent_view
 
         self.comment = discord.ui.TextInput(
             label="コメント（任意）",
             style=discord.TextStyle.paragraph,
             required=False,
-            max_length=500
+            max_length=500,
+            default=parent_view.comment or ""
         )
-
-        self.add_item(self.target)
         self.add_item(self.comment)
 
     async def on_submit(self, interaction: discord.Interaction):
-        target_user = find_member(interaction.guild, self.target.value)
+        self.parent_view.comment = self.comment.value
 
-        if not target_user:
+        await interaction.response.edit_message(
+            content=f"📝 コメントを保存しました\n現在コメント: {self.comment.value or 'なし'}",
+            view=self.parent_view
+        )
+
+
+# =========================
+# ユーザー選択
+# =========================
+class UserVoteSelect(discord.ui.UserSelect):
+    def __init__(self, parent_view):
+        super().__init__(
+            placeholder="投票するユーザーを選択",
+            min_values=1,
+            max_values=1
+        )
+        self.parent_view = parent_view
+
+    async def callback(self, interaction: discord.Interaction):
+        selected = self.values[0]
+
+        if selected.id == interaction.user.id:
             return await interaction.response.send_message(
-                "❌ ユーザーが見つかりません。",
+                "❌ 自分には投票できません。",
+                ephemeral=True
+            )
+
+        if selected.bot:
+            return await interaction.response.send_message(
+                "❌ Botには投票できません。",
+                ephemeral=True
+            )
+
+        self.parent_view.selected_user_id = selected.id
+
+        await interaction.response.edit_message(
+            content=f"✅ **{selected.display_name}** を選択しました",
+            view=self.parent_view
+        )
+
+
+# =========================
+# 部門投票View
+# =========================
+class VoteCategoryView(discord.ui.View):
+    def __init__(self, bot, category_no: int):
+        super().__init__(timeout=600)
+        self.bot = bot
+        self.category_no = category_no
+        self.selected_user_id = None
+        self.comment = ""
+
+        self.add_item(UserVoteSelect(self))
+
+    @discord.ui.button(
+        label="コメントを書く",
+        style=discord.ButtonStyle.secondary,
+        row=1
+    )
+    async def comment_btn(self, interaction: discord.Interaction, button):
+        await interaction.response.send_modal(CommentModal(self))
+
+    @discord.ui.button(
+        label="決定",
+        style=discord.ButtonStyle.success,
+        row=1
+    )
+    async def confirm_btn(self, interaction: discord.Interaction, button):
+        if not self.selected_user_id:
+            return await interaction.response.send_message(
+                "❌ 先にユーザーを選択してください。",
                 ephemeral=True
             )
 
@@ -143,22 +164,27 @@ class VoteCategoryModal(discord.ui.Modal):
         str(interaction.guild.id),
         str(interaction.user.id),
         self.category_no,
-        str(target_user.id),
-        self.comment.value
+        str(self.selected_user_id),
+        self.comment
         )
 
         next_no = self.category_no + 1
 
         if next_no <= 11:
-            await interaction.response.send_message(
-                f"✅ {CATEGORIES[self.category_no]} を保存しました。",
-                ephemeral=True,
-                view=NextVoteView(self.bot, next_no)
+            await interaction.response.edit_message(
+                content=f"✅ {CATEGORIES[self.category_no]} を保存しました",
+                embed=discord.Embed(
+                    title=CATEGORIES[next_no],
+                    description="投票するユーザーを選んでください",
+                    color=discord.Color.gold()
+                ),
+                view=VoteCategoryView(self.bot, next_no)
             )
         else:
-            await interaction.response.send_message(
-                "🎉 投票に参加してくれてありがとう！",
-                ephemeral=True
+            await interaction.response.edit_message(
+                content="🎉 投票に参加してくれてありがとう！",
+                embed=None,
+                view=None
             )
 
 
@@ -176,8 +202,14 @@ class SosenkyoVotePersistentView(discord.ui.View):
         custom_id="sosenkyo_vote_start"
     )
     async def vote_button(self, interaction: discord.Interaction, button):
-        await interaction.response.send_modal(
-            VoteCategoryModal(self.bot, 1)
+        await interaction.response.send_message(
+            embed=discord.Embed(
+                title=CATEGORIES[1],
+                description="投票するユーザーを選んでください",
+                color=discord.Color.gold()
+            ),
+            view=VoteCategoryView(self.bot, 1),
+            ephemeral=True
         )
 
 
@@ -187,39 +219,24 @@ class SosenkyoVotePersistentView(discord.ui.View):
 class SosenkyoCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-        # 永続ボタン復元
         self.bot.add_view(SosenkyoVotePersistentView(bot))
         print("✅ 総選挙 persistent vote button restored")
 
     async def check_admin(self, interaction: discord.Interaction):
         settings = await self.bot.db.get_settings()
         admin_roles = settings["admin_roles"] or []
-
         return any(str(r.id) in admin_roles for r in interaction.user.roles)
 
-    # =========================
-    # パネル設置
-    # =========================
     @app_commands.command(name="総選挙パネル設置")
     @app_commands.guilds(discord.Object(id=GUILD_ID))
-    async def setup_panel(
-        self,
-        interaction: discord.Interaction,
-        title: str,
-        body: str
-    ):
+    async def setup_panel(self, interaction: discord.Interaction, title: str, body: str):
         if not await self.check_admin(interaction):
             return await interaction.response.send_message(
                 "❌ 管理者のみ使用できます。",
                 ephemeral=True
             )
 
-        embed = discord.Embed(
-            title=title,
-            description=body,
-            color=discord.Color.gold()
-        )
+        embed = discord.Embed(title=title, description=body, color=discord.Color.gold())
 
         await interaction.channel.send(
             embed=embed,
@@ -231,22 +248,11 @@ class SosenkyoCog(commands.Cog):
             ephemeral=True
         )
 
-    # =========================
-    # 内容確認
-    # =========================
     @app_commands.command(name="総選挙内容確認")
     @app_commands.guilds(discord.Object(id=GUILD_ID))
-    async def check_comments(
-        self,
-        interaction: discord.Interaction,
-        category_no: int,
-        user: discord.Member
-    ):
+    async def check_comments(self, interaction: discord.Interaction, category_no: int, user: discord.Member):
         if not await self.check_admin(interaction):
-            return await interaction.response.send_message(
-                "❌ 管理者のみ使用できます。",
-                ephemeral=True
-            )
+            return await interaction.response.send_message("❌ 管理者のみ使用できます。", ephemeral=True)
 
         rows = await self.bot.db._fetch("""
             SELECT comment
@@ -263,10 +269,7 @@ class SosenkyoCog(commands.Cog):
         str(user.id))
 
         if not rows:
-            return await interaction.response.send_message(
-                "コメントはまだありません。",
-                ephemeral=True
-            )
+            return await interaction.response.send_message("コメントはまだありません。", ephemeral=True)
 
         pages = []
         current = ""
@@ -297,17 +300,11 @@ class SosenkyoCog(commands.Cog):
             ephemeral=True
         )
 
-    # =========================
-    # 結果発表
-    # =========================
     @app_commands.command(name="総選挙結果発表")
     @app_commands.guilds(discord.Object(id=GUILD_ID))
     async def ranking(self, interaction: discord.Interaction):
         if not await self.check_admin(interaction):
-            return await interaction.response.send_message(
-                "❌ 管理者のみ使用できます。",
-                ephemeral=True
-            )
+            return await interaction.response.send_message("❌ 管理者のみ使用できます。", ephemeral=True)
 
         pages = []
 
@@ -323,7 +320,6 @@ class SosenkyoCog(commands.Cog):
             """, str(interaction.guild.id), no)
 
             desc = ""
-
             for i, row in enumerate(rows, 1):
                 user = interaction.guild.get_member(int(row["target_user_id"]))
                 uname = user.display_name if user else row["target_user_id"]
@@ -343,17 +339,11 @@ class SosenkyoCog(commands.Cog):
             ephemeral=True
         )
 
-    # =========================
-    # 投票リセット
-    # =========================
     @app_commands.command(name="総選挙投票リセット")
     @app_commands.guilds(discord.Object(id=GUILD_ID))
     async def reset_votes(self, interaction: discord.Interaction):
         if not await self.check_admin(interaction):
-            return await interaction.response.send_message(
-                "❌ 管理者のみ使用できます。",
-                ephemeral=True
-            )
+            return await interaction.response.send_message("❌ 管理者のみ使用できます。", ephemeral=True)
 
         await self.bot.db._execute("""
             DELETE FROM sosenkyo_votes
