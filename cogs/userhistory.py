@@ -170,7 +170,7 @@ class UserHistoryCog(commands.Cog):
                 if log["action"] == "join":
                     description += f"{time}　サーバー参加\n\n"
 
-               elif log["action"] == "rejoin":
+                elif log["action"] == "rejoin":
                     description += f"{time}　サーバー再参加\n\n"
 
                 elif log["action"] == "leave":
