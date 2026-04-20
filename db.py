@@ -1116,6 +1116,21 @@ class Database:
         """)
 
 
+        # =========================
+        # 参加 / 退出ログ4.20
+        # =========================
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS user_join_leave_logs (
+            id SERIAL PRIMARY KEY,
+            guild_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            action TEXT NOT NULL, -- join / leave / rejoin
+            roles TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)          
+
+
 
 
 
