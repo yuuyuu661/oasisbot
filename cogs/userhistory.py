@@ -21,21 +21,24 @@ class UserHistoryCog(commands.Cog):
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
 
-        roles = [r.name for r in member.roles if r.name != "@everyone"]
+        roles = [r for r in member.roles if r.name != "@everyone"]
 
         await self.bot.db._execute("""
             INSERT INTO user_join_leave_logs (guild_id, user_id, action, roles)
             VALUES ($1, $2, 'leave', $3)
-        """, str(member.guild.id), str(member.id), json.dumps(roles))
+        """, str(member.guild.id), str(member.id),
+           json.dumps([r.name for r in roles]))
 
-        # ログ送信
-        channel = member.guild.get_channel(LEAVE_LOG_CHANNEL)
+        channel = member.guild.get_channel(1480429037435490355)
+
         if channel:
-            role_text = "\n".join([f"・{r}" for r in roles]) if roles else "なし"
+            # 🔥 メンション形式
+            role_text = " / ".join([r.mention for r in roles]) if roles else "なし"
+
             now = datetime.now().strftime("%Y/%m/%d %H:%M")
 
             await channel.send(
-                f"👋 **{member.name} がサーバーを退出しました**\n"
+                f"👋 {member.mention} がサーバーを退出しました\n"
                 f"{now}\n\n"
                 f"📜 退出時所持ロール:\n{role_text}"
             )
@@ -49,7 +52,6 @@ class UserHistoryCog(commands.Cog):
         guild_id = str(member.guild.id)
         user_id = str(member.id)
 
-        # 過去退出履歴
         row = await self.bot.db._fetchrow("""
             SELECT COUNT(*) AS cnt
             FROM user_join_leave_logs
@@ -60,7 +62,6 @@ class UserHistoryCog(commands.Cog):
 
         is_return = row["cnt"] > 0
 
-        # 過去ロール取得
         last_roles = []
 
         if is_return:
@@ -77,7 +78,6 @@ class UserHistoryCog(commands.Cog):
             if last and last["roles"]:
                 last_roles = json.loads(last["roles"])
 
-        # DB保存
         action = "rejoin" if is_return else "join"
 
         await self.bot.db._execute("""
@@ -85,18 +85,27 @@ class UserHistoryCog(commands.Cog):
             VALUES ($1, $2, $3, $4)
         """, guild_id, user_id, action, "[]")
 
-        # 初回参加はログ出さない
         if not is_return:
             return
 
-        # 再参加ログ
-        channel = member.guild.get_channel(REJOIN_LOG_CHANNEL)
+        channel = member.guild.get_channel(1466693608366276793)
+
         if channel:
-            role_text = "\n".join([f"・{r}" for r in last_roles]) if last_roles else "なし"
+            # 🔥 名前 → ロールに変換
+            role_mentions = []
+            for name in last_roles:
+                role = discord.utils.get(member.guild.roles, name=name)
+                if role:
+                    role_mentions.append(role.mention)
+                else:
+                    role_mentions.append(name)
+
+            role_text = " / ".join(role_mentions) if role_mentions else "なし"
+
             now = datetime.now().strftime("%Y/%m/%d %H:%M")
 
             await channel.send(
-                f"🔄 **{member.name} がサーバー再参加しました**\n"
+                f"🔄 {member.mention} がサーバー再参加しました\n"
                 f"{now}\n\n"
                 f"📜 過去所持ロール:\n{role_text}"
             )
