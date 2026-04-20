@@ -78,6 +78,8 @@ class MyBot(commands.Bot):
             "cogs.senryu",  
             "cogs.role_vc_check",
             "cogs.sosenkyo",
+            "cogs.userhistory",
+            
         ]
 
         for ext in extensions:
