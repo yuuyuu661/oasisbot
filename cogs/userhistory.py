@@ -1,0 +1,187 @@
+import discord
+from discord.ext import commands
+from discord import app_commands
+import json
+from datetime import datetime
+
+GUILD_ID = 1420918259187712093
+ADMIN_ROLE_ID = 1445403813853925418
+
+LEAVE_LOG_CHANNEL = 1480429037435490355
+REJOIN_LOG_CHANNEL = 1466693608366276793
+
+
+class UserHistoryCog(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    # =========================
+    # 退出ログ
+    # =========================
+    @commands.Cog.listener()
+    async def on_member_remove(self, member: discord.Member):
+
+        roles = [r.name for r in member.roles if r.name != "@everyone"]
+
+        await self.bot.db._execute("""
+            INSERT INTO user_join_leave_logs (guild_id, user_id, action, roles)
+            VALUES ($1, $2, 'leave', $3)
+        """, str(member.guild.id), str(member.id), json.dumps(roles))
+
+        # ログ送信
+        channel = member.guild.get_channel(LEAVE_LOG_CHANNEL)
+        if channel:
+            role_text = "\n".join([f"・{r}" for r in roles]) if roles else "なし"
+            now = datetime.now().strftime("%Y/%m/%d %H:%M")
+
+            await channel.send(
+                f"👋 **{member.name} がサーバーを退出しました**\n"
+                f"{now}\n\n"
+                f"📜 退出時所持ロール:\n{role_text}"
+            )
+
+    # =========================
+    # 参加 / 再参加
+    # =========================
+    @commands.Cog.listener()
+    async def on_member_join(self, member: discord.Member):
+
+        guild_id = str(member.guild.id)
+        user_id = str(member.id)
+
+        # 過去退出履歴
+        row = await self.bot.db._fetchrow("""
+            SELECT COUNT(*) AS cnt
+            FROM user_join_leave_logs
+            WHERE guild_id = $1
+              AND user_id = $2
+              AND action = 'leave'
+        """, guild_id, user_id)
+
+        is_return = row["cnt"] > 0
+
+        # 過去ロール取得
+        last_roles = []
+
+        if is_return:
+            last = await self.bot.db._fetchrow("""
+                SELECT roles
+                FROM user_join_leave_logs
+                WHERE guild_id = $1
+                  AND user_id = $2
+                  AND action = 'leave'
+                ORDER BY created_at DESC
+                LIMIT 1
+            """, guild_id, user_id)
+
+            if last and last["roles"]:
+                last_roles = json.loads(last["roles"])
+
+        # DB保存
+        action = "rejoin" if is_return else "join"
+
+        await self.bot.db._execute("""
+            INSERT INTO user_join_leave_logs (guild_id, user_id, action, roles)
+            VALUES ($1, $2, $3, $4)
+        """, guild_id, user_id, action, "[]")
+
+        # 初回参加はログ出さない
+        if not is_return:
+            return
+
+        # 再参加ログ
+        channel = member.guild.get_channel(REJOIN_LOG_CHANNEL)
+        if channel:
+            role_text = "\n".join([f"・{r}" for r in last_roles]) if last_roles else "なし"
+            now = datetime.now().strftime("%Y/%m/%d %H:%M")
+
+            await channel.send(
+                f"🔄 **{member.name} がサーバー再参加しました**\n"
+                f"{now}\n\n"
+                f"📜 過去所持ロール:\n{role_text}"
+            )
+
+    # =========================
+    # ユーザー履歴確認
+    # =========================
+    @app_commands.command(
+        name="ユーザー履歴確認",
+        description="ユーザーの入退出履歴を確認"
+    )
+    @app_commands.guilds(discord.Object(id=GUILD_ID))
+    async def user_history(
+        self,
+        interaction: discord.Interaction,
+        user: discord.User
+    ):
+        await interaction.response.defer(ephemeral=True)
+
+        # 管理者チェック
+        if not any(r.id == ADMIN_ROLE_ID for r in interaction.user.roles):
+            return await interaction.followup.send(
+                "❌ 管理者ロールが必要です。",
+                ephemeral=True
+            )
+
+        logs = await self.bot.db._fetch("""
+            SELECT action, roles, created_at
+            FROM user_join_leave_logs
+            WHERE guild_id = $1
+              AND user_id = $2
+            ORDER BY created_at ASC
+        """, str(interaction.guild.id), str(user.id))
+
+        if not logs:
+            return await interaction.followup.send(
+                "履歴がありません。",
+                ephemeral=True
+            )
+
+        description = ""
+
+        for log in logs:
+            time = log["created_at"].strftime("%Y/%m/%d %H:%M")
+            roles = json.loads(log["roles"]) if log["roles"] else []
+
+            if log["action"] == "join":
+                description += f"{time}　サーバー参加\n\n"
+
+            elif log["action"] == "rejoin":
+                description += f"{time}　サーバー再参加\n\n"
+
+            elif log["action"] == "leave":
+                role_text = " / ".join(roles) if roles else "なし"
+                description += (
+                    f"{time}　サーバー退出\n"
+                    f"退出時ロール: {role_text}\n\n"
+                )
+
+        # 現在所属してるか
+        member = interaction.guild.get_member(user.id)
+
+        if member:
+            roles = [r.name for r in member.roles if r.name != "@everyone"]
+            role_text = " / ".join(roles) if roles else "なし"
+
+            description += (
+                f"\n現在: サーバー所属中\n"
+                f"所持ロール: {role_text}"
+            )
+
+        embed = discord.Embed(
+            title="📜 ユーザー履歴",
+            description=description,
+            color=discord.Color.blue()
+        )
+
+        embed.add_field(name="ユーザー名", value=user.name, inline=False)
+        embed.add_field(name="ID", value=user.id, inline=False)
+
+        await interaction.followup.send(
+            embed=embed,
+            ephemeral=True
+        )
+
+
+async def setup(bot):
+    await bot.add_cog(UserHistoryCog(bot))
