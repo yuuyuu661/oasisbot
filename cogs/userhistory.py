@@ -2,7 +2,9 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import json
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+JST = timezone(timedelta(hours=9))
 
 GUILD_ID = 1420918259187712093
 ADMIN_ROLE_ID = 1445403813853925418
@@ -35,7 +37,7 @@ class UserHistoryCog(commands.Cog):
             # 🔥 メンション形式
             role_text = " / ".join([r.mention for r in roles]) if roles else "なし"
 
-            now = datetime.now().strftime("%Y/%m/%d %H:%M")
+            now = datetime.now(JST).strftime("%Y/%m/%d %H:%M")
 
             await channel.send(
                 f"👋 {member.mention} がサーバーを退出しました\n"
@@ -102,7 +104,7 @@ class UserHistoryCog(commands.Cog):
 
             role_text = " / ".join(role_mentions) if role_mentions else "なし"
 
-            now = datetime.now().strftime("%Y/%m/%d %H:%M")
+            now = datetime.now(JST).strftime("%Y/%m/%d %H:%M")
 
             await channel.send(
                 f"🔄 {member.mention} がサーバー再参加しました\n"
