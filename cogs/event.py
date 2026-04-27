@@ -67,6 +67,27 @@ class EventCalendarCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def event_autocomplete(self, interaction: discord.Interaction, current: str):
+
+        guild_id = str(interaction.guild.id)
+
+        rows = await self.bot.db._fetch("""
+            SELECT id, event_name, start_date, end_date
+            FROM event_calendar
+            WHERE guild_id = $1
+              AND event_name ILIKE $2
+            ORDER BY start_date
+            LIMIT 25
+        """, guild_id, f"%{current}%")
+
+        return [
+            app_commands.Choice(
+                name=f"{r['event_name']} ({r['start_date']}~{r['end_date']})",
+                value=str(r["id"])
+            )
+            for r in rows
+        ]
+
     async def cog_load(self):
         # ✅ テーブル作成（起動時1回）
         await self.bot.db._execute("""
@@ -180,6 +201,39 @@ class EventCalendarCog(commands.Cog):
 
         await interaction.response.send_message(
             f"✅ 登録\n📌 {start_date}〜{end_date}：{name}"
+        )
+
+
+    @app_commands.command(name="イベント予定削除")
+    @app_commands.describe(event="削除するイベントを選択")
+    @app_commands.autocomplete(event=event_autocomplete)
+    async def delete_event(self, interaction: discord.Interaction, event: str):
+
+        if interaction.guild.id != TARGET_GUILD_ID:
+            return await interaction.response.send_message(
+               "❌ このコマンドはこのサーバーでは使えません。",
+                ephemeral=True
+            )
+
+        event_id = int(event)
+
+        # 一応取得（表示用）
+        row = await self.bot.db._fetchrow("""
+            SELECT event_name, start_date, end_date
+            FROM event_calendar
+            WHERE id = $1
+        """, event_id)
+
+        if not row:
+            return await interaction.response.send_message(
+                "❌ イベントが見つかりません",
+                ephemeral=True
+            )
+
+        await self.bot.db.delete_event_by_id(event_id)
+
+        await interaction.response.send_message(
+           f"🗑️ 削除しました\n📌 {row['start_date']}〜{row['end_date']}：{row['event_name']}"
         )
 
 
