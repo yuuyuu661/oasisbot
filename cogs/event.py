@@ -16,7 +16,8 @@ def build_calendar(year, month, events):
     cal = calendar.monthcalendar(year, month)
 
     text = f"📅 {year}年 {month}月\n\n"
-    text += "日 月 火 水 木 金 土\n\n"
+    week_header = ["日", "月", "火", "水", "木", "金", "土"]
+    text += " ".join(f"{d:>2}" for d in week_header) + "\n\n"
 
     colors = ["🟥", "🟦", "🟩", "🟨", "🟪", "🟧"]
 
@@ -30,7 +31,7 @@ def build_calendar(year, month, events):
             if day == 0:
                 line_days += "   "
             else:
-                line_days += f"{day:2} "
+                line_days += f"{day:>2} "
         text += line_days + "\n"
 
         # =========================
@@ -150,7 +151,15 @@ class EventCalendarCog(commands.Cog):
         event_list = ""
         colors = ["🟥", "🟦", "🟩", "🟨", "🟪", "🟧"]
 
+        start_range = start_this
+        end_range = end_next
+
         for i, e in enumerate(events_this + events_next):
+
+            # 範囲外は除外
+            if e["end_date"] < start_range or e["start_date"] > end_range:
+                continue
+
             color = colors[i % len(colors)]
             event_list += f"{color} {e['start_date']}〜{e['end_date']}：{e['event_name']}\n"
 
