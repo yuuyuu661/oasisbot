@@ -79,6 +79,7 @@ class MyBot(commands.Bot):
             "cogs.role_vc_check",
             "cogs.sosenkyo",
             "cogs.userhistory",
+            "cogs.event",
             
         ]
 
