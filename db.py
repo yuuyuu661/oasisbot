@@ -4918,3 +4918,33 @@ class Database:
         """, guild_id, channel_id)
 
         return True
+
+
+    # =========================
+    # 📅 イベントカレンダー操作4.27
+    # =========================
+
+    async def add_event(self, guild_id: str, name: str, start_date, end_date):
+        await self._execute("""
+            INSERT INTO event_calendar (guild_id, event_name, start_date, end_date)
+            VALUES ($1, $2, $3, $4)
+        """, guild_id, name, start_date, end_date)
+
+
+    async def get_events_in_range(self, guild_id: str, start_date, end_date):
+        return await self._fetch("""
+            SELECT *
+            FROM event_calendar
+            WHERE guild_id = $1
+              AND NOT (end_date < $2 OR start_date > $3)
+            ORDER BY start_date
+        """, guild_id, start_date, end_date)
+
+
+    async def get_today_events(self, guild_id: str, today):
+        return await self._fetch("""
+            SELECT *
+            FROM event_calendar
+            WHERE guild_id = $1
+              AND start_date = $2
+        """, guild_id, today)
