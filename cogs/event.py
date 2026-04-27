@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import calendar
 
 TARGET_GUILD_ID = 1420918259187712093
