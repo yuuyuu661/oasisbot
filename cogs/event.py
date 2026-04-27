@@ -61,7 +61,7 @@ def build_calendar(year, month, events):
                 current_date = date(year, month, day)
 
                 if e["start_date"] <= current_date <= e["end_date"]:
-                    line += color + " "
+                    line += f"{color} "
                     has_event_in_week = True
                 else:
                     line += " " * CELL
