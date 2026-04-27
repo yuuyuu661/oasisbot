@@ -178,5 +178,12 @@ class EventCalendarCog(commands.Cog):
         await self.bot.wait_until_ready()
 
 
+
+
 async def setup(bot):
-    await bot.add_cog(EventCalendarCog(bot))
+    cog = EventCalendarCog(bot)
+    await bot.add_cog(cog)
+
+    for cmd in cog.get_app_commands():
+        for gid in bot.GUILD_IDS:
+            bot.tree.add_command(cmd, guild=discord.Object(id=gid))
