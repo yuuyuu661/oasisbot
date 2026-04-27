@@ -1130,7 +1130,19 @@ class Database:
         );
         """)          
 
-
+        # =========================
+        # 📅 イベントカレンダー4.27
+        # =========================
+        await self._execute("""
+        CREATE TABLE IF NOT EXISTS event_calendar (
+            id SERIAL PRIMARY KEY,
+            guild_id TEXT NOT NULL,
+            event_name TEXT NOT NULL,
+            start_date DATE NOT NULL,
+            end_date DATE NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)
 
 
 
