@@ -31,16 +31,16 @@ def build_calendar(year, month, events):
 
     # 曜日
     week_header = ["日", "月", "火", "水", "木", "金", "土"]
-    text += "".join(cell(d) for d in week_header) + "\n\n"
+    text += " ".join(f"{d:>2}" for d in week_header) + "\n\n"
 
     for week in cal:
         # 日付行
         line_days = ""
         for day in week:
             if day == 0:
-                line_days += " " * CELL
+                line_days += "   "
             else:
-                line_days += cell(str(day))
+                line_days += f"{day:2} "
 
         text += line_days + "\n"
 
