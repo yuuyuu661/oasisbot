@@ -15,7 +15,7 @@ def now_jst():
 def build_calendar(year, month, events):
     cal = calendar.monthcalendar(year, month)
 
-    CELL = 2
+    CELL = 3
 
     def cell(text: str):
         return f"{text:<{CELL}}"
@@ -61,7 +61,7 @@ def build_calendar(year, month, events):
                 current_date = date(year, month, day)
 
                 if e["start_date"] <= current_date <= e["end_date"]:
-                    line += f"{color} "
+                    line += f"{symbol} ".ljust(CELL)
                     has_event_in_week = True
                 else:
                     line += " " * CELL
@@ -164,10 +164,10 @@ class EventCalendarCog(commands.Cog):
 
         # イベント一覧
         event_list = ""
-        colors = ["🟥", "🟦", "🟩", "🟨", "🟪", "🟧"]
+        symbols = ["■", "□", "◆", "◇", "●", "○"]
 
         for i, e in enumerate(events_this + events_next):
-            color = colors[i % len(colors)]
+            symbol = symbols[i % len(symbols)]
             event_list += f"{color} {e['start_date']}〜{e['end_date']}：{e['event_name']}\n"
 
         embed = discord.Embed(
