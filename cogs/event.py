@@ -2,9 +2,7 @@ import discord
 from discord.ext import commands, tasks
 from discord import app_commands
 from datetime import datetime, timedelta, date
-from PIL import Image, ImageDraw, ImageFont
 import calendar
-from datetime import date
 
 TARGET_GUILD_ID = 1420918259187712093
 
@@ -76,54 +74,7 @@ def build_calendar(year, month, events):
 
     return text
 
-def generate_calendar_image(year, month, events):
-    width, height = 800, 600
-    img = Image.new("RGB", (width, height), (30, 30, 40))
-    draw = ImageDraw.Draw(img)
 
-    font = ImageFont.load_default()
-
-    # タイトル
-    draw.text((20, 10), f"{year}年 {month}月", fill=(255,255,255), font=font)
-
-    cal = calendar.monthcalendar(year, month)
-
-    cell_w = 100
-    cell_h = 70
-
-    start_x = 50
-    start_y = 60
-
-    # 曜日
-    days = ["日","月","火","水","木","金","土"]
-    for i, d in enumerate(days):
-        draw.text((start_x + i*cell_w, start_y), d, fill=(200,200,200), font=font)
-
-    # 日付
-    for y, week in enumerate(cal):
-        for x, day in enumerate(week):
-            if day == 0:
-                continue
-
-            pos_x = start_x + x*cell_w
-            pos_y = start_y + 40 + y*cell_h
-
-            draw.text((pos_x, pos_y), str(day), fill=(255,255,255), font=font)
-
-            # イベント塗り
-            current = date(year, month, day)
-
-            for i, e in enumerate(events):
-                if e["start_date"] <= current <= e["end_date"]:
-                    color = [(255,80,80),(80,120,255),(80,200,120)][i % 3]
-                    draw.rectangle(
-                        [pos_x, pos_y+20, pos_x+20, pos_y+40],
-                        fill=color
-                    )
-
-    path = f"calendar_{year}_{month}.png"
-    img.save(path)
-    return path
 
 
 class EventCalendarCog(commands.Cog):
@@ -183,7 +134,7 @@ class EventCalendarCog(commands.Cog):
         now = now_jst()
         guild_id = str(interaction.guild.id)
 
-        # 今月イベント
+        # 今月
         start_this = datetime(now.year, now.month, 1).date()
         end_this = datetime(now.year, now.month, calendar.monthrange(now.year, now.month)[1]).date()
 
@@ -191,29 +142,42 @@ class EventCalendarCog(commands.Cog):
             guild_id, start_this, end_this
         )
 
-        # 画像生成
-        file_path = generate_calendar_image(now.year, now.month, events_this)
+        cal_this = build_calendar(now.year, now.month, events_this)
+
+        # 来月
+        next_month = now.month + 1
+        next_year = now.year
+        if next_month == 13:
+            next_month = 1
+            next_year += 1
+
+        start_next = datetime(next_year, next_month, 1).date()
+        end_next = datetime(next_year, next_month, calendar.monthrange(next_year, next_month)[1]).date()
+
+        events_next = await self.bot.db.get_events_in_range(
+            guild_id, start_next, end_next
+        )
+
+        cal_next = build_calendar(next_year, next_month, events_next)
 
         # イベント一覧
         event_list = ""
         colors = ["🟥", "🟦", "🟩", "🟨", "🟪", "🟧"]
 
-        for i, e in enumerate(events_this):
+        for i, e in enumerate(events_this + events_next):
             color = colors[i % len(colors)]
             event_list += f"{color} {e['start_date']}〜{e['end_date']}：{e['event_name']}\n"
 
         embed = discord.Embed(
             title="📅 イベントカレンダー",
+            description="```" + cal_this + "\n" + cal_next + "```",
             color=discord.Color.blue()
         )
 
         if event_list:
             embed.add_field(name="📌 イベント一覧", value=event_list, inline=False)
 
-        await interaction.followup.send(
-            embed=embed,
-            file=discord.File(file_path)
-        )
+        await interaction.followup.send(embed=embed)
 
     # =========================
     # 📌 登録
