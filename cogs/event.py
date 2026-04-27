@@ -16,16 +16,27 @@ def build_calendar(year, month, events):
     cal = calendar.monthcalendar(year, month)
     text = f"📅 {year}年 {month}月\n\n"
 
+    # イベントごとに色割り当て
+    colors = ["🟥", "🟦", "🟩", "🟨", "🟪", "🟧"]
+    
+    event_colors = {}
+    for i, e in enumerate(events):
+        event_colors[id(e)] = colors[i % len(colors)]
+
     for week in cal:
         for day in week:
             if day == 0:
                 text += "   "
             else:
-                mark = ""
-                for e in events:
+                mark = f"{day:2}"
+
+                for i, e in enumerate(events):
                     if e["start_date"].day <= day <= e["end_date"].day:
-                        mark = "📌"
-                text += f"{day:2}{mark} "
+                        color = colors[i % len(colors)]
+                        mark = f"{color}"
+                        break
+
+                text += f"{mark} "
         text += "\n"
 
     return text
@@ -48,11 +59,7 @@ class EventCalendarCog(commands.Cog):
         );
         """)
 
-        if not self.event_notify.is_running():
-            self.event_notify.start()
 
-    def cog_unload(self):
-        self.event_notify.cancel()
 
     # =========================
     # 📅 カレンダー確認
@@ -99,8 +106,11 @@ class EventCalendarCog(commands.Cog):
         cal_next = build_calendar(next_year, next_month, events_next)
 
         event_list = ""
-        for e in events_this + events_next:
-            event_list += f"📌 {e['start_date']}〜{e['end_date']}：{e['event_name']}\n"
+        colors = ["🟥", "🟦", "🟩", "🟨", "🟪", "🟧"]
+
+        for i, e in enumerate(events_this + events_next):
+            color = colors[i % len(colors)]
+            event_list += f"{color} {e['start_date']}〜{e['end_date']}：{e['event_name']}\n"
 
         embed = discord.Embed(
             title="📅 イベントカレンダー",
@@ -117,7 +127,13 @@ class EventCalendarCog(commands.Cog):
     # 📌 登録
     # =========================
     @app_commands.command(name="イベントカレンダー登録")
-    async def add_event(self, interaction: discord.Interaction, period: str, name: str):
+    async def add_event(
+        self,
+        interaction: discord.Interaction,
+        start: str,
+        end: str,
+        name: str
+    ):
 
         if interaction.guild.id != TARGET_GUILD_ID:
             return await interaction.response.send_message(
@@ -126,12 +142,11 @@ class EventCalendarCog(commands.Cog):
             )
 
         try:
-            start_str, end_str = period.split("~")
-            start_date = datetime.strptime(start_str.strip(), "%Y/%m/%d").date()
-            end_date = datetime.strptime(end_str.strip(), "%Y/%m/%d").date()
+            start_date = datetime.strptime(start.strip(), "%Y/%m/%d").date()
+            end_date = datetime.strptime(end.strip(), "%Y/%m/%d").date()
         except:
             return await interaction.response.send_message(
-                "❌ 形式は 2026/04/27~2026/04/30",
+                "❌ 形式は 2026/04/27",
                 ephemeral=True
             )
 
@@ -146,36 +161,7 @@ class EventCalendarCog(commands.Cog):
             f"✅ 登録\n📌 {start_date}〜{end_date}：{name}"
         )
 
-    # =========================
-    # 🔔 通知（このギルドだけ）
-    # =========================
-    @tasks.loop(minutes=1)
-    async def event_notify(self):
 
-        now = now_jst()
-        today = now.date()
-
-        guild = self.bot.get_guild(TARGET_GUILD_ID)
-        if not guild:
-            return
-
-        events = await self.bot.db.get_today_events(str(guild.id), today)
-
-        if not events:
-            return
-
-        channel = guild.system_channel
-        if not channel:
-            return
-
-        for e in events:
-            await channel.send(
-                f"📅 **本日のイベント！**\n📌 {e['event_name']}"
-            )
-
-    @event_notify.before_loop
-    async def before_notify(self):
-        await self.bot.wait_until_ready()
 
 
 
