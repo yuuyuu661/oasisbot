@@ -32,7 +32,7 @@ def build_calendar(year, month, events):
             if day == 0:
                 line_days += " " * CELL
             else:
-                line_days += f"{day:>2}".ljust(CELL)
+                line_days += f"{day:^{CELL}}"
 
         text += line_days + "\n"
 
@@ -52,7 +52,7 @@ def build_calendar(year, month, events):
                 current_date = date(year, month, day)
 
                 if e["start_date"] <= current_date <= e["end_date"]:
-                    line += f"{symbol}".ljust(CELL)
+                    line += f"{symbol:^{CELL}}"
                     has_event_in_week = True
                 else:
                     line += " " * CELL
