@@ -15,16 +15,17 @@ def now_jst():
 def build_calendar(year, month, events):
     cal = calendar.monthcalendar(year, month)
 
-    CELL = 3  # ←ここ変える
+    CELL = 2
 
     def cell(text: str):
-        return f"{text:^{CELL}}"
+        return f"{text:<{CELL}}"
+
+
 
     
     colors = ["🟥", "🟦", "🟩", "🟨", "🟪", "🟧"]
 
-    def cell(text: str):
-        return f"{text:>{CELL}}"
+
 
     text = f"📅 {year}年 {month}月\n\n"
 
@@ -59,7 +60,7 @@ def build_calendar(year, month, events):
                 current_date = date(year, month, day)
 
                 if e["start_date"] <= current_date <= e["end_date"]:
-                    line += cell(color + "")
+                    line += color + " "
                     has_event_in_week = True
                 else:
                     line += " " * CELL
