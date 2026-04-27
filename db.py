@@ -4948,3 +4948,13 @@ class Database:
             WHERE guild_id = $1
               AND start_date = $2
         """, guild_id, today)
+
+
+    # =========================
+    # 📅 イベント削除4.27
+    # =========================
+    async def delete_event_by_id(self, event_id: int):
+        await self._execute("""
+            DELETE FROM event_calendar
+            WHERE id = $1
+        """, event_id)
