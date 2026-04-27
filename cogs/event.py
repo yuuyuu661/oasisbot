@@ -14,29 +14,50 @@ def now_jst():
 
 def build_calendar(year, month, events):
     cal = calendar.monthcalendar(year, month)
-    text = f"📅 {year}年 {month}月\n\n"
 
-    # イベントごとに色割り当て
+    text = f"📅 {year}年 {month}月\n\n"
+    text += "日 月 火 水 木 金 土\n\n"
+
     colors = ["🟥", "🟦", "🟩", "🟨", "🟪", "🟧"]
-    
-    event_colors = {}
-    for i, e in enumerate(events):
-        event_colors[id(e)] = colors[i % len(colors)]
 
     for week in cal:
+
+        # =========================
+        # ① 日付行
+        # =========================
+        line_days = ""
         for day in week:
             if day == 0:
-                text += "   "
+                line_days += "   "
             else:
-                mark = f"{day:2}"
+                line_days += f"{day:2} "
+        text += line_days + "\n"
 
-                for i, e in enumerate(events):
+        # =========================
+        # ② イベントバー（複数段）
+        # =========================
+        event_lines = []
+
+        for i, e in enumerate(events):
+            color = colors[i % len(colors)]
+            line = ""
+
+            for day in week:
+                if day == 0:
+                    line += "   "
+                else:
                     if e["start_date"].day <= day <= e["end_date"].day:
-                        color = colors[i % len(colors)]
-                        mark = f"{color}"
-                        break
+                        line += f"{color} "
+                    else:
+                        line += "   "
 
-                text += f"{mark} "
+            if color.strip() in line:
+                event_lines.append(line)
+
+        # 表示
+        for l in event_lines:
+            text += l + "\n"
+
         text += "\n"
 
     return text
