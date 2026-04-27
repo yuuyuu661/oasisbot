@@ -176,3 +176,7 @@ class EventCalendarCog(commands.Cog):
     @event_notify.before_loop
     async def before_notify(self):
         await self.bot.wait_until_ready()
+
+
+async def setup(bot):
+    await bot.add_cog(EventCalendarCog(bot))
