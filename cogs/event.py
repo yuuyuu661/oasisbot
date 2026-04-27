@@ -15,47 +15,53 @@ def now_jst():
 def build_calendar(year, month, events):
     cal = calendar.monthcalendar(year, month)
 
-    text = f"📅 {year}年 {month}月\n\n"
-    week_header = ["日", "月", "火", "水", "木", "金", "土"]
-    text += " ".join(f"{d:>2}" for d in week_header) + "\n\n"
-
+    CELL = 4  # 1日ぶんの幅
     colors = ["🟥", "🟦", "🟩", "🟨", "🟪", "🟧"]
 
-    for week in cal:
+    def cell(text: str):
+        return f"{text:>{CELL}}"
 
-        # =========================
-        # ① 日付行
-        # =========================
+    text = f"📅 {year}年 {month}月\n\n"
+
+    # 曜日
+    week_header = ["日", "月", "火", "水", "木", "金", "土"]
+    text += "".join(cell(d) for d in week_header) + "\n\n"
+
+    for week in cal:
+        # 日付行
         line_days = ""
         for day in week:
             if day == 0:
-                line_days += "   "
+                line_days += " " * CELL
             else:
-                line_days += f"{day:>2} "
+                line_days += cell(str(day))
+
         text += line_days + "\n"
 
-        # =========================
-        # ② イベントバー（複数段）
-        # =========================
+        # イベントバー
         event_lines = []
 
         for i, e in enumerate(events):
             color = colors[i % len(colors)]
             line = ""
+            has_event_in_week = False
 
             for day in week:
                 if day == 0:
-                    line += "   "
-                else:
-                    if e["start_date"].day <= day <= e["end_date"].day:
-                        line += f"{color} "
-                    else:
-                        line += "   "
+                    line += " " * CELL
+                    continue
 
-            if color.strip() in line:
+                current_date = date(year, month, day)
+
+                if e["start_date"] <= current_date <= e["end_date"]:
+                    line += cell(color)
+                    has_event_in_week = True
+                else:
+                    line += " " * CELL
+
+            if has_event_in_week:
                 event_lines.append(line)
 
-        # 表示
         for l in event_lines:
             text += l + "\n"
 
