@@ -15,64 +15,36 @@ def now_jst():
 def build_calendar(year, month, events):
     cal = calendar.monthcalendar(year, month)
 
-    CELL = 2
-
-    def cell(text: str):
-        return f"{text:<{CELL}}"
-
-
-
-    
-    colors = ["🟥", "🟦", "🟩", "🟨", "🟪", "🟧"]
-
-
-
     text = f"📅 {year}年 {month}月\n\n"
 
-    # 曜日
     week_header = ["日", "月", "火", "水", "木", "金", "土"]
-    text += " ".join(f"{d:>2}" for d in week_header) + "\n\n"
+
+    # コードブロック開始
+    text += "```\n"
+
+    # 曜日
+    text += " ".join(f"{w:>2}" for w in week_header) + "\n"
 
     for week in cal:
-        # 日付行
-        line_days = ""
+        line = ""
 
-        for i, day in enumerate(week):
+        for day in week:
             if day == 0:
-                line_days += "   "
+                cell = "  "
             else:
-                line_days += f"{day:>2} "
+                cell = f"{day:>2}"
 
-        text += line_days + "\n"
+            # イベント
+            if day in events:
+                cell += "■"
+            else:
+                cell += " "
 
-        # イベントバー
-        event_lines = []
+            line += cell + " "
 
-        for i, e in enumerate(events):
-            color = colors[i % len(colors)]
-            line = ""
-            has_event_in_week = False
+        text += line.rstrip() + "\n"
 
-            for day in week:
-                if day == 0:
-                    line += " " * CELL
-                    continue
-
-                current_date = date(year, month, day)
-
-                if e["start_date"] <= current_date <= e["end_date"]:
-                    line += f"{color} "
-                    has_event_in_week = True
-                else:
-                    line += " " * CELL
-
-            if has_event_in_week:
-                event_lines.append(line)
-
-        for l in event_lines:
-            text += l + "\n"
-
-        text += "\n"
+    text += "```"
 
     return text
 
