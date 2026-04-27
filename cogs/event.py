@@ -22,7 +22,7 @@ def build_calendar(year, month, events):
     text = f"📅 {year}年 {month}月\n\n"
 
     # 曜日
-    week_header = ["日", "月", "火", "水", "木", "金", "土"]
+    week_header = ["日 ", "月 ", "火 ", "水 ", "木 ", "金 ", "土 "]
     text += " ".join(f"{d:^{CELL}}" for d in week_header) + "\n\n"
 
     for week in cal:
