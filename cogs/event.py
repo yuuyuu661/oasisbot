@@ -15,33 +15,24 @@ def now_jst():
 def build_calendar(year, month, events):
     cal = calendar.monthcalendar(year, month)
 
-    CELL = 3
+    CELL = 4  # ←ちょい広めにすると見やすい
 
-    def cell(text: str):
-        return f"{text:<{CELL}}"
-
-
-
-    
-    colors = ["🟥", "🟦", "🟩", "🟨", "🟪", "🟧"]
-
-
+    symbols = ["■", "□", "◆", "◇", "●", "○"]
 
     text = f"📅 {year}年 {month}月\n\n"
 
     # 曜日
     week_header = ["日", "月", "火", "水", "木", "金", "土"]
-    text += " ".join(f"{d:>2}" for d in week_header) + "\n\n"
+    text += " ".join(f"{d:^{CELL}}" for d in week_header) + "\n\n"
 
     for week in cal:
         # 日付行
         line_days = ""
-
-        for i, day in enumerate(week):
+        for day in week:
             if day == 0:
-                line_days += "   "
+                line_days += " " * CELL
             else:
-                line_days += f"{day:>2} "
+                line_days += f"{day:>2}".ljust(CELL)
 
         text += line_days + "\n"
 
@@ -49,7 +40,7 @@ def build_calendar(year, month, events):
         event_lines = []
 
         for i, e in enumerate(events):
-            color = colors[i % len(colors)]
+            symbol = symbols[i % len(symbols)]  # ←これが超重要
             line = ""
             has_event_in_week = False
 
@@ -61,7 +52,7 @@ def build_calendar(year, month, events):
                 current_date = date(year, month, day)
 
                 if e["start_date"] <= current_date <= e["end_date"]:
-                    line += f"{symbol} ".ljust(CELL)
+                    line += f"{symbol}".ljust(CELL)
                     has_event_in_week = True
                 else:
                     line += " " * CELL
@@ -168,7 +159,7 @@ class EventCalendarCog(commands.Cog):
 
         for i, e in enumerate(events_this + events_next):
             symbol = symbols[i % len(symbols)]
-            event_list += f"{color} {e['start_date']}〜{e['end_date']}：{e['event_name']}\n"
+            event_list += f"{symbol} {e['start_date']}〜{e['end_date']}：{e['event_name']}\n"
 
         embed = discord.Embed(
             title="📅 イベントカレンダー",
