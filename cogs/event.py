@@ -4,7 +4,7 @@ from discord import app_commands
 from datetime import datetime, timedelta
 import calendar
 
-TARGET_GUILD_ID = 1310885590094450739
+TARGET_GUILD_ID = 1420918259187712093
 
 JST = timedelta(hours=9)
 
