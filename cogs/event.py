@@ -36,11 +36,12 @@ def build_calendar(year, month, events):
     for week in cal:
         # 日付行
         line_days = ""
-        for day in week:
+
+        for i, day in enumerate(week):
             if day == 0:
                 line_days += "   "
             else:
-                line_days += f"{day:2} "
+                line_days += f"{day:>2} "
 
         text += line_days + "\n"
 
