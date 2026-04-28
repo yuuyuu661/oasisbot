@@ -4,6 +4,8 @@ from discord import app_commands
 from datetime import datetime, timedelta, date
 import calendar
 from io import BytesIO
+import os
+
 
 TARGET_GUILD_ID = 1420918259187712093
 
@@ -11,10 +13,10 @@ JST = timedelta(hours=9)
 
 EMOJI_GUILD_ID = 1420918259187712093
 
-from PIL import Image
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def load_img(path):
-    return Image.open(path).convert("RGBA")
+    return Image.open(os.path.join(BASE_DIR, path)).convert("RGBA")
 
 def now_jst():
     return datetime.utcnow() + JST
@@ -77,16 +79,16 @@ def build_calendar_image(year, month, events):
     # 曜日
     week_names = ["nichi","getu","ka","sui","moku","kin","do"]
     for i, w in enumerate(week_names):
-        icon = load_img(f"cogs/assets/week/{w}.png").resize((CELL, CELL))
+        icon = load_img(f"assets/week/{w}.png").resize((CELL, CELL))
         img.paste(icon, (i*CELL, 0), icon)
 
     # 日付
     for y, week in enumerate(cal):
         for x, day in enumerate(week):
             if day == 0:
-                icon = load_img("cogs/assets/free.png")
+                icon = load_img("assets/free.png")
             else:
-                icon = load_img(f"cogs/assets/day/{day}.png")
+                icon = load_img(f"assets/day/{day}.png")
 
             icon = icon.resize((CELL, CELL))
             img.paste(icon, (x*CELL, (y+1)*CELL), icon)
@@ -95,7 +97,7 @@ def build_calendar_image(year, month, events):
     # イベント描画
     # =========================
     for i, e in enumerate(events):
-        line_img = load_img(f"cogs/assets/line/line{i%10+1}.png").resize((CELL, CELL))
+        line_img = load_img(f"assets/line/line{i%10+1}.png").resize((CELL, CELL))
 
         for y, week in enumerate(cal):
             for x, day in enumerate(week):
