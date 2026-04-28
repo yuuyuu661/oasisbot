@@ -16,7 +16,9 @@ EMOJI_GUILD_ID = 1420918259187712093
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def load_img(path):
-    return Image.open(os.path.join(BASE_DIR, path)).convert("RGBA")
+    full_path = os.path.join(BASE_DIR, path)
+    print(f"[DEBUG] 画像読み込み: {full_path}")
+    return Image.open(full_path).convert("RGBA")
 
 def now_jst():
     return datetime.utcnow() + JST
@@ -70,6 +72,8 @@ def build_calendar(year, month, events):
 
 
 def build_calendar_image(year, month, events):
+    print(f"[DEBUG] build_calendar_image 開始: {year}-{month} / events={len(events)}")
+
     cal = calendar.monthcalendar(year, month)
 
     CELL = 80  # ←ここでサイズ調整
@@ -156,6 +160,7 @@ class EventCalendarCog(commands.Cog):
     # =========================
     @app_commands.command(name="イベントカレンダー確認")
     async def show_calendar(self, interaction: discord.Interaction):
+        print("[DEBUG] カレンダーコマンド開始")
 
         if interaction.guild.id != TARGET_GUILD_ID:
             return await interaction.response.send_message(
@@ -175,6 +180,7 @@ class EventCalendarCog(commands.Cog):
         events_this = await self.bot.db.get_events_in_range(
             guild_id, start_this, end_this
         )
+        print(f"[DEBUG] 今月イベント数: {len(events_this)}")
 
 
         # 来月
@@ -190,6 +196,7 @@ class EventCalendarCog(commands.Cog):
         events_next = await self.bot.db.get_events_in_range(
             guild_id, start_next, end_next
         )
+        print(f"[DEBUG] 来月イベント数: {len(events_next)}")
 
 
         # イベント一覧
@@ -198,14 +205,15 @@ class EventCalendarCog(commands.Cog):
         for i, e in enumerate(events_this + events_next):
             symbol = LINES[i % len(LINES)]
             event_list += f"{symbol} {e['start_date']}〜{e['end_date']}：{e['event_name']}\n"
-
+            
+        print("[DEBUG] 画像生成開始（今月）")
         buf1 = BytesIO()
         img1 = build_calendar_image(now.year, now.month, events_this)
         img1.save(buf1, format="PNG")
         buf1.seek(0)
         file1 = discord.File(buf1, filename="calendar_this.png")
 
-        # 来月画像
+        print("[DEBUG] 画像生成開始（来月）")
         buf2 = BytesIO()
         img2 = build_calendar_image(next_year, next_month, events_next)
         img2.save(buf2, format="PNG")
@@ -222,6 +230,7 @@ class EventCalendarCog(commands.Cog):
         )
 
         # 送信
+        print("[DEBUG] 送信直前")
         await interaction.followup.send(
             embed=embed,
             files=[file1, file2]
