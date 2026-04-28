@@ -76,21 +76,15 @@ def now_jst():
 def build_calendar(year, month, events):
     cal = calendar.monthcalendar(year, month)
 
-    CELL = 4  # ←ちょい広めにすると見やすい
-
-    symbols = ["■", "□", "◆", "◇", "●", "○"]
-
     text = f"📅 {year}年 {month}月\n\n"
 
     # 曜日
     week_header = ["日", "月", "火", "水", "木", "金", "土"]
-
     text += "".join(WEEK_EMOJI[d] for d in week_header) + "\n"
 
     for week in cal:
-        # 日付行
+        # 日付
         line_days = ""
-
         for day in week:
             if day == 0:
                 line_days += FREE
@@ -99,9 +93,7 @@ def build_calendar(year, month, events):
 
         text += line_days + "\n"
 
-        # イベントバー
-        event_lines = []
-
+        # イベント
         for i, e in enumerate(events):
             line = ""
             has = False
@@ -122,12 +114,6 @@ def build_calendar(year, month, events):
 
             if has:
                 text += line + "\n"
-
-            if has_event_in_week:
-                event_lines.append(line)
-
-        for l in event_lines:
-            text += l + "\n"
 
         text += "\n"
 
