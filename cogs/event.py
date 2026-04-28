@@ -159,7 +159,6 @@ class EventCalendarCog(commands.Cog):
             guild_id, start_this, end_this
         )
 
-        cal_this = build_calendar(now.year, now.month, events_this)
 
         # 来月
         next_month = now.month + 1
@@ -175,7 +174,6 @@ class EventCalendarCog(commands.Cog):
             guild_id, start_next, end_next
         )
 
-        cal_next = build_calendar(next_year, next_month, events_next)
 
         # イベント一覧
         event_list = ""
@@ -197,11 +195,7 @@ class EventCalendarCog(commands.Cog):
         buf2.seek(0)
         file2 = discord.File(buf2, filename="calendar_next.png")
 
-        # イベント一覧
-        event_list = ""
-        for i, e in enumerate(events_this + events_next):
-            symbol = LINES[i % len(LINES)]
-            event_list += f"{symbol} {e['start_date']}〜{e['end_date']}：{e['event_name']}\n"
+
 
         # Embed作成
         embed = discord.Embed(
