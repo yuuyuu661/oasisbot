@@ -83,17 +83,19 @@ def build_calendar(year, month, events):
     text = f"📅 {year}年 {month}月\n\n"
 
     # 曜日
-    week_header = ["日 ", "月 ", "火 ", "水 ", "木 ", "金 ", "土 "]
-    text += " ".join(f"{d:^{CELL}}" for d in week_header) + "\n\n"
+    week_header = ["日", "月", "火", "水", "木", "金", "土"]
+
+    text += "".join(WEEK_EMOJI[d] for d in week_header) + "\n"
 
     for week in cal:
         # 日付行
         line_days = ""
+
         for day in week:
             if day == 0:
-                line_days += " " * CELL
+                line_days += FREE
             else:
-                line_days += f"{day:^{CELL}}"
+                line_days += DAY_EMOJI[day]
 
         text += line_days + "\n"
 
@@ -101,22 +103,25 @@ def build_calendar(year, month, events):
         event_lines = []
 
         for i, e in enumerate(events):
-            symbol = symbols[i % len(symbols)]  # ←これが超重要
             line = ""
-            has_event_in_week = False
+            has = False
+            symbol = LINES[i % len(LINES)]
 
             for day in week:
                 if day == 0:
-                    line += " " * CELL
+                    line += FREE
                     continue
 
                 current_date = date(year, month, day)
 
                 if e["start_date"] <= current_date <= e["end_date"]:
-                    line += f"{symbol:^{CELL}}"
-                    has_event_in_week = True
+                    line += symbol
+                    has = True
                 else:
-                    line += " " * CELL
+                    line += FREE
+
+            if has:
+                text += line + "\n"
 
             if has_event_in_week:
                 event_lines.append(line)
