@@ -115,7 +115,6 @@ def build_calendar(year, month, events):
             if has:
                 text += line + "\n"
 
-        text += "\n"
 
     return text
 
@@ -207,10 +206,9 @@ class EventCalendarCog(commands.Cog):
 
         # イベント一覧
         event_list = ""
-        symbols = ["■", "□", "◆", "◇", "●", "○"]
 
         for i, e in enumerate(events_this + events_next):
-            symbol = symbols[i % len(symbols)]
+            symbol = LINES[i % len(LINES)]
             event_list += f"{symbol} {e['start_date']}〜{e['end_date']}：{e['event_name']}\n"
 
         embed = discord.Embed(
