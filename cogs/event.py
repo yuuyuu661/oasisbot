@@ -3,6 +3,7 @@ from discord.ext import commands, tasks
 from discord import app_commands
 from datetime import datetime, timedelta, date
 import calendar
+from io import BytesIO
 
 TARGET_GUILD_ID = 1420918259187712093
 
@@ -10,64 +11,10 @@ JST = timedelta(hours=9)
 
 EMOJI_GUILD_ID = 1420918259187712093
 
-WEEK_EMOJI = {
-    "日": "<:nichi:1498244995486973953>",
-    "月": "<:getu:1498244813521162340>",
-    "火": "<:ka:1498244842822697011>",
-    "水": "<:sui:1498244868630384640>",
-    "木": "<:moku:1498244884803620955>",
-    "金": "<:kin:1498244926192746516>",
-    "土": "<:do:1498244971445227693>",
-}
+from PIL import Image
 
-DAY_EMOJI = {
-    1: "<:1:1498506972763521084>",
-    2: "<:2:1498506994603135016>",
-    3: "<:3:1498507096327721103>",
-    4: "<:4:1498507114862084337>",
-    5: "<:5:1498507133040197692>",
-    6: "<:6:1498507150098436267>",
-    7: "<:7:1498507168389791915>",
-    8: "<:8:1498507189294202890>",
-    9: "<:9:1498507207346622555>",
-    10: "<:10:1498507233778995302>",
-    11: "<:11:1498507253278310572>",
-    12: "<:12:1498507274128195634>",
-    13: "<:13:1498507302297141268>",
-    14: "<:14:1498507322488782978>",
-    15: "<:15:1498507343124758598>",
-    16: "<:16:1498507370903638077>",
-    17: "<:17:1498507390289580033>",
-    18: "<:18:1498507410711642142>",
-    19: "<:19:1498507434074046534>",
-    20: "<:20:1498507452948414596>",
-    21: "<:21:1498507481469419530>",
-    22: "<:22:1498507502483144794>",
-    23: "<:23:1498507520057151561>",
-    24: "<:24:1498507540865093652>",
-    25: "<:25:1498507561706455181>",
-    26: "<:26:1498507584175607912>",
-    27: "<:27:1498507604979220631>",
-    28: "<:28:1498507623434027038>",
-    29: "<:29:1498507644196093972>",
-    30: "<:30:1498507665532522536>",
-    31: "<:31:1498507687279853608>"
-}
-
-FREE = "<:free:1498494655279403008>"
-
-LINES = [
-    "<:line1:1498506208439435386>",
-    "<:line2:1498506232909008928>",
-    "<:line3:1498506263305261076>",
-    "<:line4:1498506285333610557>",
-    "<:line5:1498506307085275146>",
-    "<:line6:1498506329839370381>",
-    "<:line7:1498506349426774126>",
-    "<:line8:1498506369454571632>",
-    "<:line9:1498506389557874738>",
-    "<:line10:1498506409057189938>",
-]
+def load_img(path):
+    return Image.open(path).convert("RGBA")
 
 def now_jst():
     return datetime.utcnow() + JST
@@ -119,6 +66,32 @@ def build_calendar(year, month, events):
     return text
 
 
+
+def build_calendar_image(year, month, events):
+    cal = calendar.monthcalendar(year, month)
+
+    CELL = 80  # ←ここでサイズ調整
+
+    img = Image.new("RGBA", (CELL*7, CELL*8), (255,255,255,255))
+
+    # 曜日
+    week_names = ["nichi","getu","ka","sui","moku","kin","do"]
+    for i, w in enumerate(week_names):
+        icon = load_img(f"assets/week/{w}.png").resize((CELL, CELL))
+        img.paste(icon, (i*CELL, 0), icon)
+
+    # 日付
+    for y, week in enumerate(cal):
+        for x, day in enumerate(week):
+            if day == 0:
+                icon = load_img("assets/free.png")
+            else:
+                icon = load_img(f"assets/day/{day}.png")
+
+            icon = icon.resize((CELL, CELL))
+            img.paste(icon, (x*CELL, (y+1)*CELL), icon)
+
+    return img
 
 
 class EventCalendarCog(commands.Cog):
@@ -211,16 +184,37 @@ class EventCalendarCog(commands.Cog):
             symbol = LINES[i % len(LINES)]
             event_list += f"{symbol} {e['start_date']}〜{e['end_date']}：{e['event_name']}\n"
 
+        buf1 = BytesIO()
+        img1 = build_calendar_image(now.year, now.month, events_this)
+        img1.save(buf1, format="PNG")
+        buf1.seek(0)
+        file1 = discord.File(buf1, filename="calendar_this.png")
+
+        # 来月画像
+        buf2 = BytesIO()
+        img2 = build_calendar_image(next_year, next_month, events_next)
+        img2.save(buf2, format="PNG")
+        buf2.seek(0)
+        file2 = discord.File(buf2, filename="calendar_next.png")
+
+        # イベント一覧
+        event_list = ""
+        for i, e in enumerate(events_this + events_next):
+            symbol = LINES[i % len(LINES)]
+            event_list += f"{symbol} {e['start_date']}〜{e['end_date']}：{e['event_name']}\n"
+
+        # Embed作成
         embed = discord.Embed(
             title="📅 イベントカレンダー",
-            description=cal_this + "\n\n" + cal_next,
+            description="📌イベント一覧\n" + (event_list if event_list else "なし"),
             color=discord.Color.blue()
         )
 
-        if event_list:
-            embed.add_field(name="📌 イベント一覧", value=event_list, inline=False)
-
-        await interaction.followup.send(embed=embed)
+        # 送信
+        await interaction.followup.send(
+            embed=embed,
+            files=[file1, file2]
+        )
 
     # =========================
     # 📌 登録
