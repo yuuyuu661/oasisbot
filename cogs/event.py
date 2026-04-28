@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, date
 import calendar
 from io import BytesIO
 import os
-
+from PIL import Image
 
 TARGET_GUILD_ID = 1420918259187712093
 
