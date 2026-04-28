@@ -101,7 +101,14 @@ def build_calendar_image(year, month, events):
     # イベント描画
     # =========================
     for i, e in enumerate(events):
-        line_img = load_img(f"assets/line/line{i%10+1}.png").resize((CELL, CELL))
+        path = f"assets/line/line{i%10+1}.png"
+        print(f"[DEBUG] line読み込み: {path}")
+
+        try:
+            line_img = load_img(path).resize((CELL, CELL))
+        except Exception as err:
+            print(f"[ERROR] line画像読み込み失敗: {path} / {err}")
+            continue  # ←ここ重要（落ちずに続行）
 
         for y, week in enumerate(cal):
             for x, day in enumerate(week):
