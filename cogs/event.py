@@ -215,7 +215,7 @@ class EventCalendarCog(commands.Cog):
 
         embed = discord.Embed(
             title="📅 イベントカレンダー",
-            description="```" + cal_this + "\n" + cal_next + "```",
+            description=cal_this + "\n\n" + cal_next,
             color=discord.Color.blue()
         )
 
